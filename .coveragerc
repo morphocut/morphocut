@@ -1,0 +1,2 @@
+[run]
+omit = *\AppData\Roaming\Python\Python36\*
