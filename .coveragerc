@@ -1,2 +1,3 @@
 [run]
 omit = *\AppData\Roaming\Python\Python36\*
+branch = True
