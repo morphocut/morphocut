@@ -1,16 +1,9 @@
-from morphocut.processing.pipeline import NodeBase
-import cv2 as cv
-import numpy as np
-import argparse
-import pandas as pd
-import os
-from parse import *
-import sys
-import morphocut.processing.functional as proc
-from skimage.exposure import rescale_intensity
-from skimage.morphology import binary_dilation, disk
 from skimage import img_as_ubyte
-import math
+from skimage.exposure import rescale_intensity
+
+import cv2 as cv
+import morphocut.processing.functional as proc
+from morphocut.processing.pipeline import NodeBase
 
 
 class VignetteCorrector(NodeBase):
