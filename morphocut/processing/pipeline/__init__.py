@@ -2,7 +2,7 @@
 Processing nodes are generators.
 """
 
-from morphocut.processing.pipeline.base import NodeBase
+from morphocut.processing.pipeline.base import NodeBase, SimpleNodeBase
 from morphocut.processing.pipeline.input import LocalDirectoryInput
 from morphocut.processing.pipeline.pipeline import Pipeline, MultiThreadPipeline
 from morphocut.processing.pipeline.processor import Processor
