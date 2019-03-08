@@ -57,7 +57,8 @@ class Processor(NodeBase):
 
     def __call__(self, input=None):
         # print('processor call')
-        for data_object in input:
+        for step, data_object in enumerate(input):
+            print('current step: {}\n'.format(step))
             print('Processing file '
                   + data_object['facets']['input_data']['meta']['filepath'])
             yield from self.process_single_image(data_object)

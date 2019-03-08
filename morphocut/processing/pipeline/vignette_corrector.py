@@ -40,7 +40,6 @@ class VignetteCorrector(NodeBase):
     """
 
     def __call__(self, input=None):
-        # print('vignette_corrector call ' + str(input))
         for data_object in input:
             data_object['facets']['corrected_data'] = dict(
                 image=self.correct_vignette(
