@@ -32,7 +32,8 @@ def get_default_pipeline(import_path, export_path):
             intensity_facet="gray",
             image_facets=["color", "gray", "mask"],
             output_facet="roi",
-            padding=10),
+            padding=10,
+            min_area=30),
         FadeBackground(
             image_facet="gray",
             mask_facet="roi",
