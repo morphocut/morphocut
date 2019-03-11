@@ -70,7 +70,7 @@ class ExtractRegions(NodeBase):
 
                 facets = {
                     self.output_facet: {
-                        "image": label_image[pad_slice] == prop.label
+                        "image": label_image[padded_slice] == prop.label,
                         "data": self.regionprop2zooprocess(prop)
                     }
                 }
