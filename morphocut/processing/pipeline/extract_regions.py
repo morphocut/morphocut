@@ -64,15 +64,16 @@ class ExtractRegions(NodeBase):
                 if prop.area > self.min_area)
 
             for i, prop in enumerate(regionprops):
-                facets = {
-                    self.output_facet: {
-                        "data": self.regionprop2zooprocess(prop)
-                    }
-                }
-
                 # Calculate padded slice
                 padded_slice = tuple(pad_slice(slc, self.padding, mask.shape[i])
                                      for i, slc in enumerate(prop._slice))
+
+                facets = {
+                    self.output_facet: {
+                        "image": label_image[pad_slice] == prop.label
+                        "data": self.regionprop2zooprocess(prop)
+                    }
+                }
 
                 # Adopt image facets that correspond to each object
                 for facet_name in self.image_facets:

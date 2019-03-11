@@ -31,18 +31,18 @@ def get_default_pipeline(import_path, export_path):
             mask_facet="mask",
             intensity_facet="gray",
             image_facets=["color", "gray", "mask"],
-            output_facet="features",
+            output_facet="roi",
             padding=10),
         FadeBackground(
             image_facet="gray",
-            mask_facet="mask",
+            mask_facet="roi",
             output_facet="bg_white", alpha=1),
         DrawContours(
             image_facet="color",
-            mask_facet="mask",
+            mask_facet="roi",
             output_facet="color_contours"),
         Exporter(
             export_path,
-            data_facets=["features"],
+            data_facets=["roi"],
             img_facets=["bg_white", "color", "color_contours"])
     ])
