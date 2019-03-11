@@ -1,16 +1,30 @@
-from skimage import img_as_ubyte
-from skimage.color import gray2rgb
 import cv2 as cv
 import morphocut.processing.functional as proc
 from morphocut.processing.pipeline import NodeBase, SimpleNodeBase
 
 
-class GrayToRGB(SimpleNodeBase):
-    def process(self, obj):
-        image = obj["facets"][self.input_facet]["image"]
+class Gray2BGR(SimpleNodeBase):
+    def process(self, facet):
+        image = facet["image"]
 
-        obj["facets"][self.output_facet] = {
-            "image": gray2rgb(image)
+        return {
+            "image": cv.cvtColor(image, cv.COLOR_GRAY2BGR)
         }
 
-        return obj
+
+class BGR2Gray(SimpleNodeBase):
+    def process(self, facet):
+        image = facet["image"]
+
+        if len(image.shape) != 3:
+            raise ValueError("image.shape != 3 in {!r}".format(self))
+
+        try:
+            converted = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        except cv.error as exc:
+            print(image.dtype, image.shape)
+            raise
+
+        return {
+            "image": converted
+        }

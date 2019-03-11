@@ -1,7 +1,9 @@
-from morphocut.processing.pipeline import NodeBase
+import collections
+from multiprocessing import cpu_count
 from queue import Queue
 from threading import Thread
-from multiprocessing import cpu_count
+
+from morphocut.processing.pipeline import NodeBase
 
 
 class Pipeline(NodeBase):
@@ -16,14 +18,18 @@ class Pipeline(NodeBase):
         self.sequence.append(node)
 
     def __call__(self, input=None):
-        wp = input
-        for n in self.sequence:
-            wp = n(wp)
-        return wp
+        iterable = input
+        for node in self.sequence:
+            iterable = node(iterable)
+
+            if not isinstance(iterable, collections.Iterable):
+                raise TypeError("{!r}() is not iterable".format(node))
+
+        return iterable
 
     def execute(self):
-        for s in self():
-            print('')
+        for _ in self():
+            pass
 
 
 class MultiThreadPipeline(Pipeline):

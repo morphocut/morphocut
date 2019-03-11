@@ -1,141 +1,180 @@
+
+"""
+Extract regions.
+"""
+
 import math
 
-from skimage import img_as_ubyte, measure
-from skimage.exposure import rescale_intensity
-from skimage.morphology import binary_dilation, disk, convex_hull_image
-import datetime
-
-from scipy.spatial.distance import pdist
-
 import numpy as np
-import cv2 as cv
-import morphocut.processing.functional as F
 from morphocut.processing.pipeline import NodeBase
-from morphocut.server.helpers import Timer
+from skimage import measure
+
+
+def pad_slice(slc, padding, size):
+    """
+    Parameters:
+        slc: original slice
+        padding: padding to be added
+        size: maximum size of the dimension
+    """
+
+    start, stop, step = slc.start, slc.stop, slc.step
+
+    assert start >= 0 and stop >= 0
+
+    start = max(start - padding, 0)
+    stop = min(stop + padding, size)
+
+    return slice(start, stop, step)
 
 
 class ExtractRegions(NodeBase):
-    def __init__(self, mask_facet, image_facets, output_facet, min_object_area=0):
+    """
+    Parameters:
+        mask_facet: The label image is calculate on this image.
+        image_facets: These images are taken over to newly created objects.
+        output_facet: Name of the output facet.
+        min_area: Minimal area of an object.
+        padding: Number of context pixels around an extracted object.
+
+    BUG: perimeter is sometimes zero. We might have to calculate it manually.
+
+    Output Facet:
+        data: ZooProcess-compatible object data.
+    """
+
+    def __init__(self, mask_facet, intensity_facet, image_facets, output_facet, min_area=0, padding=0):
         self.mask_facet = mask_facet
         self.image_facets = image_facets
         self.output_facet = output_facet
-        self.min_object_area = min_object_area
+        self.min_area = min_area
+        self.padding = padding
+        self.intensity_facet = intensity_facet
 
     def __call__(self, input):
         for obj in input:
-            mask = obj['facets']['binary_image']['image']
-            intensity_img = data_object['facets']['corrected_data']['image']
+            mask = obj['facets'][self.mask_facet]['image']
+            intensity_img = obj['facets'][self.intensity_facet]['image']
 
-            # Find connected components in the masked image to identify individual objects
-            _, markers = cv.connectedComponents(mask)
+            label_image = measure.label(mask)
 
-            regionprops = [p for p in measure.regionprops(
-                markers, intensity_image=intensity_img, coordinates='rc') if p.area > self.min_object_area]
+            regionprops = (
+                prop for prop in measure.regionprops(
+                    label_image, intensity_image=intensity_img, coordinates='rc')
+                if prop.area > self.min_area)
 
-			for i, p in enumerate(regionprops):
-
-                facettes = {
+            for i, prop in enumerate(regionprops):
+                facets = {
                     self.output_facet: {
-                        "data": self.regionprop2zooprocess(p)
+                        "data": self.regionprop2zooprocess(prop)
                     }
                 }
 
+                # Calculate padded slice
+                padded_slice = tuple(pad_slice(slc, self.padding, mask.shape[i])
+                                     for i, slc in enumerate(prop._slice))
+
                 # Adopt image facets that correspond to each object
                 for facet_name in self.image_facets:
-                    facettes[facet_name] = {
-                        "image": obj[facet_name]["image"][p.slice]
+                    img = obj["facets"][facet_name]["image"]
+
+                    facets[facet_name] = {
+                        "image": img[padded_slice]
                     }
 
-               	new_obj = {
+                new_obj = {
                     "object_id": '{}_{}'.format(obj['object_id'], i),
-                    "facettes": facettes,
+                    "facets": facets,
                 }
 
                 yield new_obj
 
+    def regionprop2zooprocess(self, prop):
+        """
+        Calculate zooprocess features from skimage regionprops.
 
-    def regionprop2zooprocess(self, property):
+        Notes:
+            - date/time specify the time of the sampling, not of the processing.
+        """
         propDict = {
-            # date when the object was exported
-            'object_date': str(datetime.datetime.now().strftime('%Y%m%d')),
-            # time when the object was exported
-            'object_time': str(datetime.datetime.now().strftime('%H%M%S')),
             # width of the smallest rectangle enclosing the object
-            'object_width': property.bbox[3] - property.bbox[1],
+            'width': prop.bbox[3] - prop.bbox[1],
             # height of the smallest rectangle enclosing the object
-            'object_height': property.bbox[2] - property.bbox[0],
+            'height': prop.bbox[2] - prop.bbox[0],
             # X coordinates of the top left point of the smallest rectangle enclosing the object
-            'object_bx': property.bbox[1],
+            'bx': prop.bbox[1],
             # Y coordinates of the top left point of the smallest rectangle enclosing the object
-            'object_by': property.bbox[0],
+            'by': prop.bbox[0],
             # circularity : (4∗π ∗Area)/Perim^2 a value of 1 indicates a perfect circle, a value approaching 0 indicates an increasingly elongated polygon
-            'object_circ.': (4 * math.pi * property.filled_area) / math.pow(property.perimeter, 2),
+            'circ.': (4 * math.pi * prop.filled_area) / math.pow(prop.perimeter, 2),
             # Surface area of the object excluding holes, in square pixels (=Area*(1-(%area/100))
-            'object_area_exc': property.area,
+            'area_exc': prop.area,
             # Surface area of the object in square pixels
-            'object_area': property.filled_area,
+            'area': prop.filled_area,
             # Percentage of object’s surface area that is comprised of holes, defined as the background grey level
-            'object_%area': 1 - (property.area / property.filled_area),
-            # Primary axis of the best tting ellipse for the object
-            'object_major': property.major_axis_length,
-            # Secondary axis of the best tting ellipse for the object
-            'object_minor': property.minor_axis_length,
+            '%area': 1 - (prop.area / prop.filled_area),
+            # Primary axis of the best fitting ellipse for the object
+            'major': prop.major_axis_length,
+            # Secondary axis of the best fitting ellipse for the object
+            'minor': prop.minor_axis_length,
             # Y position of the center of gravity of the object
-            'object_y': property.centroid[0],
+            'y': prop.centroid[0],
             # X position of the center of gravity of the object
-            'object_x': property.centroid[1],
-            # The area of the smallest polygon within which all points in the objet t
-            'object_convex_area': property.convex_area,
+            'x': prop.centroid[1],
+            # The area of the smallest polygon within which all points in the objet fit
+            'convex_area': prop.convex_area,
             # Minimum grey value within the object (0 = black)
-            'object_min': property.min_intensity,
+            'min': prop.min_intensity,
             # Maximum grey value within the object (255 = white)
-            'object_max': property.max_intensity,
+            'max': prop.max_intensity,
             # Average grey value within the object ; sum of the grey values of all pixels in the object divided by the number of pixels
-            'object_mean': property.mean_intensity,
+            'mean': prop.mean_intensity,
             # Integrated density. The sum of the grey values of the pixels in the object (i.e. = Area*Mean)
-            'object_intden': property.filled_area * property.mean_intensity,
+            'intden': prop.filled_area * prop.mean_intensity,
             # The length of the outside boundary of the object
-            'object_perim.': property.perimeter,
+            'perim.': prop.perimeter,
             # major/minor
-            'object_elongation': property.major_axis_length / property.minor_axis_length,
+            'elongation': np.divide(prop.major_axis_length, prop.minor_axis_length),
             # max-min
-            'object_range': property.max_intensity - property.min_intensity,
+            'range': prop.max_intensity - prop.min_intensity,
             # perim/area_exc
-            'object_perimareaexc': property.perimeter / property.area,
+            'perimareaexc': prop.perimeter / prop.area,
             # perim/major
-            'object_perimmajor': property.perimeter / property.major_axis_length,
+            'perimmajor': prop.perimeter / prop.major_axis_length,
             # (4 ∗ π ∗ Area_exc)/perim 2
-            'object_circex': (4 * math.pi * property.area) / math.pow(property.perimeter, 2),
+            'circex': np.divide(4 * math.pi * prop.area, prop.perimeter**2),
             # Angle between the primary axis and a line parallel to the x-axis of the image
-            'object_angle': property.orientation / math.pi * 180 + 90,
+            'angle': prop.orientation / math.pi * 180 + 90,
             # # X coordinate of the top left point of the image
-            # 'object_xstart': data_object['raw_img']['meta']['xstart'],
+            # 'xstart': data_object['raw_img']['meta']['xstart'],
             # # Y coordinate of the top left point of the image
-            # 'object_ystart': data_object['raw_img']['meta']['ystart'],
+            # 'ystart': data_object['raw_img']['meta']['ystart'],
             # Maximum feret diameter, i.e. the longest distance between any two points along the object boundary
-            # 'object_feret': data_object['raw_img']['meta']['feret'],
+            # 'feret': data_object['raw_img']['meta']['feret'],
             # feret/area_exc
-            # 'object_feretareaexc': data_object['raw_img']['meta']['feret'] / property.area,
+            # 'feretareaexc': data_object['raw_img']['meta']['feret'] / property.area,
             # perim/feret
-            # 'object_perimferet': property.perimeter / data_object['raw_img']['meta']['feret'],
+            # 'perimferet': property.perimeter / data_object['raw_img']['meta']['feret'],
 
 
 
-            # object_bounding_box_area
-            'object_bounding_box_area': property.bbox_area,
-            # object_eccentricity
-            'object_eccentricity': property.eccentricity,
-            # object_equivalent_diameter
-            'object_equivalent_diameter': property.equivalent_diameter,
-            # object_euler_number
-            'object_euler_number': property.euler_number,
-            # object_extent
-            'object_extent': property.extent,
-            # object_local_centroid_row
-            'object_local_centroid_row': property.local_centroid[0],
-            # object_local_centroid_col
-            'object_local_centroid_col': property.local_centroid[1],
-            # object_solidity
-            'object_solidity': property.solidity,
+            # bounding_box_area
+            'bounding_box_area': prop.bbox_area,
+            # eccentricity
+            'eccentricity': prop.eccentricity,
+            'bounding_box_area': prop.bbox_area,
+            'equivalent_diameter': prop.equivalent_diameter,
+            'eccentricity': prop.eccentricity,
+            'euler_number': prop.euler_number,
+            'equivalent_diameter': prop.equivalent_diameter,
+            'extent': prop.extent,
+            'euler_number': prop.euler_number,
+            'local_centroid_row': prop.local_centroid[0],
+            'extent': prop.extent,
+            'local_centroid_col': prop.local_centroid[1],
+            'local_centroid_row': prop.local_centroid[0],
+            'solidity': prop.solidity,
+            'local_centroid_col': prop.local_centroid[1],
+            'solidity': prop.solidity,
         }
         return propDict

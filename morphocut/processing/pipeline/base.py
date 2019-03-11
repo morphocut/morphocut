@@ -27,8 +27,13 @@ class SimpleNodeBase(NodeBase):
 
     def __call__(self, input=None):
         for obj in input:
-            yield self.process(obj)
+            obj["facets"][self.output_facet] = self.process(
+                obj["facets"][self.input_facet])
+            yield obj
 
     @abstractmethod
-    def process(self, obj):
+    def process(self, input_facet):
+        """
+        Process the facet and return a new one.
+        """
         pass
