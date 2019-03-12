@@ -1,6 +1,9 @@
 
+"""
+Operations for annotating images.
+"""
 import numpy as np
-from skimage import img_as_ubyte
+from skimage import img_as_ubyte, img_as_float
 from skimage.morphology import binary_dilation, disk
 
 import cv2 as cv
@@ -46,25 +49,39 @@ class DrawContours(NodeBase):
 
 
 class FadeBackground(NodeBase):
+    """
+    Fade the background around an object using its mask.
 
-    def __init__(self, image_facet, mask_facet, output_facet, alpha=0.5):
+    Parameters:
+        image_facet: This image gets transformed.
+        mask_facet: This image contains the mask.
+        output_facet: The result comes here.
+
+        alpha: Amount of background reduction (0=full background, 1=no background)
+        bg_color: Color of the background (0=black, 1=white). Can also be a tuple of shape (c).
+    """
+
+    def __init__(self, image_facet, mask_facet, output_facet, alpha=0.5, bg_color=1.0):
         self.image_facet = image_facet
         self.mask_facet = mask_facet
         self.output_facet = output_facet
         self.alpha = alpha
+        self.bg_color = np.array(bg_color)
 
     def __call__(self, input=None):
         for obj in input:
             img = obj["facets"][self.image_facet]["image"]
             mask = obj["facets"][self.mask_facet]["image"]
 
-            bg_color = np.max(img)
-            bg_img = np.ones_like(img) * bg_color
+            # convert img to float if needed
+            # (because otherwise the following would not work)
+            if not np.issubdtype(img.dtype, np.floating):
+                img = img_as_float(img)
 
             # Combine background and foreground
-            result_img = self.alpha * bg_img + (1 - self.alpha) * img
+            result_img = self.alpha * self.bg_color + (1 - self.alpha) * img
 
-            # Past foreground
+            # Paste foreground
             result_img[mask] = img[mask]
 
             obj["facets"][self.output_facet] = {
