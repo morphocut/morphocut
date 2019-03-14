@@ -85,6 +85,8 @@ class ExtractRegions(NodeBase):
 
                 new_obj = {
                     "object_id": '{}_{}'.format(obj['object_id'], i),
+                    "parent": obj,
+                    "parent_slice": padded_slice,
                     "facets": facets,
                 }
 
