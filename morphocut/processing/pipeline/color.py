@@ -1,6 +1,5 @@
 import cv2 as cv
-import morphocut.processing.functional as proc
-from morphocut.processing.pipeline import NodeBase, SimpleNodeBase
+from morphocut.processing.pipeline import SimpleNodeBase
 
 
 class Gray2BGR(SimpleNodeBase):
@@ -21,7 +20,7 @@ class BGR2Gray(SimpleNodeBase):
 
         try:
             converted = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
-        except cv.error as exc:
+        except cv.error:
             print(image.dtype, image.shape)
             raise
 
