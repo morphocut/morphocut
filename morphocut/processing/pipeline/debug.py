@@ -1,4 +1,9 @@
 
+import os
+
+from skimage import img_as_ubyte
+
+import cv2 as cv
 from morphocut.processing.pipeline.base import NodeBase
 
 
@@ -15,5 +20,25 @@ class PrintFacettes(NodeBase):
                 if "image" in facet:
                     image = facet["image"]
                     print("image", image.shape, image.dtype)
+
+            yield obj
+
+
+class DumpImages(NodeBase):
+    def __init__(self, path, image_facet, img_ext=".jpg"):
+        self.path = path
+        self.image_facet = image_facet
+        self.img_ext = img_ext
+
+    def __call__(self, input):
+        for obj in input:
+            object_id = obj["object_id"]
+            img = obj["facets"][self.image_facet]["image"]
+
+            img_fn = os.path.join(
+                self.path,
+                "{}_{}{}".format(object_id, self.image_facet, self.img_ext))
+
+            cv.imwrite(img_fn, img_as_ubyte(img))
 
             yield obj

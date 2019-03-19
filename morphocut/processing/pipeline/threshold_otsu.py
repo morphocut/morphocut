@@ -1,9 +1,6 @@
-from skimage import img_as_ubyte
-from skimage.color import gray2rgb
 from skimage.filters import threshold_otsu
 
-import morphocut.processing.functional as proc
-from morphocut.processing.pipeline import NodeBase, SimpleNodeBase
+from morphocut.processing.pipeline import SimpleNodeBase
 
 
 class ThresholdOtsu(SimpleNodeBase):

@@ -32,7 +32,7 @@ class SimpleNodeBase(NodeBase):
             yield obj
 
     @abstractmethod
-    def process(self, input_facet):
+    def process(self, facet):
         """
         Process the facet and return a new one.
         """

@@ -8,13 +8,13 @@ from scipy.spatial.distance import pdist
 
 import numpy as np
 import cv2 as cv
-import morphocut.processing.functional as F
 from morphocut.processing.pipeline import NodeBase
-from morphocut.server.helpers import Timer
 
 
 class Processor(NodeBase):
     """
+    DEPRECATED?!?
+
     A processing node. Performs segmentation on images to find objects and their region properties
 
     Input:

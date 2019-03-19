@@ -48,6 +48,49 @@ class DrawContours(NodeBase):
             yield obj
 
 
+class DrawContoursOnParent(NodeBase):
+
+    def __init__(self, image_facet, mask_facet, output_facet, dilate_rel=0, dilate_abs=0):
+        self.image_facet = image_facet
+        self.mask_facet = mask_facet
+        self.output_facet = output_facet
+        self.dilate_rel = dilate_rel
+        self.dilate_abs = dilate_abs
+
+    def __call__(self, input=None):
+        for obj in input:
+            parent, parent_slice = obj["parent"], obj["parent_slice"]
+
+            try:
+                parent_img = parent["facets"][self.output_facet]["image"]
+            except KeyError:
+                parent_img = img_as_ubyte(
+                    parent["facets"][self.image_facet]["image"], force_copy=True)
+                parent["facets"][self.output_facet] = {
+                    "image": parent_img
+                }
+
+            mask = obj["facets"][self.mask_facet]["image"]
+
+            # Calculate radius of the dilation
+            area = np.sum(mask)
+            radius = self.dilate_rel * np.sqrt(area) + self.dilate_abs
+
+            # Dilate mask
+            dilated_mask = binary_dilation(
+                mask,
+                disk(radius))
+
+            # Draw contours
+            _, contours, _ = cv.findContours(img_as_ubyte(dilated_mask), 1, 2)
+
+            color = (0, 255, 0)
+
+            cv.drawContours(parent_img[parent_slice], contours, -1, color, 1)
+
+            yield obj
+
+
 class FadeBackground(NodeBase):
     """
     Fade the background around an object using its mask.
