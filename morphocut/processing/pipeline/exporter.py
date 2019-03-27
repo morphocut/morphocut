@@ -93,8 +93,11 @@ class Exporter(NodeBase):
             # Insert types into header
             type_header = [dtype_to_ecotaxa(
                 dt) for dt in dataframe.dtypes]
-            dataframe.columns = pd.MultiIndex.from_tuples(
-                list(zip(dataframe.columns, type_header)))
+            try:
+                dataframe.columns = pd.MultiIndex.from_tuples(
+                    list(zip(dataframe.columns, type_header)))
+            except Exception as err:
+                print('Exporter Exception at MultiIndex: ' + str(err))
 
             archive.writestr(
                 "ecotaxa_export.tsv",
