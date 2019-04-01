@@ -161,23 +161,13 @@ class ExtractRegions(NodeBase):
 
 
 
-            # bounding_box_area
             'bounding_box_area': prop.bbox_area,
-            # eccentricity
             'eccentricity': prop.eccentricity,
-            'bounding_box_area': prop.bbox_area,
             'equivalent_diameter': prop.equivalent_diameter,
-            'eccentricity': prop.eccentricity,
             'euler_number': prop.euler_number,
-            'equivalent_diameter': prop.equivalent_diameter,
-            'extent': prop.extent,
-            'euler_number': prop.euler_number,
-            'local_centroid_row': prop.local_centroid[0],
             'extent': prop.extent,
             'local_centroid_col': prop.local_centroid[1],
             'local_centroid_row': prop.local_centroid[0],
-            'solidity': prop.solidity,
-            'local_centroid_col': prop.local_centroid[1],
             'solidity': prop.solidity,
         }
         return propDict

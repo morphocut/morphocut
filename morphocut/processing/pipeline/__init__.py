@@ -8,6 +8,7 @@ from morphocut.processing.pipeline.processor import Processor
 from morphocut.processing.pipeline.dataloader import DataLoader
 from morphocut.processing.pipeline.exporter import Exporter
 from morphocut.processing.pipeline.progress import Progress
+from morphocut.processing.pipeline.job_progress import JobProgress
 from morphocut.processing.pipeline.vignette_corrector import VignetteCorrector
 # from morphocut.processing.pipeline.threshold_otsu import ThresholdOtsu
 # from morphocut.processing.pipeline.extract_regions import ExtractRegions
@@ -23,6 +24,7 @@ from morphocut.processing.pipeline.debug import PrintFacettes
 def get_default_pipeline(import_path, export_path):
     return Pipeline([
         DataLoader(import_path, output_facet="raw"),
+        JobProgress(),
         Progress("Loaded"),
         VignetteCorrector(input_facet="raw", output_facet="color"),
         BGR2Gray(input_facet="color", output_facet="gray"),
