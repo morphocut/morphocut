@@ -12,12 +12,12 @@ import cv2 as cv
 from morphocut.processing.pipeline import NodeBase
 
 
-def dtype_to_ecotaxa(dt):
+def dtype_to_ecotaxa(dtype):
     try:
-        if np.issubdtype(dt, np.number):
+        if np.issubdtype(dtype, np.number):
             return "[f]"
     except TypeError:
-        print(type(dt))
+        print(type(dtype))
         raise
 
     return "[t]"
@@ -87,6 +87,9 @@ class Exporter(NodeBase):
 
                     dataframe.append(img_data)
 
+                # Yield object for further processing
+                yield obj
+
             # Create pandas DataFrame
             dataframe = pd.DataFrame(dataframe)
 
@@ -104,6 +107,3 @@ class Exporter(NodeBase):
                 dataframe.to_csv(sep='\t', encoding='utf-8', index=False))
 
         print("Exported {} objects.".format(len(dataframe)))
-
-        # Exporter does not yield data
-        yield None
