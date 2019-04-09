@@ -19,6 +19,7 @@ from morphocut.processing.pipeline.threshold_otsu import ThresholdOtsu
 from morphocut.processing.pipeline.extract_regions import ExtractRegions
 from morphocut.processing.pipeline.annotation import FadeBackground, DrawContours
 from morphocut.processing.pipeline.debug import PrintFacettes
+from morphocut.processing.pipeline.object_scale import ObjectScale
 
 
 def get_default_pipeline(import_path, export_path):
@@ -44,8 +45,10 @@ def get_default_pipeline(import_path, export_path):
             image_facet="color",
             mask_facet="roi",
             output_facet="color_contours"),
+        ObjectScale(input_facet="color_contours",
+                    output_facet="color_contours_scale"),
         Exporter(
             export_path,
             data_facets=["roi"],
-            img_facets=["bg_white", "color", "color_contours"])
+            img_facets=["bg_white", "color", "color_contours", "color_contours_scale"])
     ])

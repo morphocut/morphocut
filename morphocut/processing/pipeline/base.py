@@ -15,6 +15,13 @@ class NodeBase(ABC):
         while False:
             yield None
 
+    # @abstractmethod
+    # def get_scheme(self):
+    #     """
+    #     Get the Node scheme
+    #     """
+    #     return {'fields': []}
+
 
 class SimpleNodeBase(NodeBase):
     """

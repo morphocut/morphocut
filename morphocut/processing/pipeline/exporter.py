@@ -93,6 +93,9 @@ class Exporter(NodeBase):
             # Create pandas DataFrame
             dataframe = pd.DataFrame(dataframe)
 
+            # Drop duplicate filenames to fix bug with duplicates on ecotaxa upload
+            dataframe.drop_duplicates(subset='img_file_name', inplace=True)
+
             # Insert types into header
             type_header = [dtype_to_ecotaxa(
                 dt) for dt in dataframe.dtypes]
