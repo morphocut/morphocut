@@ -16,11 +16,9 @@ class ObjectScale(SimpleNodeBase):
         scale_y = -5
 
         complete_width = max(width, scale_x + scale_width + 1)
-        print('width/complete width: {}/{}'.format(width, complete_width))
 
         # pad image if scale is too big
         if (complete_width > width):
-            print('pad image sides')
             height = image.shape[0]
             pad_width = math.ceil((complete_width - width) / 2)
             pad_array = np.ones((height, pad_width, 3), dtype=np.int8) * 255
@@ -30,7 +28,6 @@ class ObjectScale(SimpleNodeBase):
             image = np.append(image, pad_array, axis=1)
 
         width = image.shape[1]
-        print(width)
 
         pad_array = np.ones((31, width, 3), dtype=np.int8) * 255
         image = np.append(image, pad_array, axis=0)

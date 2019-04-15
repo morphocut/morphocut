@@ -7,6 +7,7 @@ import zipfile
 import numpy as np
 import pandas as pd
 from skimage import img_as_ubyte
+import os
 
 import cv2 as cv
 from morphocut.processing.pipeline import NodeBase
@@ -80,6 +81,11 @@ class Exporter(NodeBase):
                     img_data["img_file_name"] = "{}_{}{}".format(
                         data["object_id"], facet_name, self.img_ext)
 
+                    # Check if the filename already exists in the dataframe and stop if it does
+                    if img_data["img_file_name"] in [v['img_file_name'] for v in dataframe]:
+                        raise ValueError('Aborting process. Object {} is already in dataframe.'.format(
+                            img_data['img_file_name']))
+
                     img = img_as_ubyte(obj["facets"][facet_name]["image"])
                     _, buf = cv.imencode(self.img_ext, img)
 
@@ -94,7 +100,7 @@ class Exporter(NodeBase):
             dataframe = pd.DataFrame(dataframe)
 
             # Drop duplicate filenames to fix bug with duplicates on ecotaxa upload
-            dataframe.drop_duplicates(subset='img_file_name', inplace=True)
+            # dataframe.drop_duplicates(subset='img_file_name', inplace=True)
 
             # Insert types into header
             type_header = [dtype_to_ecotaxa(

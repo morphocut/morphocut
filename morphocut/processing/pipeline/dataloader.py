@@ -29,7 +29,8 @@ class DataLoader(NodeBase):
         self.output_facet = output_facet
 
         if image_extensions is None:
-            self.image_extensions = {".jpeg", ".jpg", ".png", ".gif", ".tif"}
+            self.image_extensions = {".jpeg", ".jpg",
+                                     ".png", ".gif", ".tif", ".JPG"}
         else:
             self.image_extensions = set(image_extensions)
 

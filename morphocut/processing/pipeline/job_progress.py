@@ -4,9 +4,27 @@ from morphocut.processing.pipeline import NodeBase
 
 
 class JobProgress(NodeBase):
-    '''
-    Writes the progress into the current Job. The progress is accessible via job.meta.get('progress', 0).
-    '''
+    """Writes the progress into the current Job. The progress is accessible via job.meta.get('progress', 0).
+
+    Note
+    ----
+    Do not include the `self` parameter in the ``Parameters`` section.
+
+    Parameters
+    ----------
+    msg : str
+        Human readable string describing the exception.
+    code : :obj:`int`, optional
+        Numeric error code.
+
+    Attributes
+    ----------
+    msg : str
+        Human readable string describing the exception.
+    code : int
+        Numeric error code.
+
+    """
 
     def __init__(self):
         self.current = 0
