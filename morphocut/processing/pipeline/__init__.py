@@ -52,3 +52,37 @@ def get_default_pipeline(import_path, export_path):
             data_facets=["roi"],
             img_facets=["bg_white", "color", "color_contours", "color_contours_scale"])
     ])
+
+
+def get_default_pipeline_parameterized(import_path, export_path, params):
+    return Pipeline([
+        DataLoader(import_path, output_facet="raw", **params['DataLoader']),
+        JobProgress(),
+        Progress("Loaded"),
+        VignetteCorrector(input_facet="raw", output_facet="color",
+                          **params['VignetteCorrector']),
+        BGR2Gray(input_facet="color", output_facet="gray"),
+        ThresholdOtsu(input_facet="gray", output_facet="mask"),
+        ExtractRegions(
+            mask_facet="mask",
+            intensity_facet="gray",
+            image_facets=["color", "gray", "mask"],
+            output_facet="roi",
+            **params['ExtractRegions']),
+        FadeBackground(
+            image_facet="gray",
+            mask_facet="roi",
+            output_facet="bg_white",
+            **params['FadeBackground']),
+        DrawContours(
+            image_facet="color",
+            mask_facet="roi",
+            output_facet="color_contours",
+            **params['DrawContours']),
+        ObjectScale(input_facet="color_contours",
+                    output_facet="color_contours_scale"),
+        Exporter(
+            export_path,
+            data_facets=["roi"],
+            **params['Exporter'])
+    ])
