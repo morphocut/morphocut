@@ -45,8 +45,8 @@ def get_default_pipeline(import_path, export_path):
             image_facet="color",
             mask_facet="roi",
             output_facet="color_contours"),
-        ObjectScale(input_facet="color_contours",
-                    output_facet="color_contours_scale"),
+        ObjectScale(input_facets=["color_contours"],
+                    output_facets=["color_contours_scale"]),
         Exporter(
             export_path,
             data_facets=["roi"],
@@ -79,8 +79,9 @@ def get_default_pipeline_parameterized(import_path, export_path, params):
             mask_facet="roi",
             output_facet="color_contours",
             **params['DrawContours']),
-        ObjectScale(input_facet="color_contours",
-                    output_facet="color_contours_scale"),
+        ObjectScale(input_facets=["color_contours"],
+                    output_facets=["color_contours_scale"],
+                    **params['ObjectScale']),
         Exporter(
             export_path,
             data_facets=["roi"],

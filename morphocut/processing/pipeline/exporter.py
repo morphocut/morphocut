@@ -59,6 +59,7 @@ class Exporter(NodeBase):
 
     def __call__(self, input=None):
         dataframe = []
+        filenames_set = set()
         with zipfile.ZipFile(self.archive_fn, 'w', zipfile.ZIP_DEFLATED) as archive:
             for obj in input:
                 # Store object data
@@ -82,7 +83,10 @@ class Exporter(NodeBase):
                         data["object_id"], facet_name, self.img_ext)
 
                     # Check if the filename already exists in the dataframe and stop if it does
-                    if img_data["img_file_name"] in [v['img_file_name'] for v in dataframe]:
+                    # if img_data["img_file_name"] in [v['img_file_name'] for v in dataframe]:
+                    #     raise ValueError('Aborting process. Object {} is already in dataframe.'.format(
+                    #         img_data['img_file_name']))
+                    if img_data["img_file_name"] in filenames_set:
                         raise ValueError('Aborting process. Object {} is already in dataframe.'.format(
                             img_data['img_file_name']))
 
@@ -92,6 +96,7 @@ class Exporter(NodeBase):
                     archive.writestr(img_data["img_file_name"], buf.tostring())
 
                     dataframe.append(img_data)
+                    filenames_set.add(img_data["img_file_name"])
 
                 # Yield object for further processing
                 yield obj
