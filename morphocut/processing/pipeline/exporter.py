@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from skimage import img_as_ubyte
 import os
+import json
 
 import cv2 as cv
 from morphocut.processing.pipeline import NodeBase
@@ -51,11 +52,12 @@ class Exporter(NodeBase):
 
     """
 
-    def __init__(self, archive_fn, img_facets, data_facets, img_ext=".jpg"):
+    def __init__(self, archive_fn, img_facets, data_facets, img_ext=".jpg", loggers=[]):
         self.archive_fn = archive_fn
         self.img_facets = img_facets
         self.data_facets = data_facets
         self.img_ext = img_ext
+        self.loggers = loggers
 
     def __call__(self, input=None):
         dataframe = []
@@ -119,5 +121,14 @@ class Exporter(NodeBase):
             archive.writestr(
                 "ecotaxa_export.tsv",
                 dataframe.to_csv(sep='\t', encoding='utf-8', index=False))
+
+            # export logging information
+            logs = {}
+            for log in self.loggers:
+                logs.update(log.get_log())
+            archive.writestr(
+                'meta.json',
+                json.dumps(logs)
+            )
 
         print("Exported {} objects.".format(len(dataframe)))
