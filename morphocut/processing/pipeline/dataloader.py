@@ -30,7 +30,7 @@ class DataLoader(NodeBase):
 
         if image_extensions is None:
             self.image_extensions = {".jpeg", ".jpg",
-                                     ".png", ".gif", ".tif", ".JPG"}
+                                     ".png", ".gif", ".tif"}
         else:
             self.image_extensions = set(image_extensions)
 
@@ -50,9 +50,9 @@ class DataLoader(NodeBase):
                     rel_root = os.path.relpath(root, self.location)
                     file_index.extend(
                         os.path.join(root, f)
-                        for f in files if os.path.splitext(f)[1] in self.image_extensions)
+                        for f in files if os.path.splitext(f)[1].lower() in self.image_extensions)
 
-            elif os.path.isfile(match) and os.path.splitext(match)[1] in self.image_extensions:
+            elif os.path.isfile(match) and os.path.splitext(match)[1].lower() in self.image_extensions:
                 # If the match itself is a file, add to index
                 file_index.append(match)
 
