@@ -19,9 +19,20 @@ class VignetteCorrector(SimpleNodeBase):
         """
         img = facet["image"]
 
-        grey_img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+        if len(img.shape) == 2:
+            grey_img = img
+        elif img.shape[-1] == 1:
+            grey_img = img[:-1]
+        else:
+            grey_img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+
         flat_image = F.calculate_flat_image(grey_img)
-        corrected_img = img / flat_image[:, :, np.newaxis]
+
+        # Add a dimension for multichannel input images
+        if len(img.shape) == 3:
+            flat_image = flat_image[:, :, np.newaxis]
+
+        corrected_img = img / flat_image
 
         # TODO: img_as_float32 is required, because openCV cannot handle 64bit images, which is unfortunate
         corrected_img = img_as_float32(rescale_intensity(corrected_img))
