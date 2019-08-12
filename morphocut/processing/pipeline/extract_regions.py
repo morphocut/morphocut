@@ -58,12 +58,13 @@ class ExtractRegions(NodeBase):
 
             label_image = measure.label(mask)
 
-            regionprops = (
-                prop for prop in measure.regionprops(
-                    label_image, intensity_image=intensity_img, coordinates='rc')
-                if prop.area > self.min_area)
+            regionprops = measure.regionprops(
+                label_image, intensity_image=intensity_img, coordinates='rc')
 
             for i, prop in enumerate(regionprops):
+                if prop.area < self.min_area:
+                    continue
+
                 # Calculate padded slice
                 padded_slice = tuple(pad_slice(slc, self.padding, mask.shape[i])
                                      for i, slc in enumerate(prop._slice))

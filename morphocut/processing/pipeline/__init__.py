@@ -2,7 +2,7 @@
 Processing nodes are generators.
 """
 
-from morphocut.processing.pipeline.base import NodeBase, SimpleNodeBase
+from morphocut.processing.pipeline.base import NodeBase, SimpleNodeBase, LogBase
 from morphocut.processing.pipeline.pipeline import Pipeline, MultiThreadPipeline
 from morphocut.processing.pipeline.processor import Processor
 from morphocut.processing.pipeline.dataloader import DataLoader
@@ -10,16 +10,14 @@ from morphocut.processing.pipeline.exporter import Exporter
 from morphocut.processing.pipeline.progress import Progress
 from morphocut.processing.pipeline.job_progress import JobProgress
 from morphocut.processing.pipeline.vignette_corrector import VignetteCorrector
-# from morphocut.processing.pipeline.threshold_otsu import ThresholdOtsu
-# from morphocut.processing.pipeline.extract_regions import ExtractRegions
-# from morphocut.processing.pipeline.color import GrayToRGB
-# from morphocut.processing.pipeline.contour import ContourTransform
 from morphocut.processing.pipeline.color import BGR2Gray
 from morphocut.processing.pipeline.threshold_otsu import ThresholdOtsu
 from morphocut.processing.pipeline.extract_regions import ExtractRegions
 from morphocut.processing.pipeline.annotation import FadeBackground, DrawContours
 from morphocut.processing.pipeline.debug import PrintFacettes
 from morphocut.processing.pipeline.object_scale import ObjectScale
+from morphocut.processing.pipeline.logs import ObjectCountLog, ParamsLog
+from morphocut.processing.pipeline.save_metadata import SaveMetadata
 
 
 def get_default_pipeline(import_path, export_path):
@@ -55,10 +53,15 @@ def get_default_pipeline(import_path, export_path):
 
 
 def get_default_pipeline_parameterized(import_path, export_path, params):
-    return Pipeline([
+    input_file_logger = ObjectCountLog('input_files')
+    output_file_logger = ObjectCountLog('extracted_segments')
+    param_logger = ParamsLog('parameters', params)
+
+    nodes = [
         DataLoader(import_path, output_facet="raw", **params['DataLoader']),
         JobProgress(),
         Progress("Loaded"),
+        input_file_logger,
         VignetteCorrector(input_facet="raw", output_facet="color",
                           **params['VignetteCorrector']),
         BGR2Gray(input_facet="color", output_facet="gray"),
@@ -82,8 +85,14 @@ def get_default_pipeline_parameterized(import_path, export_path, params):
         ObjectScale(input_facets=["color_contours"],
                     output_facets=["color_contours_scale"],
                     **params['ObjectScale']),
+        output_file_logger,
+        SaveMetadata(loggers=[input_file_logger,
+                              output_file_logger, param_logger]),
         Exporter(
             export_path,
             data_facets=["roi"],
+            loggers=[input_file_logger, output_file_logger, param_logger],
             **params['Exporter'])
-    ])
+    ]
+
+    return Pipeline(nodes)

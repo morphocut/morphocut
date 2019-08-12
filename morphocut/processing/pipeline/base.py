@@ -1,6 +1,6 @@
 from abc import abstractmethod, ABC
 
-__all__ = ["NodeBase", "SimpleNodeBase"]
+__all__ = ["NodeBase", "SimpleNodeBase", "LogBase"]
 
 
 class NodeBase(ABC):
@@ -40,6 +40,30 @@ class SimpleNodeBase(NodeBase):
 
     @abstractmethod
     def process(self, facet):
+        """
+        Process the facet and return a new one.
+        """
+        pass
+
+
+class LogBase(NodeBase):
+
+    def __init__(self):
+        self.log_data = {}
+
+    def __call__(self, input=None):
+        for obj in input:
+            self.log()
+            yield obj
+
+    def get_log(self):
+        '''
+        Get the log data
+        '''
+        return self.log_data
+
+    @abstractmethod
+    def log(self):
         """
         Process the facet and return a new one.
         """
