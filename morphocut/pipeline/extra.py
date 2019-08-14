@@ -1,4 +1,4 @@
-from morphocut.processing.pipeline import NodeBase
+from morphocut.pipeline import NodeBase
 
 
 class Raw(NodeBase):

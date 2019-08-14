@@ -1,9 +1,9 @@
 import glob
 import os.path
 
-import cv2
 
-from morphocut.processing.pipeline.vignette_corrector import VignetteCorrector
+from morphocut.pipeline.vignette_corrector import VignetteCorrector
+from skimage.io import imread
 
 
 def test_vignette_corrector_no_channel(image_fns):
@@ -13,7 +13,7 @@ def test_vignette_corrector_no_channel(image_fns):
         {
             "facets": {
                 "input": {
-                    "image": cv2.imread(img_fn, cv2.IMREAD_GRAYSCALE)
+                    "image": imread(img_fn, as_gray=True)
                 }
             }
         }

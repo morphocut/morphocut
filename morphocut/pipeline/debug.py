@@ -4,7 +4,7 @@ import os
 from skimage import img_as_ubyte
 
 import cv2 as cv
-from morphocut.processing.pipeline.base import NodeBase
+from morphocut.pipeline.base import NodeBase
 
 
 class PrintFacettes(NodeBase):

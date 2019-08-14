@@ -1,8 +1,9 @@
 import os
 
-import cv2 as cv
-from morphocut.processing.pipeline import NodeBase
+from morphocut.pipeline import NodeBase
 from glob import iglob
+
+from skimage import io
 
 
 class DataLoader(NodeBase):
@@ -80,11 +81,7 @@ class _DataLoaderIter:
 
             object_id = os.path.splitext(os.path.basename(fn))[0]
 
-            try:
-                image = cv.imread(fn, -1)
-            except cv.error:
-                print("Can't load {}.".format(fn))
-                raise
+            image = io.imread(fn)
 
             data_object = {
                 "object_id": object_id,

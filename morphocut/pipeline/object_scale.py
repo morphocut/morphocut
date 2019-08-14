@@ -2,7 +2,7 @@ import numpy as np
 import math
 import cv2
 
-from morphocut.processing.pipeline import NodeBase
+from morphocut.pipeline import NodeBase
 
 
 class ObjectScale(NodeBase):

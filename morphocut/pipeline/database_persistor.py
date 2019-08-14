@@ -1,7 +1,7 @@
 import os
 
 import cv2 as cv
-from morphocut.processing.pipeline import NodeBase
+from morphocut.pipeline import NodeBase
 from glob import iglob
 
 

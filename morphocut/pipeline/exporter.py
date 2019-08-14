@@ -10,8 +10,7 @@ from skimage import img_as_ubyte
 import os
 import json
 
-import cv2 as cv
-from morphocut.processing.pipeline import NodeBase
+from morphocut.pipeline import NodeBase
 
 
 def dtype_to_ecotaxa(dtype):

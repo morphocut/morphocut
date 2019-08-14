@@ -1,6 +1,6 @@
 from tqdm import tqdm
 
-from morphocut.processing.pipeline import NodeBase
+from morphocut.pipeline import NodeBase
 
 
 class Progress(NodeBase):

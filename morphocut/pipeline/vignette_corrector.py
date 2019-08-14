@@ -1,10 +1,10 @@
 import numpy as np
 from skimage import img_as_float32
 from skimage.exposure import rescale_intensity
+from skimage.color import rgb2gray
 
-import cv2 as cv
-import morphocut.processing.functional as F
-from morphocut.processing.pipeline import SimpleNodeBase
+import morphocut.functional as F
+from morphocut.pipeline import SimpleNodeBase
 
 
 class VignetteCorrector(SimpleNodeBase):
@@ -24,7 +24,7 @@ class VignetteCorrector(SimpleNodeBase):
         elif img.shape[-1] == 1:
             grey_img = img[:-1]
         else:
-            grey_img = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+            grey_img = rgb2gray(img)
 
         flat_image = F.calculate_flat_image(grey_img)
 
@@ -33,9 +33,6 @@ class VignetteCorrector(SimpleNodeBase):
             flat_image = flat_image[:, :, np.newaxis]
 
         corrected_img = img / flat_image
-
-        # TODO: img_as_float32 is required, because openCV cannot handle 64bit images, which is unfortunate
-        corrected_img = img_as_float32(rescale_intensity(corrected_img))
 
         return {
             "image": corrected_img

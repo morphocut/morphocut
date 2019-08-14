@@ -7,7 +7,7 @@ from skimage import img_as_ubyte, img_as_float
 from skimage.morphology import binary_dilation, disk
 
 import cv2 as cv
-from morphocut.processing.pipeline.base import NodeBase
+from morphocut.pipeline.base import NodeBase
 
 
 class DrawContours(NodeBase):

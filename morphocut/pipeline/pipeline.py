@@ -3,7 +3,7 @@ from multiprocessing import cpu_count
 from queue import Queue
 from threading import Thread
 
-from morphocut.processing.pipeline import NodeBase
+from morphocut.pipeline import NodeBase
 
 
 class Pipeline(NodeBase):

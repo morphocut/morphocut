@@ -1,6 +1,6 @@
 from skimage.filters import threshold_otsu
 
-from morphocut.processing.pipeline import SimpleNodeBase
+from morphocut.pipeline import SimpleNodeBase
 
 
 class ThresholdOtsu(SimpleNodeBase):

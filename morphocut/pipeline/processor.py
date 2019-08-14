@@ -8,7 +8,7 @@ from scipy.spatial.distance import pdist
 
 import numpy as np
 import cv2 as cv
-from morphocut.processing.pipeline import NodeBase
+from morphocut.pipeline import NodeBase
 
 
 class Processor(NodeBase):

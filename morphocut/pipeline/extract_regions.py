@@ -6,7 +6,7 @@ Extract regions.
 import math
 
 import numpy as np
-from morphocut.processing.pipeline import NodeBase
+from morphocut.pipeline import NodeBase
 from skimage import measure
 
 
