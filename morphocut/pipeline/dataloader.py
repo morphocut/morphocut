@@ -1,9 +1,10 @@
 import os
-
-from morphocut.pipeline import NodeBase
 from glob import iglob
 
+import numpy as np
 from skimage import io
+
+from morphocut.pipeline import NodeBase
 
 
 class DataLoader(NodeBase):
@@ -82,6 +83,9 @@ class _DataLoaderIter:
             object_id = os.path.splitext(os.path.basename(fn))[0]
 
             image = io.imread(fn)
+
+            if image.ndim == 2:
+                image = image[:, :, np.newaxis]
 
             data_object = {
                 "object_id": object_id,
