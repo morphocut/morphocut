@@ -1,3 +1,4 @@
+import parse
 from skimage.exposure import rescale_intensity
 from pprint import pprint
 from morphocut.graph.scheduler import SimpleScheduler
@@ -8,12 +9,13 @@ from skimage import io
 
 from morphocut.graph import Node, Output, Input
 
-import_path = "/data-ssd/mschroeder/Datasets/generic_zooscan_peru_kosmos_2017"
+#import_path = "/data-ssd/mschroeder/Datasets/generic_zooscan_peru_kosmos_2017"
+import_path = "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017"
 archive_fn = "/tmp/kosmos.zip"
 
 
 @Output("image")
-@Output("meta")
+@Output("rel_path")
 class DirectoryReader(Node):
     """
     Read all image files under the specified directory.
@@ -49,11 +51,50 @@ class DirectoryReader(Node):
                 if img.ndim < 3:
                     img = img[:, :, np.newaxis]
 
-                meta = {
-                    "rel_path": os.path.join(rel_root, fn)
-                }
+                yield self.prepare_output({}, img, os.path.join(rel_root, fn))
 
-                yield self.prepare_output({}, img, meta)
+
+@parse.with_pattern(".*")
+def parse_greedystar(text):
+    return text
+
+
+EXTRA_TYPES = {
+    "greedy": parse_greedystar
+}
+
+
+@Input("path")
+@Output("meta")
+class PathParser(Node):
+    """
+    Parse information from a path
+    """
+
+    def __init__(self, pattern, case_sensitive=False):
+        super().__init__()
+
+        self.pattern = parse.compile(
+            pattern, extra_types=EXTRA_TYPES, case_sensitive=case_sensitive)
+
+        print(self.pattern._match_re)
+
+    def transform(self, path):
+        return self.pattern.parse(path).named
+
+
+@Input("meta")
+@Output("meta")
+class JoinMeta(Node):
+    """
+    Join information from a CSV file.
+    """
+
+    def __init__(self, ...):
+        super().__init__()
+
+    def transform(self, ...):
+        return ...
 
 
 @Input("image")
@@ -74,11 +115,17 @@ class Rescale(Node):
 
 
 if __name__ == "__main__":
-    dir_reader = DirectoryReader(import_path)
-    rescale = Rescale("uint8")(dir_reader.image)
+    dir_reader = DirectoryReader(os.path.join(import_path, "raw"))
+    # Images are named <sampleid>/<anything>_<a|b>.tif
+    # e.g. generic_Peru_20170226_slow_M1_dnet/Peru_20170226_M1_dnet_1_8_a.tif
+    path_meta = PathParser(
+        "{sampleid}/{:greedy}_{ab}.tif")(dir_reader.rel_path)
 
-    pipeline = SimpleScheduler(rescale).to_pipeline()
+    #rescale = Rescale("uint8")(dir_reader.image)
+
+    pipeline = SimpleScheduler(path_meta).to_pipeline()
+
+    print(pipeline)
 
     for x in pipeline.transform_stream([]):
-        pprint(x)
-        break
+        print(x[dir_reader.rel_path], x[path_meta.meta])

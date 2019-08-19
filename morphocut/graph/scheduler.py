@@ -59,6 +59,9 @@ class Pipeline:
 
         return stream
 
+    def __str__(self):
+        return "Pipeline([{}])".format(", ".join(str(n) for n in self.nodes))
+
 
 class SimpleScheduler:
     def __init__(self, sink):
