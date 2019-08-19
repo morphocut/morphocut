@@ -70,9 +70,6 @@ class Node:
     def prepare_output(self, obj, *values):
         """Updates obj using the values corresponding to the output ports."""
 
-        if len(self.outputs) == 1:
-            values = (values,)
-
         if len(values) != len(self.outputs):
             raise ValueError(
                 "Length of values does not match number of output ports.")
