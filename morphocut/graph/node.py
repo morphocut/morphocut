@@ -70,6 +70,13 @@ class Node:
     def prepare_output(self, obj, *values):
         """Updates obj using the values corresponding to the output ports."""
 
+        if not self.outputs:
+            if any(values):
+                raise ValueError(
+                    "No output port specified but transform returned a value.")
+
+            return obj
+
         if len(values) != len(self.outputs):
             raise ValueError(
                 "Length of values does not match number of output ports.")
@@ -79,6 +86,9 @@ class Node:
 
         return obj
 
+    def after_stream(self):
+        pass
+
     def transform_stream(self, stream):
         """Apply transform to every object in the stream.
         """
@@ -86,11 +96,16 @@ class Node:
         for obj in stream:
             parameters = self.prepare_input(obj)
 
-            result = self.transform(**parameters)
+            try:
+                result = self.transform(**parameters)
+            except TypeError as exc:
+                raise TypeError("{} in {}".format(exc, self))
 
             self.prepare_output(obj, result)
 
             yield obj
+
+        self.after_stream()
 
     def get_output(self):
         if len(self.outputs) != 1:
@@ -100,6 +115,9 @@ class Node:
 
     def get_predecessors(self):
         """Returns the set of predecessors of the current node."""
+        if None in (inp._bind for inp in self.inputs):
+            raise ValueError("The inputs of {} are not bound.".format(self))
+
         return {inp._bind._node for inp in self.inputs}
 
     def __str__(self):
