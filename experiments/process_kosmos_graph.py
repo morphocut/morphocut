@@ -1,13 +1,14 @@
-import parse
-from skimage.exposure import rescale_intensity
-from pprint import pprint
-from morphocut.graph.scheduler import SimpleScheduler
 import os
+from pprint import pprint
 
 import numpy as np
+import pandas as pd
+import parse
 from skimage import io
+from skimage.exposure import rescale_intensity
 
-from morphocut.graph import Node, Output, Input
+from morphocut.graph import Input, Node, Output
+from morphocut.graph.scheduler import SimpleScheduler
 
 #import_path = "/data-ssd/mschroeder/Datasets/generic_zooscan_peru_kosmos_2017"
 import_path = "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017"
@@ -84,17 +85,58 @@ class PathParser(Node):
 
 
 @Input("meta")
-@Output("meta")
-class JoinMeta(Node):
+class DumpMeta(Node):
     """
-    Join information from a CSV file.
+    Parse information from a path
     """
 
-    def __init__(self, ...):
+    def __init__(self, filename, fields=None, unique_col=None):
         super().__init__()
 
-    def transform(self, ...):
-        return ...
+        if fields is None:
+            fields = []
+
+        self.fields = fields
+        self.filename = filename
+        self.unique_col = unique_col
+
+    def transform_stream(self, stream):
+        """Apply transform to every object in the stream.
+        """
+
+        result = []
+
+        for obj in stream:
+            meta = self.prepare_input(obj)["meta"]
+
+            print(meta)
+
+            row = {k: meta.get(k, None) for k in self.fields}
+
+            result.append(row)
+
+            yield obj
+
+        result = pd.DataFrame(result)
+
+        if self.unique_col is not None:
+            result.drop_duplicates(subset=self.unique_col, inplace=True)
+
+        result.to_csv(self.filename, index=False)
+
+
+# @Input("meta")
+# @Output("meta")
+# class JoinMeta(Node):
+#     """
+#     Join information from a CSV file.
+#     """
+
+#     def __init__(self, ...):
+#         super().__init__()
+
+#     def transform(self, ...):
+#         return ...
 
 
 @Input("image")
@@ -119,11 +161,18 @@ if __name__ == "__main__":
     # Images are named <sampleid>/<anything>_<a|b>.tif
     # e.g. generic_Peru_20170226_slow_M1_dnet/Peru_20170226_M1_dnet_1_8_a.tif
     path_meta = PathParser(
-        "{sampleid}/{:greedy}_{ab}.tif")(dir_reader.rel_path)
+        "generic_{sample_id}/{:greedy}_{ab}.tif")(dir_reader.rel_path)
+
+    dump_meta = DumpMeta(
+        os.path.join(import_path, "meta.csv"),
+        ["sample_id", "object_lat", "object_lon", "object_date",
+            "object_time", "object_depth_min", "object_depth_max"],
+        unique_col="sample_id"
+    )(path_meta)
 
     #rescale = Rescale("uint8")(dir_reader.image)
 
-    pipeline = SimpleScheduler(path_meta).to_pipeline()
+    pipeline = SimpleScheduler(dump_meta).to_pipeline()
 
     print(pipeline)
 
