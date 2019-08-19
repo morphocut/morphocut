@@ -15,7 +15,7 @@ import_path = "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017"
 archive_fn = "/tmp/kosmos.zip"
 
 
-@Output("image")
+@Output("abs_path")
 @Output("rel_path")
 class DirectoryReader(Node):
     """
@@ -46,13 +46,21 @@ class DirectoryReader(Node):
                 if ext not in self.allowed_extensions:
                     continue
 
-                image_path = os.path.join(root, fn)
-                img = io.imread(image_path)
+                yield self.prepare_output(
+                    {},
+                    os.path.join(root, fn),
+                    os.path.join(rel_root, fn))
 
-                if img.ndim < 3:
-                    img = img[:, :, np.newaxis]
 
-                yield self.prepare_output({}, img, os.path.join(rel_root, fn))
+@Input("inp")
+@Output("out")
+class LambdaNode(Node):
+    def __init__(self, clbl):
+        super().__init__()
+        self.clbl = clbl
+
+    def transform(self, inp):
+        return self.clbl(inp)
 
 
 @parse.with_pattern(".*")
@@ -170,7 +178,9 @@ if __name__ == "__main__":
         unique_col="sample_id"
     )(path_meta)
 
-    #rescale = Rescale("uint8")(dir_reader.image)
+    img_reader = LambdaNode(io.imread)(dir_reader.abs_path)
+
+    #rescale = Rescale("uint8")(img_reader.out)
 
     pipeline = SimpleScheduler(dump_meta).to_pipeline()
 
