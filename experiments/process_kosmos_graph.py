@@ -1,18 +1,20 @@
 import csv
+import io
 import itertools
 import operator
 import os
+import zipfile
 from collections import namedtuple
 
 import numpy as np
 import pandas as pd
 import parse
+import PIL
 import scipy.ndimage as ndi
 import skimage
 import skimage.io
 import skimage.measure
 import skimage.segmentation
-from skimage import io
 from skimage.exposure import rescale_intensity
 from tqdm import tqdm
 
@@ -276,6 +278,46 @@ class ExtractROI(Node):
 # TODO: Draw object info
 
 
+@Input("image")
+@Input("meta")
+class DumpToZip(Node):
+    def __init__(self, archive_fn, image_fn, meta_fn="ecotaxa_export.tsv"):
+        super().__init__()
+        self.archive_fn = archive_fn
+        self.image_fn = image_fn
+        self.meta_fn = meta_fn
+        self.image_ext = os.path.splitext(self.image_fn)[1]
+
+    def transform_stream(self, stream):
+        with zipfile.ZipFile(self.archive_fn, mode="w") as zf:
+            dataframe = []
+            for obj in stream:
+                # TODO: Support multiple images
+                inp = self.prepare_input(obj)
+
+                pil_format = PIL.Image.registered_extensions()[self.image_ext]
+
+                img = PIL.Image.fromarray(inp["image"])
+                img_fp = io.BytesIO()
+                img.save(img_fp, format=pil_format)
+
+                arcname = self.image_fn.format(**inp["meta"])
+
+                zf.writestr(arcname, img_fp.getvalue())
+
+                dataframe.append({
+                    **inp["meta"],
+                    "img_file_name": arcname
+                })
+
+                yield obj
+
+            dataframe = pd.DataFrame(dataframe)
+            zf.writestr(
+                "ecotaxa_export.tsv",
+                dataframe.to_csv(sep='\t', encoding='utf-8', index=False))
+
+
 @Input("meta_in")
 @Input("_")
 @Output("meta_out")
@@ -351,7 +393,7 @@ if __name__ == "__main__":
         unique_col="sample_id"
     )(join_meta)
 
-    img_reader = LambdaNode(io.imread)(dir_reader.abs_path)
+    img_reader = LambdaNode(skimage.io.imread)(dir_reader.abs_path)
 
     img_ubyte = LambdaNode(skimage.img_as_ubyte)(img_reader)
 
@@ -369,17 +411,16 @@ if __name__ == "__main__":
     gen_object_id = GenerateObjectId(
         "{sample_id}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}_{i:d}")(join_meta, extract_roi)
 
-    dumper = DumpImages(
-        os.path.join(import_path, "morphocut"),
-        "{sample_id}/{object_id}.jpg")(extract_roi, gen_object_id)
+    zip_dumper = DumpToZip(
+        os.path.join(import_path, "export.zip"),
+        "{object_id}.jpg")(extract_roi, gen_object_id)
 
     # Schedule and execute pipeline
-    pipeline = SimpleScheduler(dumper).to_pipeline()
+    pipeline = SimpleScheduler(zip_dumper).to_pipeline()
 
     print(pipeline)
 
     stream = tqdm(pipeline.transform_stream([]))
 
     for x in stream:
-        stream.write("{}: {}".format(
-            x[dir_reader.rel_path], x[gen_object_id.meta_out]))
+        stream.set_description(x[gen_object_id.meta_out]["object_id"])
