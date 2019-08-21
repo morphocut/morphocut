@@ -53,6 +53,9 @@ class Pipeline:
     def append(self, node):
         self.nodes.append(node)
 
+    def insert(self, index, node):
+        self.nodes.insert(index, node)
+
     def transform_stream(self, stream):
         for node in self.nodes:
             stream = node.transform_stream(stream)

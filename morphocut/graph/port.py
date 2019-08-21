@@ -32,9 +32,10 @@ class Port:
 class Input(Port):
     """Stores meta data about an input port of a Node."""
 
-    def __init__(self, name, help=None):
+    def __init__(self, name, required=True, help=None):
         super().__init__(name, help)
 
+        self.required = required
         self._bind = None
 
     def __call__(self, cls):

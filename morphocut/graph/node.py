@@ -13,6 +13,7 @@ class Node:
 
         self.inputs = []
         self.outputs = []
+        self._after = None
 
         for port in inputs:
             self.inputs.append(self.__bind_port(port))
@@ -57,15 +58,29 @@ class Node:
 
             inp.bind(outp)
 
-        # Return self for chaining
-        return self
+        # Return value
+        if not self.outputs:
+            # If no outputs, this is a terminal node. Return self to be able to schedule.
+            return self
+        if len(self.outputs) == 1:
+            # If one output, return exactly this
+            return self.outputs[0]
+        # Otherwise, return list of outputs
+        return self.outputs
+
+    def after(self, other):
+        self._after = other
 
     def transform(self, *args, **kwargs):
         raise NotImplementedError()
 
     def prepare_input(self, obj):
         """Returns a dictionary corresponding to the input ports."""
-        return {inp.name: obj[inp._bind] for inp in self.inputs}
+        return {
+            inp.name: obj[inp._bind]
+            if inp._bind is not None else None
+            for inp in self.inputs
+        }
 
     def prepare_output(self, obj, *values):
         """Updates obj using the values corresponding to the output ports."""
@@ -113,12 +128,29 @@ class Node:
 
         return self.outputs[0]
 
+    def _validate_inputs(self):
+        missing_inputs = [
+            inp.name for inp in self.inputs
+            if inp.required and inp._bind is None
+        ]
+
+        if missing_inputs:
+            msg = "{}: Inputs {} are not bound".format(
+                self, ", ".join(missing_inputs))
+            raise ValueError(msg)
+
     def get_predecessors(self):
         """Returns the set of predecessors of the current node."""
-        if None in (inp._bind for inp in self.inputs):
-            raise ValueError("The inputs of {} are not bound.".format(self))
+        self._validate_inputs()
 
-        return {inp._bind._node for inp in self.inputs}
+        predecessors = {
+            inp._bind._node for inp in self.inputs
+            if inp._bind is not None
+        }
+        if self._after is not None:
+            predecessors.add(self._after)
+
+        return predecessors
 
     def __str__(self):
         return "{}()".format(self.__class__.__name__)
