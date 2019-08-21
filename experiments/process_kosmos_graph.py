@@ -3,6 +3,7 @@ import io
 import itertools
 import operator
 import os
+import pprint
 import zipfile
 from collections import namedtuple
 
@@ -31,6 +32,12 @@ archive_fn = "/tmp/kosmos.zip"
 class DirectoryReader(Node):
     """
     Read all image files under the specified directory.
+
+    Inputs:
+        <none>
+
+    Outputs:
+        abs_path, rel_path
     """
 
     def __init__(self, image_root, allowed_extensions=None):
@@ -72,6 +79,9 @@ class LambdaNode(Node):
 
     def transform(self, inp):
         return self.clbl(inp)
+
+    def __str__(self):
+        return "{}({})".format(self.__class__.__name__, self.clbl.__name__)
 
 
 @parse.with_pattern(".*")
@@ -146,18 +156,23 @@ class ImageStats(Node):
     Parse information from a path
     """
 
-    def __init__(self):
+    def __init__(self, name=""):
         super().__init__()
 
-        self.min = np.inf
-        self.max = -np.inf
+        self.min = []
+        self.max = []
+        self.name = name
 
     def transform(self, image):
-        self.min = min(self.min, np.min(image))
-        self.max = max(self.max, np.max(image))
+        self.min.append(np.min(image))
+        self.max.append(np.max(image))
 
     def after_stream(self):
-        print("Value range:", self.min, self.max)
+        print("### Range stats ({}) ###".format(self.name))
+        mean_min = np.mean(self.min)
+        mean_max = np.mean(self.max)
+        print("Absolute: ", min(self.min), max(self.max))
+        print("Average: ", mean_min, mean_max)
 
 
 @Input("meta_in")
@@ -215,9 +230,11 @@ class ThresholdConst(Node):
 @Input("image")
 @Output("rescaled")
 class Rescale(Node):
-    def __init__(self, dtype=None):
+    def __init__(self, in_range='image', dtype=None):
         super().__init__()
         self.dtype = dtype
+
+        self.in_range = in_range
 
         if dtype is not None:
             self.out_range = dtype
@@ -225,26 +242,35 @@ class Rescale(Node):
             self.out_range = "dtype"
 
     def transform(self, image):
-        image = rescale_intensity(image, out_range=self.out_range)
-        return image.astype(self.dtype, copy=False)
+        image = rescale_intensity(
+            image, in_range=self.in_range, out_range=self.out_range)
+        if self.dtype is not None:
+            image = image.astype(self.dtype, copy=False)
 
-
-ROI = namedtuple("ROI", ["slice", "mask"])
+        return image
 
 
 @Input("mask")
-@Output("roi")
-class FindROI(Node):
-    # TODO: Enlarge slice by linear padding
-    def __init__(self, min_area=None, max_area=None):
+@Input("image", required=False)
+@Output("regionprops")
+class FindRegions(Node):
+    def __init__(self, min_area=None, max_area=None, padding=0):
         super().__init__()
 
         self.min_area = min_area
         self.max_area = max_area
+        self.padding = padding
+
+    @staticmethod
+    def _enlarge_slice(slices, padding):
+        return tuple(slice(max(0, s.start - padding), s.stop + padding) for s in slices)
 
     def transform_stream(self, stream):
         for obj in stream:
-            mask = self.prepare_input(obj)["mask"]
+            inp = self.prepare_input(obj)
+            mask = inp["mask"]
+            image = inp["image"]
+
             labels, nlabels = skimage.measure.label(mask, return_num=True)
 
             objects = ndi.find_objects(labels, nlabels)
@@ -252,30 +278,131 @@ class FindROI(Node):
                 if sl is None:
                     continue
 
-                roi_mask = labels[sl] == i+1
+                if self.padding:
+                    sl = self._enlarge_slice(sl, self.padding)
 
-                area = np.sum(roi_mask)
+                props = skimage.measure._regionprops._RegionProperties(
+                    sl, i+1, labels, image, True, 'rc')
 
-                if self.min_area is not None and area < self.min_area:
+                if self.min_area is not None and props.area < self.min_area:
                     continue
 
-                if self.max_area is not None and area > self.max_area:
+                if self.max_area is not None and props.area > self.max_area:
                     continue
 
-                roi = ROI(sl, roi_mask)
-
-                yield self.prepare_output(obj, roi)
+                yield self.prepare_output(obj, props)
 
 
 @Input("image")
-@Input("roi")
+@Input("regionprops")
 @Output("extracted_image")
 class ExtractROI(Node):
     # TODO: Hide background using mask
-    def transform(self, image, roi):
-        return image[roi.slice]
+    def transform(self, image, regionprops):
+        return image[regionprops.slice]
 
 # TODO: Draw object info
+
+
+def regionprop2zooprocess(prop):
+    """
+    Calculate zooprocess features from skimage regionprops.
+
+    Notes:
+        - date/time specify the time of the sampling, not of the processing.
+    """
+    return {
+        # width of the smallest rectangle enclosing the object
+        'width': prop.bbox[3] - prop.bbox[1],
+        # height of the smallest rectangle enclosing the object
+        'height': prop.bbox[2] - prop.bbox[0],
+        # X coordinates of the top left point of the smallest rectangle enclosing the object
+        'bx': prop.bbox[1],
+        # Y coordinates of the top left point of the smallest rectangle enclosing the object
+        'by': prop.bbox[0],
+        # circularity : (4∗π ∗Area)/Perim^2 a value of 1 indicates a perfect circle, a value approaching 0 indicates an increasingly elongated polygon
+        'circ.': (4 * np.pi * prop.filled_area) / prop.perimeter**2,
+        # Surface area of the object excluding holes, in square pixels (=Area*(1-(%area/100))
+        'area_exc': prop.area,
+        # Surface area of the object in square pixels
+        'area': prop.filled_area,
+        # Percentage of object’s surface area that is comprised of holes, defined as the background grey level
+        '%area': 1 - (prop.area / prop.filled_area),
+        # Primary axis of the best fitting ellipse for the object
+        'major': prop.major_axis_length,
+        # Secondary axis of the best fitting ellipse for the object
+        'minor': prop.minor_axis_length,
+        # Y position of the center of gravity of the object
+        'y': prop.centroid[0],
+        # X position of the center of gravity of the object
+        'x': prop.centroid[1],
+        # The area of the smallest polygon within which all points in the objet fit
+        'convex_area': prop.convex_area,
+        # Minimum grey value within the object (0 = black)
+        'min': prop.min_intensity,
+        # Maximum grey value within the object (255 = white)
+        'max': prop.max_intensity,
+        # Average grey value within the object ; sum of the grey values of all pixels in the object divided by the number of pixels
+        'mean': prop.mean_intensity,
+        # Integrated density. The sum of the grey values of the pixels in the object (i.e. = Area*Mean)
+        'intden': prop.filled_area * prop.mean_intensity,
+        # The length of the outside boundary of the object
+        'perim.': prop.perimeter,
+        # major/minor
+        'elongation': np.divide(prop.major_axis_length, prop.minor_axis_length),
+        # max-min
+        'range': prop.max_intensity - prop.min_intensity,
+        # perim/area_exc
+        'perimareaexc': prop.perimeter / prop.area,
+        # perim/major
+        'perimmajor': prop.perimeter / prop.major_axis_length,
+        # (4 ∗ π ∗ Area_exc)/perim 2
+        'circex': np.divide(4 * np.pi * prop.area, prop.perimeter**2),
+        # Angle between the primary axis and a line parallel to the x-axis of the image
+        'angle': prop.orientation / np.pi * 180 + 90,
+        # # X coordinate of the top left point of the image
+        # 'xstart': data_object['raw_img']['meta']['xstart'],
+        # # Y coordinate of the top left point of the image
+        # 'ystart': data_object['raw_img']['meta']['ystart'],
+        # Maximum feret diameter, i.e. the longest distance between any two points along the object boundary
+        # 'feret': data_object['raw_img']['meta']['feret'],
+        # feret/area_exc
+        # 'feretareaexc': data_object['raw_img']['meta']['feret'] / property.area,
+        # perim/feret
+        # 'perimferet': property.perimeter / data_object['raw_img']['meta']['feret'],
+
+        'bounding_box_area': prop.bbox_area,
+        'eccentricity': prop.eccentricity,
+        'equivalent_diameter': prop.equivalent_diameter,
+        'euler_number': prop.euler_number,
+        'extent': prop.extent,
+        'local_centroid_col': prop.local_centroid[1],
+        'local_centroid_row': prop.local_centroid[0],
+        'solidity': prop.solidity,
+    }
+
+
+@Input("regionprops")
+@Input("meta_in", required=False)
+@Output("meta")
+class CalculateZooProcessFeatures(Node):
+    """Calculate descriptive features using skimage.measure.regionprops.
+    """
+
+    def __init__(self, prefix=None):
+        super().__init__()
+        self.prefix = prefix
+
+    def transform(self, regionprops, meta_in):
+        if meta_in is None:
+            meta_in = {}
+
+        features = regionprop2zooprocess(regionprops)
+
+        if self.prefix is not None:
+            features = {"{}{}".format(self.prefix, k): v for k, v in features.items()}
+
+        return {**meta_in, **features}
 
 
 @Input("image")
@@ -376,44 +503,56 @@ def chain(*nodes):
     return wrapper
 
 
+class StreamDebugger(Node):
+    def transform_stream(self, stream):
+        for obj in stream:
+            pprint.pprint(obj)
+            yield obj
+
+
 if __name__ == "__main__":
-    dir_reader = DirectoryReader(os.path.join(import_path, "raw"))
+    abs_path, rel_path = DirectoryReader(os.path.join(import_path, "raw"))()
     # Images are named <sampleid>/<anything>_<a|b>.tif
     # e.g. generic_Peru_20170226_slow_M1_dnet/Peru_20170226_M1_dnet_1_8_a.tif
-    path_meta = PathParser(
-        "generic_{sample_id}/{:greedy}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}.tif")(dir_reader.rel_path)
 
-    join_meta = JoinMeta(
-        "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017/Morphocut_header_scans_peru_kosmos_2017.xlsx",
-        "sample_id"
-    )(path_meta)
+    meta = chain(
+        PathParser(
+            "generic_{sample_id}/{:greedy}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}.tif"),
+        JoinMeta(
+            "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017/Morphocut_header_scans_peru_kosmos_2017.xlsx",
+            "sample_id"
+        ),
+    )(rel_path)
 
-    dump_meta = DumpMeta(
+    DumpMeta(
         os.path.join(import_path, "meta.csv"),
         unique_col="sample_id"
-    )(join_meta)
+    )(meta)
 
-    img_reader = LambdaNode(skimage.io.imread)(dir_reader.abs_path)
-
-    img_ubyte = LambdaNode(skimage.img_as_ubyte)(img_reader)
+    img = chain(
+        LambdaNode(skimage.io.imread),
+        Rescale(in_range=(9252, 65278), dtype=np.uint8)
+    )(abs_path)
 
     mask = chain(
-        ThresholdConst(245),
-        LambdaNode(skimage.segmentation.clear_border)
-    )(img_ubyte)
+        ThresholdConst(245),  # 245(ubyte) / 62965(uint16)
+        LambdaNode(skimage.segmentation.clear_border),
+    )(img)
 
-    find_roi = FindROI(100)(mask)
+    regionprops = FindRegions(100, padding=10)(mask, img)
 
     # Extract a vignette from the image
-    extract_roi = ExtractROI()(img_ubyte, find_roi.roi)
+    vignette = ExtractROI()(img, regionprops)
 
     # It is not elegant to have this Node consume an arbitrary port to make it being scheduled the right time...
-    gen_object_id = GenerateObjectId(
-        "{sample_id}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}_{i:d}")(join_meta, extract_roi)
+    meta = GenerateObjectId(
+        "{sample_id}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}_{i:d}")(meta, vignette)
+
+    meta = CalculateZooProcessFeatures("object_")(regionprops, meta)
 
     zip_dumper = DumpToZip(
         os.path.join(import_path, "export.zip"),
-        "{object_id}.jpg")(extract_roi, gen_object_id)
+        "{object_id}.jpg")(vignette, meta)
 
     # Schedule and execute pipeline
     pipeline = SimpleScheduler(zip_dumper).to_pipeline()
@@ -423,4 +562,5 @@ if __name__ == "__main__":
     stream = tqdm(pipeline.transform_stream([]))
 
     for x in stream:
-        stream.set_description(x[gen_object_id.meta_out]["object_id"])
+        stream.set_description(x[meta]["object_id"])
+        pass
