@@ -1,12 +1,17 @@
 import csv
+import inspect
 import io
 import itertools
 import operator
 import os
 import pprint
+import typing as T
 import zipfile
 from collections import namedtuple
+from typing import List, Optional, Type
 
+import click
+import docstring_parser
 import numpy as np
 import pandas as pd
 import parse
@@ -19,7 +24,10 @@ import skimage.segmentation
 from skimage.exposure import rescale_intensity
 from tqdm import tqdm
 
+import pprint
+
 from morphocut.graph import Input, Node, Output
+from morphocut.graph.port import Port
 from morphocut.graph.scheduler import SimpleScheduler
 
 # import_path = "/data-ssd/mschroeder/Datasets/generic_zooscan_peru_kosmos_2017"
@@ -33,14 +41,12 @@ class DirectoryReader(Node):
     """
     Read all image files under the specified directory.
 
-    Inputs:
-        <none>
-
-    Outputs:
-        abs_path, rel_path
+    Args:
+        image_root (str): Root path where images should be found.
+        allowed_extensions (optional): List of allowed image extensions (including the leading dot).
     """
 
-    def __init__(self, image_root, allowed_extensions=None):
+    def __init__(self, image_root: str, allowed_extensions: Optional[List[str]] = None):
         super().__init__()
 
         self.image_root = image_root
@@ -94,21 +100,24 @@ EXTRA_TYPES = {
 }
 
 
-@Input("path")
+@Input("input")
 @Output("meta")
 class PathParser(Node):
-    """
-    Parse information from a path
+    """Parse information from a path.
+
+    Args:
+        pattern (str): The pattern to look for in the input.
+        case_sensitive (bool): Match pattern with case.
     """
 
-    def __init__(self, pattern, case_sensitive=False):
+    def __init__(self, pattern: str, case_sensitive: bool = False):
         super().__init__()
 
         self.pattern = parse.compile(
             pattern, extra_types=EXTRA_TYPES, case_sensitive=case_sensitive)
 
-    def transform(self, path):
-        return self.pattern.parse(path).named
+    def transform(self, input):
+        return self.pattern.parse(input).named
 
 
 @Input("meta")
@@ -400,7 +409,8 @@ class CalculateZooProcessFeatures(Node):
         features = regionprop2zooprocess(regionprops)
 
         if self.prefix is not None:
-            features = {"{}{}".format(self.prefix, k): v for k, v in features.items()}
+            features = {"{}{}".format(self.prefix, k)
+                                      : v for k, v in features.items()}
 
         return {**meta_in, **features}
 
@@ -510,57 +520,127 @@ class StreamDebugger(Node):
             yield obj
 
 
+class NodeRegistry:
+    def __init__(self):
+        self.nodes = set()
+
+    def register(self, *nodes: List[Type[Node]]):
+        self.nodes.update(nodes)
+
+    def pipeline_factory(self, pipeline_spec):
+        """Construct a pipeline according to the spec.
+        """
+        ...
+
+    @staticmethod
+    def _port_to_tuple(port: Port):
+        return (
+            None,
+            inspect.cleandoc(port.help) if port.help else None
+        )
+
+    @staticmethod
+    def _parse_docstr(obj):
+        try:
+            return docstring_parser.parse(obj.__doc__)
+        except:
+            print("Error parsing docstring of {}".format(obj.__name__))
+            raise
+
+    @staticmethod
+    def _parse_arguments(node_cls: Type[Node]):
+        # Use type annotations to determine the type.
+        # Use the docstring for each argument.
+
+        annotations = node_cls.__init__.__annotations__
+
+        # Get docstring for each argument
+        arg_desc = {
+            p.arg_name: p.description
+            for p in NodeRegistry._parse_docstr(node_cls).params
+        }
+        arg_desc.update({
+            p.arg_name: p.description
+            for p in NodeRegistry._parse_docstr(node_cls.__init__).params
+        })
+
+        return {
+            k: (annotations[k], arg_desc[k])
+            for k in annotations.keys() & arg_desc.keys()
+        }
+
+    @classmethod
+    def _node_to_dict(cls, node_cls: Type[Node]):
+        doc = cls._parse_docstr(node_cls)
+        return {
+            "name": node_cls.__name__,
+            "short_description": doc.short_description,
+            "long_description": doc.long_description,
+            "inputs": {p.name: cls._port_to_tuple(p) for p in getattr(node_cls, "inputs", [])},
+            "outputs": {p.name: cls._port_to_tuple(p) for p in getattr(node_cls, "outputs", [])},
+            "options": cls._parse_arguments(node_cls),
+        }
+
+    def to_dict(self) -> dict:
+        return {
+            n.__name__: self._node_to_dict(n) for n in self.nodes
+        }
+
+
 if __name__ == "__main__":
-    abs_path, rel_path = DirectoryReader(os.path.join(import_path, "raw"))()
-    # Images are named <sampleid>/<anything>_<a|b>.tif
-    # e.g. generic_Peru_20170226_slow_M1_dnet/Peru_20170226_M1_dnet_1_8_a.tif
+    nreg = NodeRegistry()
+    nreg.register(DirectoryReader)  # type: ignore
+    pprint.pprint(nreg.to_dict())
+    # abs_path, rel_path = DirectoryReader(os.path.join(import_path, "raw"))()
+    # # Images are named <sampleid>/<anything>_<a|b>.tif
+    # # e.g. generic_Peru_20170226_slow_M1_dnet/Peru_20170226_M1_dnet_1_8_a.tif
 
-    meta = chain(
-        PathParser(
-            "generic_{sample_id}/{:greedy}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}.tif"),
-        JoinMeta(
-            "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017/Morphocut_header_scans_peru_kosmos_2017.xlsx",
-            "sample_id"
-        ),
-    )(rel_path)
+    # meta = chain(
+    #     PathParser(
+    #         "generic_{sample_id}/{:greedy}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}.tif"),
+    #     JoinMeta(
+    #         "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017/Morphocut_header_scans_peru_kosmos_2017.xlsx",
+    #         "sample_id"
+    #     ),
+    # )(rel_path)
 
-    DumpMeta(
-        os.path.join(import_path, "meta.csv"),
-        unique_col="sample_id"
-    )(meta)
+    # DumpMeta(
+    #     os.path.join(import_path, "meta.csv"),
+    #     unique_col="sample_id"
+    # )(meta)
 
-    img = chain(
-        LambdaNode(skimage.io.imread),
-        Rescale(in_range=(9252, 65278), dtype=np.uint8)
-    )(abs_path)
+    # img = chain(
+    #     LambdaNode(skimage.io.imread),
+    #     Rescale(in_range=(9252, 65278), dtype=np.uint8)
+    # )(abs_path)
 
-    mask = chain(
-        ThresholdConst(245),  # 245(ubyte) / 62965(uint16)
-        LambdaNode(skimage.segmentation.clear_border),
-    )(img)
+    # mask = chain(
+    #     ThresholdConst(245),  # 245(ubyte) / 62965(uint16)
+    #     LambdaNode(skimage.segmentation.clear_border),
+    # )(img)
 
-    regionprops = FindRegions(100, padding=10)(mask, img)
+    # regionprops = FindRegions(100, padding=10)(mask, img)
 
-    # Extract a vignette from the image
-    vignette = ExtractROI()(img, regionprops)
+    # # Extract a vignette from the image
+    # vignette = ExtractROI()(img, regionprops)
 
-    # It is not elegant to have this Node consume an arbitrary port to make it being scheduled the right time...
-    meta = GenerateObjectId(
-        "{sample_id}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}_{i:d}")(meta, vignette)
+    # # It is not elegant to have this Node consume an arbitrary port to make it being scheduled the right time...
+    # meta = GenerateObjectId(
+    #     "{sample_id}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}_{i:d}")(meta, vignette)
 
-    meta = CalculateZooProcessFeatures("object_")(regionprops, meta)
+    # meta = CalculateZooProcessFeatures("object_")(regionprops, meta)
 
-    zip_dumper = DumpToZip(
-        os.path.join(import_path, "export.zip"),
-        "{object_id}.jpg")(vignette, meta)
+    # zip_dumper = DumpToZip(
+    #     os.path.join(import_path, "export.zip"),
+    #     "{object_id}.jpg")(vignette, meta)
 
-    # Schedule and execute pipeline
-    pipeline = SimpleScheduler(zip_dumper).to_pipeline()
+    # # Schedule and execute pipeline
+    # pipeline = SimpleScheduler(zip_dumper).to_pipeline()
 
-    print(pipeline)
+    # print(pipeline)
 
-    stream = tqdm(pipeline.transform_stream([]))
+    # stream = tqdm(pipeline.transform_stream([]))
 
-    for x in stream:
-        stream.set_description(x[meta]["object_id"])
-        pass
+    # for x in stream:
+    #     stream.set_description(x[meta]["object_id"])
+    #     pass

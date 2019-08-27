@@ -2,3 +2,4 @@ __pycache__
 morphocut.egg-info
 .vscode
 *.pyc
+.mypy_cache
