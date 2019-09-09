@@ -2,6 +2,8 @@ import abc
 import collections
 import itertools
 
+from morphocut.graph.pipeline import _pipeline_stack
+
 
 class Node:
     """Represents a node in the computation graph."""
@@ -20,6 +22,11 @@ class Node:
 
         for port in outputs:
             self.outputs.append(self.__bind_port(port))
+
+        try:
+            _pipeline_stack[-1]._add_node(self)
+        except IndexError:
+            raise RuntimeError("Empty pipeline stack") from None
 
     def __bind_port(self, port):
         """Bind self to port and create attribute for self.
