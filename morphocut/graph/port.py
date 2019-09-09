@@ -32,10 +32,11 @@ class Port:
 class Input(Port):
     """Stores meta data about an input port of a Node."""
 
-    def __init__(self, name, required=True, help=None):
+    def __init__(self, name, required=True, multi=False, help=None):
         super().__init__(name, help)
 
         self.required = required
+        self.multi = multi
         self._bind = None
 
     def __call__(self, cls):
@@ -54,8 +55,13 @@ class Input(Port):
 
     def bind(self, output):
         """Bind this input to another output."""
-        # TODO: Check compatibility
         self._bind = output
+
+    def get_value(self, obj):
+        if not self.multi:
+            return obj[self._bind]
+        else:
+            return tuple(obj[b] for b in self._bind)
 
 
 class Output(Port):

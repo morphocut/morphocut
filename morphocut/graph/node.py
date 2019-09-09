@@ -47,12 +47,27 @@ class Node:
         inputs = collections.OrderedDict(
             (inp.name, inp) for inp in self.inputs)
 
-        for inp, outp in zip(inputs.values(), args):
-            if isinstance(outp, Node):
-                outp = outp.get_output()
+        # Treat *args
+        for i, inp in enumerate(inputs.values()):
+            if inp.multi:
+                outs = [o.get_output() if isinstance(o, Node)
+                        else o for o in args[i:]]
 
-            inp.bind(outp)
+                inp.bind(outs)
 
+                # There's nothing after a multi
+                break
+            else:
+                try:
+                    outp = args[i]
+                except IndexError:
+                    break
+
+                if isinstance(outp, Node):
+                    outp = outp.get_output()
+                inp.bind(outp)
+
+        # Treat **kwargs
         for name, outp in kwargs.items():
             try:
                 inp = inputs[name]
@@ -82,9 +97,17 @@ class Node:
         raise NotImplementedError()
 
     def prepare_input(self, obj):
+        """Returns a tuple corresponding to the input ports."""
+        return tuple(
+            inp.get_value(obj)
+            if inp._bind is not None else None
+            for inp in self.inputs
+        )
+
+    def prepare_input_dict(self, obj):
         """Returns a dictionary corresponding to the input ports."""
         return {
-            inp.name: obj[inp._bind]
+            inp.name: inp.get_value(obj)
             if inp._bind is not None else None
             for inp in self.inputs
         }
@@ -119,9 +142,9 @@ class Node:
             parameters = self.prepare_input(obj)
 
             try:
-                result = self.transform(**parameters)
+                result = self.transform(*parameters)
             except TypeError as exc:
-                raise TypeError("{} in {}".format(exc, self))
+                raise TypeError("{} in {}".format(exc, self)) from None
 
             self.prepare_output(obj, result)
 

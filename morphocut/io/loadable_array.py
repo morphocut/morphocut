@@ -35,3 +35,6 @@ class LoadableArray(np.ndarray):
         result = super().__getitem__(index)
         result.index = index
         return result
+
+    def __repr__(self):
+        return repr(self.view(np.ndarray))

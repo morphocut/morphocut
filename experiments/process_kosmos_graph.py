@@ -7,7 +7,9 @@ import os
 import pprint
 import typing as T
 import zipfile
-from collections import namedtuple
+from collections import OrderedDict, namedtuple
+from queue import Queue
+from threading import Thread
 from typing import List, Optional, Type
 
 import click
@@ -21,14 +23,15 @@ import skimage
 import skimage.io
 import skimage.measure
 import skimage.segmentation
+import torch.nn
 from skimage.exposure import rescale_intensity
+from torch.utils.data import DataLoader, IterableDataset
+from torchvision.models import resnet18
 from tqdm import tqdm
 
-import pprint
-
-from morphocut.graph import Input, Node, Output
+from morphocut.graph import Input, Node, Output, Pipeline
 from morphocut.graph.port import Port
-from morphocut.graph.scheduler import SimpleScheduler
+from morphocut.io import LoadableArray
 
 # import_path = "/data-ssd/mschroeder/Datasets/generic_zooscan_peru_kosmos_2017"
 import_path = "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017"
@@ -140,7 +143,7 @@ class DumpMeta(Node):
         result = []
 
         for obj in stream:
-            meta = self.prepare_input(obj)["meta"]
+            meta, = self.prepare_input(obj)
 
             if self.fields is not None:
                 row = {k: meta.get(k, None) for k in self.fields}
@@ -276,9 +279,7 @@ class FindRegions(Node):
 
     def transform_stream(self, stream):
         for obj in stream:
-            inp = self.prepare_input(obj)
-            mask = inp["mask"]
-            image = inp["image"]
+            mask, image = self.prepare_input(obj)
 
             labels, nlabels = skimage.measure.label(mask, return_num=True)
 
@@ -430,20 +431,20 @@ class DumpToZip(Node):
             dataframe = []
             for obj in stream:
                 # TODO: Support multiple images
-                inp = self.prepare_input(obj)
+                image, meta = self.prepare_input(obj)
 
                 pil_format = PIL.Image.registered_extensions()[self.image_ext]
 
-                img = PIL.Image.fromarray(inp["image"])
+                img = PIL.Image.fromarray(image)
                 img_fp = io.BytesIO()
                 img.save(img_fp, format=pil_format)
 
-                arcname = self.image_fn.format(**inp["meta"])
+                arcname = self.image_fn.format(**meta)
 
                 zf.writestr(arcname, img_fp.getvalue())
 
                 dataframe.append({
-                    **inp["meta"],
+                    **meta,
                     "img_file_name": arcname
                 })
 
@@ -456,7 +457,6 @@ class DumpToZip(Node):
 
 
 @Input("meta_in")
-@Input("_")
 @Output("meta_out")
 class GenerateObjectId(Node):
     def __init__(self, fmt, name="object_id"):
@@ -466,7 +466,7 @@ class GenerateObjectId(Node):
 
     def transform_stream(self, stream):
         for i, obj in enumerate(stream):
-            meta_in = self.prepare_input(obj)["meta_in"]
+            meta_in, = self.prepare_input(obj)
 
             fields = {**meta_in, "i": i}
             name = self.fmt.format(**fields)
@@ -493,13 +493,11 @@ class DumpImages(Node):
 
     def _gen_paths(self, stream):
         for obj in stream:
-            inp = self.prepare_input(obj)
+            image, meta = self.prepare_input(obj)
 
-            filename = os.path.join(self.root, self.fmt.format(**inp["meta"]))
+            filename = os.path.join(self.root, self.fmt.format(**meta))
 
             dirname = os.path.dirname(filename)
-
-            image = inp["image"]
 
             yield dirname, filename, image, obj
 
@@ -587,60 +585,159 @@ class NodeRegistry:
         }
 
 
+class AsyncQueue(Node):
+    _sentinel = object()
+
+    def __init__(self, maxsize):
+        super().__init__()
+        self.queue = Queue(maxsize)
+
+    def _fill_queue(self, stream):
+        for obj in stream:
+            self.queue.put(obj)
+
+        self.queue.put(self._sentinel)
+
+    def transform_stream(self, stream):
+        """Apply transform to every object in the stream.
+        """
+
+        t = Thread(target=self._fill_queue, args=(stream,))
+        t.start()
+
+        while True:
+            obj = self.queue.get()
+            if obj == self._sentinel:
+                break
+            yield obj
+
+        # Join filler
+        t.join()
+
+
+class _Envelope:
+    __slots__ = ["data"]
+
+    def __init__(self, data):
+        self.data = data
+
+
+class _StreamDataset(IterableDataset):
+    def __init__(self, node, stream):
+        self.node = node
+        self.stream = stream
+
+    def __iter__(self):
+        for obj in self.stream:
+            yield self.node.prepare_input(obj), _Envelope(obj)
+
+
+@Input("image")
+@Output("output")
+class PyTorch(Node):
+    def __init__(self, model: T.Callable):
+        super().__init__()
+        self.model = model
+
+    def transform_stream(self, stream):
+        stream_ds = _StreamDataset(self, stream)
+        dl = DataLoader(stream_ds, batch_size=128, num_workers=0)
+
+        with torch.no_grad():
+            for batch_image, batch_obj in dl:
+                batch_output = self.model(batch_image)
+
+                for output, env_obj in zip(batch_output, batch_obj):
+                    print("output", output)
+                    yield self.prepare_output(env_obj.data, output)
+
+
+@Input("input")
+class Transform(Node):
+    def __init__(self, transform):
+        # Patch transform method
+        self.transform = transform
+
+
+@Input("fields", multi=True)
+class PrintObjects(Node):
+    def transform_stream(self, stream):
+        outputs = self.inputs[0]._bind
+
+        for obj in stream:
+            print(id(obj))
+            for outp in outputs:
+                print(outp.name)
+                pprint.pprint(obj[outp])
+            yield obj
+
+
 if __name__ == "__main__":
-    nreg = NodeRegistry()
-    nreg.register(DirectoryReader)  # type: ignore
-    pprint.pprint(nreg.to_dict())
-    # abs_path, rel_path = DirectoryReader(os.path.join(import_path, "raw"))()
-    # # Images are named <sampleid>/<anything>_<a|b>.tif
-    # # e.g. generic_Peru_20170226_slow_M1_dnet/Peru_20170226_M1_dnet_1_8_a.tif
+    with Pipeline() as p:
+        abs_path, rel_path = DirectoryReader(
+            os.path.join(import_path, "raw"))()
+        # Images are named <sampleid>/<anything>_<a|b>.tif
+        # e.g. generic_Peru_20170226_slow_M1_dnet/Peru_20170226_M1_dnet_1_8_a.tif
 
-    # meta = chain(
-    #     PathParser(
-    #         "generic_{sample_id}/{:greedy}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}.tif"),
-    #     JoinMeta(
-    #         "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017/Morphocut_header_scans_peru_kosmos_2017.xlsx",
-    #         "sample_id"
-    #     ),
-    # )(rel_path)
+        meta = chain(
+            PathParser(
+                "generic_{sample_id}/{:greedy}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}.tif"),
+            JoinMeta(
+                "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017/Morphocut_header_scans_peru_kosmos_2017.xlsx",
+                "sample_id"
+            ),
+        )(rel_path)
 
-    # DumpMeta(
-    #     os.path.join(import_path, "meta.csv"),
-    #     unique_col="sample_id"
-    # )(meta)
+        DumpMeta(
+            os.path.join(import_path, "meta.csv"),
+            unique_col="sample_id"
+        )(meta)
 
-    # img = chain(
-    #     LambdaNode(skimage.io.imread),
-    #     Rescale(in_range=(9252, 65278), dtype=np.uint8)
-    # )(abs_path)
+        def _loader(id, index=None):
+            img = skimage.io.imread(id)
+            if index is not None:
+                return img[index]
+            return img
 
-    # mask = chain(
-    #     ThresholdConst(245),  # 245(ubyte) / 62965(uint16)
-    #     LambdaNode(skimage.segmentation.clear_border),
-    # )(img)
+        img = LambdaNode(lambda path: LoadableArray.load(
+            _loader, path))(abs_path)
 
-    # regionprops = FindRegions(100, padding=10)(mask, img)
+        AsyncQueue(maxsize=2)
 
-    # # Extract a vignette from the image
-    # vignette = ExtractROI()(img, regionprops)
+        img = Rescale(in_range=(9252, 65278), dtype=np.uint8)(img)
 
-    # # It is not elegant to have this Node consume an arbitrary port to make it being scheduled the right time...
-    # meta = GenerateObjectId(
-    #     "{sample_id}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}_{i:d}")(meta, vignette)
+        mask = chain(
+            ThresholdConst(245),  # 245(ubyte) / 62965(uint16)
+            LambdaNode(skimage.segmentation.clear_border),
+        )(img)
 
-    # meta = CalculateZooProcessFeatures("object_")(regionprops, meta)
+        regionprops = FindRegions(100, padding=10)(mask, img)
 
-    # zip_dumper = DumpToZip(
-    #     os.path.join(import_path, "export.zip"),
-    #     "{object_id}.jpg")(vignette, meta)
+        # Extract a vignette from the image
+        vignette = ExtractROI()(img, regionprops)
 
-    # # Schedule and execute pipeline
-    # pipeline = SimpleScheduler(zip_dumper).to_pipeline()
+        # # Extract features from vignette
+        # model = resnet18(pretrained=True)
+        # model = torch.nn.Sequential(OrderedDict(
+        #     list(model.named_children())[:-2]))
 
-    # print(pipeline)
+        # features = PyTorch(lambda x: model(x).cpu().numpy())(vignette)
 
-    # stream = tqdm(pipeline.transform_stream([]))
+        PrintObjects()(vignette)
 
-    # for x in stream:
-    #     stream.set_description(x[meta]["object_id"])
-    #     pass
+        meta = GenerateObjectId(
+            "{sample_id}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}_{i:d}")(meta)
+
+        meta = CalculateZooProcessFeatures("object_")(regionprops, meta)
+
+        # zip_dumper = DumpToZip(
+        #     os.path.join(import_path, "export.zip"),
+        #     "{object_id}.jpg")(vignette, meta)
+
+    print(p)
+
+    stream = tqdm(p.transform_stream([]))
+
+    for x in stream:
+        stream.set_description(x[meta]["object_id"])
+        pass
