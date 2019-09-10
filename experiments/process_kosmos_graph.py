@@ -33,9 +33,8 @@ from morphocut.graph import Input, Node, Output, Pipeline
 from morphocut.graph.port import Port
 from morphocut.io import LoadableArray
 
-# import_path = "/data-ssd/mschroeder/Datasets/generic_zooscan_peru_kosmos_2017"
-import_path = "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017"
-archive_fn = "/tmp/kosmos.zip"
+import_path = "/data-ssd/mschroeder/Datasets/generic_zooscan_peru_kosmos_2017"
+#import_path = "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017"
 
 
 @Output("abs_path")
