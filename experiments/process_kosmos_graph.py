@@ -12,8 +12,6 @@ from queue import Queue
 from threading import Thread
 from typing import List, Optional, Type
 
-import click
-import docstring_parser
 import numpy as np
 import pandas as pd
 import parse
@@ -124,10 +122,6 @@ class PathParser(Node):
 
 @Input("meta")
 class DumpMeta(Node):
-    """
-    Parse information from a path
-    """
-
     def __init__(self, filename, fields=None, unique_col=None):
         super().__init__()
 
@@ -188,7 +182,7 @@ class ImageStats(Node):
 
 @Input("meta_in")
 @Output("meta_out")
-class JoinMeta(Node):
+class JoinMetadata(Node):
     """
     Join information from a CSV/TSV/Excel/... file.
     """
@@ -409,8 +403,7 @@ class CalculateZooProcessFeatures(Node):
         features = regionprop2zooprocess(regionprops)
 
         if self.prefix is not None:
-            features = {"{}{}".format(self.prefix, k)
-                                      : v for k, v in features.items()}
+            features = {"{}{}".format(self.prefix, k)                        : v for k, v in features.items()}
 
         return {**meta_in, **features}
 
@@ -517,73 +510,6 @@ class StreamDebugger(Node):
             yield obj
 
 
-class NodeRegistry:
-    def __init__(self):
-        self.nodes = set()
-
-    def register(self, *nodes: List[Type[Node]]):
-        self.nodes.update(nodes)
-
-    def pipeline_factory(self, pipeline_spec):
-        """Construct a pipeline according to the spec.
-        """
-        ...
-
-    @staticmethod
-    def _port_to_tuple(port: Port):
-        return (
-            None,
-            inspect.cleandoc(port.help) if port.help else None
-        )
-
-    @staticmethod
-    def _parse_docstr(obj):
-        try:
-            return docstring_parser.parse(obj.__doc__)
-        except:
-            print("Error parsing docstring of {}".format(obj.__name__))
-            raise
-
-    @staticmethod
-    def _parse_arguments(node_cls: Type[Node]):
-        # Use type annotations to determine the type.
-        # Use the docstring for each argument.
-
-        annotations = node_cls.__init__.__annotations__
-
-        # Get docstring for each argument
-        arg_desc = {
-            p.arg_name: p.description
-            for p in NodeRegistry._parse_docstr(node_cls).params
-        }
-        arg_desc.update({
-            p.arg_name: p.description
-            for p in NodeRegistry._parse_docstr(node_cls.__init__).params
-        })
-
-        return {
-            k: (annotations[k], arg_desc[k])
-            for k in annotations.keys() & arg_desc.keys()
-        }
-
-    @classmethod
-    def _node_to_dict(cls, node_cls: Type[Node]):
-        doc = cls._parse_docstr(node_cls)
-        return {
-            "name": node_cls.__name__,
-            "short_description": doc.short_description,
-            "long_description": doc.long_description,
-            "inputs": {p.name: cls._port_to_tuple(p) for p in getattr(node_cls, "inputs", [])},
-            "outputs": {p.name: cls._port_to_tuple(p) for p in getattr(node_cls, "outputs", [])},
-            "options": cls._parse_arguments(node_cls),
-        }
-
-    def to_dict(self) -> dict:
-        return {
-            n.__name__: self._node_to_dict(n) for n in self.nodes
-        }
-
-
 class AsyncQueue(Node):
     _sentinel = object()
 
@@ -681,8 +607,9 @@ if __name__ == "__main__":
         meta = chain(
             PathParser(
                 "generic_{sample_id}/{:greedy}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}.tif"),
-            JoinMeta(
-                "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017/Morphocut_header_scans_peru_kosmos_2017.xlsx",
+            JoinMetadata(
+                os.path.join(
+                    import_path, "Morphocut_header_scans_peru_kosmos_2017.xlsx"),
                 "sample_id"
             ),
         )(rel_path)
@@ -729,9 +656,9 @@ if __name__ == "__main__":
 
         meta = CalculateZooProcessFeatures("object_")(regionprops, meta)
 
-        # zip_dumper = DumpToZip(
-        #     os.path.join(import_path, "export.zip"),
-        #     "{object_id}.jpg")(vignette, meta)
+        zip_dumper = DumpToZip(
+            os.path.join(import_path, "export.zip"),
+            "{object_id}.jpg")(vignette, meta)
 
     print(p)
 
