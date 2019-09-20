@@ -19,11 +19,18 @@ class Pipeline:
 
         assert item is self
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream=None):
+        if stream is None:
+            stream = [{}]
+
         for node in self.nodes:
             stream = node.transform_stream(stream)
 
         return stream
+
+    def run(self):
+        for _ in self.transform_stream():
+            pass
 
     def _add_node(self, node):
         self.nodes.append(node)
