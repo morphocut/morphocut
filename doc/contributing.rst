@@ -13,7 +13,7 @@ Steps for Submitting Code
 GitHub Pull Requests are the expected method of code collaboration on this
 project.
 
-Please follow this checklist:
+Please follow these  steps:
 
 1. Fork the `repository`_ on GitHub.
 2. Run the tests and make sure that they all pass on your system.
@@ -22,7 +22,8 @@ Please follow this checklist:
 4. Make your change.
 5. Run the entire test suite again, ensuring that all tests pass *including
    the ones you just added*.
-6. Send a GitHub Pull Request to the main repository's ``master`` branch.
+6. Write `meaningful commit messages <https://chris.beams.io/posts/git-commit/>`_.
+7. Send a GitHub Pull Request to the main repository's ``master`` branch.
    Your contribution will then be reviewed.
 
 .. _repository: https://github.com/morphocut/morphocut
@@ -30,7 +31,7 @@ Please follow this checklist:
 Code style
 ~~~~~~~~~~
 
-* Use `autopep8 <https://pypi.org/project/autopep8/>`_.
+* Use `yapf <https://pypi.org/project/yapf/>`_ to format your code.
 
 Documentation Contributions
 ---------------------------
