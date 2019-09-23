@@ -1,3 +1,4 @@
+# yapf: disable
 import csv
 import inspect
 import io
@@ -14,19 +15,19 @@ from typing import List, Optional, Type
 
 import numpy as np
 import pandas as pd
-import parse
 import PIL
 import scipy.ndimage as ndi
 import skimage
 import skimage.io
 import skimage.measure
 import skimage.segmentation
-import torch.nn
+#import torch.nn
 from skimage.exposure import rescale_intensity
-from torch.utils.data import DataLoader, IterableDataset
-from torchvision.models import resnet18
+# from torch.utils.data import DataLoader, IterableDataset
+# from torchvision.models import resnet18
 from tqdm import tqdm
 
+import parse
 from morphocut.graph import Input, Node, Output, Pipeline
 from morphocut.graph.port import Port
 from morphocut.io import LoadableArray
@@ -76,18 +77,41 @@ class DirectoryReader(Node):
                     os.path.join(rel_root, fn))
 
 
-@Input("inp")
 @Output("out")
 class LambdaNode(Node):
-    def __init__(self, clbl):
+    def __init__(self, clbl, *args, **kwargs):
         super().__init__()
-        self.clbl = clbl
+        self.transform = clbl
+        self.args = args
+        self.kwargs = kwargs
 
-    def transform(self, inp):
-        return self.clbl(inp)
+    def transform_stream(self, stream):
+        """Apply transform to every object in the stream.
+        """
+
+        for obj in stream:
+            args = tuple(
+                v.get_value(obj) if isinstance(v, Output) else v
+                for v in self.args
+            )
+            kwargs = {
+                k: v.get_value(obj) if isinstance(v, Output) else v
+                for k, v in self.kwargs.items()
+            }
+
+            try:
+                result = self.transform(*args, **kwargs)
+            except TypeError as exc:
+                raise TypeError("{} in {}".format(exc, self)) from None
+
+            self.prepare_output(obj, result)
+
+            yield obj
+
+        self.after_stream()
 
     def __str__(self):
-        return "{}({})".format(self.__class__.__name__, self.clbl.__name__)
+        return "{}({})".format(self.__class__.__name__, self.transform.__name__)
 
 
 @parse.with_pattern(".*")
@@ -100,7 +124,6 @@ EXTRA_TYPES = {
 }
 
 
-@Input("input")
 @Output("meta")
 class PathParser(Node):
     """Parse information from a path.
@@ -110,24 +133,26 @@ class PathParser(Node):
         case_sensitive (bool): Match pattern with case.
     """
 
-    def __init__(self, pattern: str, case_sensitive: bool = False):
+    def __init__(self, pattern: str, string, case_sensitive: bool = False):
         super().__init__()
+
+        self.string = string
 
         self.pattern = parse.compile(
             pattern, extra_types=EXTRA_TYPES, case_sensitive=case_sensitive)
 
-    def transform(self, input):
-        return self.pattern.parse(input).named
+    def transform(self, string):
+        return self.pattern.parse(string).named
 
 
-@Input("meta")
 class DumpMeta(Node):
-    def __init__(self, filename, fields=None, unique_col=None):
+    def __init__(self, filename, meta, fields=None, unique_col=None):
         super().__init__()
 
         self.fields = fields
         self.filename = filename
         self.unique_col = unique_col
+        self.meta = meta
 
     def transform_stream(self, stream):
         """Apply transform to every object in the stream.
@@ -136,7 +161,7 @@ class DumpMeta(Node):
         result = []
 
         for obj in stream:
-            meta, = self.prepare_input(obj)
+            meta, = self.prepare_input(obj, ("meta", ))
 
             if self.fields is not None:
                 row = {k: meta.get(k, None) for k in self.fields}
@@ -155,13 +180,12 @@ class DumpMeta(Node):
         result.to_csv(self.filename, index=False)
 
 
-@Input("image")
 class ImageStats(Node):
     """
     Parse information from a path
     """
 
-    def __init__(self, name=""):
+    def __init__(self, image, name=""):
         super().__init__()
 
         self.min = []
@@ -180,15 +204,16 @@ class ImageStats(Node):
         print("Average: ", mean_min, mean_max)
 
 
-@Input("meta_in")
 @Output("meta_out")
 class JoinMetadata(Node):
     """
     Join information from a CSV/TSV/Excel/... file.
     """
 
-    def __init__(self, filename, on=None, fields=None):
+    def __init__(self, filename, meta=None, on=None, fields=None):
         super().__init__()
+
+        self.meta = meta
 
         ext = os.path.splitext(filename)[1]
 
@@ -208,19 +233,22 @@ class JoinMetadata(Node):
 
         self.dataframe = dataframe
 
-    def transform(self, meta_in):
-        key = meta_in[self.on]
+    def transform(self, meta):
+        if meta is None:
+            meta = {}
+
+        key = meta[self.on]
 
         row = self.dataframe.loc[key].to_dict()
 
-        return {**meta_in, **row}
+        return {**meta, **row}
 
 
-@Input("image")
 @Output("mask")
 class ThresholdConst(Node):
-    def __init__(self, threshold):
+    def __init__(self, image, threshold):
         super().__init__()
+        self.image = image
         self.threshold = threshold
 
     def transform(self, image):
@@ -232,13 +260,13 @@ class ThresholdConst(Node):
         return mask
 
 
-@Input("image")
 @Output("rescaled")
 class Rescale(Node):
-    def __init__(self, in_range='image', dtype=None):
+    def __init__(self, image, in_range='image', dtype=None):
         super().__init__()
-        self.dtype = dtype
 
+        self.image = image
+        self.dtype = dtype
         self.in_range = in_range
 
         if dtype is not None:
@@ -255,12 +283,13 @@ class Rescale(Node):
         return image
 
 
-@Input("mask")
-@Input("image", required=False)
 @Output("regionprops")
 class FindRegions(Node):
-    def __init__(self, min_area=None, max_area=None, padding=0):
+    def __init__(self, mask, image=None, min_area=None, max_area=None, padding=0):
         super().__init__()
+
+        self.mask = mask
+        self.image = image
 
         self.min_area = min_area
         self.max_area = max_area
@@ -272,7 +301,7 @@ class FindRegions(Node):
 
     def transform_stream(self, stream):
         for obj in stream:
-            mask, image = self.prepare_input(obj)
+            mask, image = self.prepare_input(obj, ("mask", "image"))
 
             labels, nlabels = skimage.measure.label(mask, return_num=True)
 
@@ -296,11 +325,13 @@ class FindRegions(Node):
                 yield self.prepare_output(obj, props)
 
 
-@Input("image")
-@Input("regionprops")
 @Output("extracted_image")
 class ExtractROI(Node):
+    def __init__(self, image, regionprops):
+        self.image = image
+        self.regionprops = regionprops
     # TODO: Hide background using mask
+
     def transform(self, image, regionprops):
         return image[regionprops.slice]
 
@@ -385,36 +416,40 @@ def regionprop2zooprocess(prop):
     }
 
 
-@Input("regionprops")
-@Input("meta_in", required=False)
 @Output("meta")
 class CalculateZooProcessFeatures(Node):
     """Calculate descriptive features using skimage.measure.regionprops.
     """
 
-    def __init__(self, prefix=None):
+    def __init__(self, regionprops, meta=None, prefix=None):
         super().__init__()
+
+        self.regionprops = regionprops
+        self.meta = meta
         self.prefix = prefix
 
-    def transform(self, regionprops, meta_in):
+    def transform(self, regionprops, meta, prefix):
         if meta_in is None:
             meta_in = {}
 
         features = regionprop2zooprocess(regionprops)
 
-        if self.prefix is not None:
-            features = {"{}{}".format(self.prefix, k)                        : v for k, v in features.items()}
+        if prefix is not None:
+            features = {"{}{}".format(self.prefix, k)
+                                      : v for k, v in features.items()}
 
         return {**meta_in, **features}
 
 
-@Input("image")
-@Input("meta")
 class DumpToZip(Node):
-    def __init__(self, archive_fn, image_fn, meta_fn="ecotaxa_export.tsv"):
+    def __init__(self, archive_fn, image_fn, image, meta, meta_fn="ecotaxa_export.tsv"):
         super().__init__()
         self.archive_fn = archive_fn
         self.image_fn = image_fn
+
+        self.image = image
+        self.meta = meta
+
         self.meta_fn = meta_fn
         self.image_ext = os.path.splitext(self.image_fn)[1]
 
@@ -423,7 +458,7 @@ class DumpToZip(Node):
             dataframe = []
             for obj in stream:
                 # TODO: Support multiple images
-                image, meta = self.prepare_input(obj)
+                image, meta = self.prepare_input(obj, ("image", "meta"))
 
                 pil_format = PIL.Image.registered_extensions()[self.image_ext]
 
@@ -448,31 +483,31 @@ class DumpToZip(Node):
                 dataframe.to_csv(sep='\t', encoding='utf-8', index=False))
 
 
-@Input("meta_in")
 @Output("meta_out")
 class GenerateObjectId(Node):
-    def __init__(self, fmt, name="object_id"):
+    def __init__(self, fmt, meta, name="object_id"):
         super().__init__()
         self.fmt = fmt
         self.name = name
+        self.meta = meta
 
     def transform_stream(self, stream):
         for i, obj in enumerate(stream):
-            meta_in, = self.prepare_input(obj)
+            meta, = self.prepare_input(obj, ("meta",))
 
-            fields = {**meta_in, "i": i}
+            fields = {**meta, "i": i}
             name = self.fmt.format(**fields)
 
-            yield self.prepare_output(obj, {**meta_in, self.name: name})
+            yield self.prepare_output(obj, {**meta, self.name: name})
 
 
-@Input("image")
-@Input("meta")
 class DumpImages(Node):
-    def __init__(self, root, fmt):
+    def __init__(self, root, fmt, image, meta):
         super().__init__()
         self.root = root
         self.fmt = fmt
+        self.image = image
+        self.meta = meta
 
     def transform_stream(self, stream):
         for dirname, group in itertools.groupby(self._gen_paths(stream), operator.itemgetter(0)):
@@ -485,22 +520,13 @@ class DumpImages(Node):
 
     def _gen_paths(self, stream):
         for obj in stream:
-            image, meta = self.prepare_input(obj)
+            image, meta = self.prepare_input(obj, ("image", "meta"))
 
             filename = os.path.join(self.root, self.fmt.format(**meta))
 
             dirname = os.path.dirname(filename)
 
             yield dirname, filename, image, obj
-
-
-def chain(*nodes):
-    def wrapper(port):
-        for n in nodes:
-            port = n(port)
-        return port
-
-    return wrapper
 
 
 class StreamDebugger(Node):
@@ -547,51 +573,44 @@ class _Envelope:
         self.data = data
 
 
-class _StreamDataset(IterableDataset):
-    def __init__(self, node, stream):
-        self.node = node
-        self.stream = stream
+# class _StreamDataset(IterableDataset):
+#     def __init__(self, node, stream):
+#         self.node = node
+#         self.stream = stream
 
-    def __iter__(self):
-        for obj in self.stream:
-            yield self.node.prepare_input(obj), _Envelope(obj)
-
-
-@Input("image")
-@Output("output")
-class PyTorch(Node):
-    def __init__(self, model: T.Callable):
-        super().__init__()
-        self.model = model
-
-    def transform_stream(self, stream):
-        stream_ds = _StreamDataset(self, stream)
-        dl = DataLoader(stream_ds, batch_size=128, num_workers=0)
-
-        with torch.no_grad():
-            for batch_image, batch_obj in dl:
-                batch_output = self.model(batch_image)
-
-                for output, env_obj in zip(batch_output, batch_obj):
-                    print("output", output)
-                    yield self.prepare_output(env_obj.data, output)
+#     def __iter__(self):
+#         for obj in self.stream:
+#             yield self.node.prepare_input(obj, ("image", )), _Envelope(obj)
 
 
-@Input("input")
-class Transform(Node):
-    def __init__(self, transform):
-        # Patch transform method
-        self.transform = transform
+# @Output("output")
+# class PyTorch(Node):
+#     def __init__(self, model: T.Callable, image):
+#         super().__init__()
+#         self.model = model
+#         self.image = image
+
+#     def transform_stream(self, stream):
+#         stream_ds = _StreamDataset(self, stream)
+#         dl = DataLoader(stream_ds, batch_size=128, num_workers=0)
+
+#         with torch.no_grad():
+#             for batch_image, batch_obj in dl:
+#                 batch_output = self.model(batch_image)
+
+#                 for output, env_obj in zip(batch_output, batch_obj):
+#                     print("output", output)
+#                     yield self.prepare_output(env_obj.data, output)
 
 
-@Input("fields", multi=True)
 class PrintObjects(Node):
-    def transform_stream(self, stream):
-        outputs = self.inputs[0]._bind
+    def __init__(self, *args):
+        self.args = args
 
+    def transform_stream(self, stream):
         for obj in stream:
             print(id(obj))
-            for outp in outputs:
+            for outp in self.args:
                 print(outp.name)
                 pprint.pprint(obj[outp])
             yield obj
@@ -604,20 +623,23 @@ if __name__ == "__main__":
         # Images are named <sampleid>/<anything>_<a|b>.tif
         # e.g. generic_Peru_20170226_slow_M1_dnet/Peru_20170226_M1_dnet_1_8_a.tif
 
-        meta = chain(
-            PathParser(
-                "generic_{sample_id}/{:greedy}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}.tif"),
-            JoinMetadata(
-                os.path.join(
-                    import_path, "Morphocut_header_scans_peru_kosmos_2017.xlsx"),
-                "sample_id"
-            ),
-        )(rel_path)
+        meta = PathParser(
+            "generic_{sample_id}/{:greedy}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}.tif",
+            rel_path
+        )()
+
+        meta = JoinMetadata(
+            os.path.join(
+                import_path, "Morphocut_header_scans_peru_kosmos_2017.xlsx"),
+            meta,
+            "sample_id"
+        )()
 
         DumpMeta(
             os.path.join(import_path, "meta.csv"),
+            meta,
             unique_col="sample_id"
-        )(meta)
+        )()
 
         def _loader(id, index=None):
             img = skimage.io.imread(id)
@@ -626,21 +648,19 @@ if __name__ == "__main__":
             return img
 
         img = LambdaNode(lambda path: LoadableArray.load(
-            _loader, path))(abs_path)
+            _loader, path), abs_path)()
 
         AsyncQueue(maxsize=2)
 
-        img = Rescale(in_range=(9252, 65278), dtype=np.uint8)(img)
+        img = Rescale(img, in_range=(9252, 65278), dtype=np.uint8)()
 
-        mask = chain(
-            ThresholdConst(245),  # 245(ubyte) / 62965(uint16)
-            LambdaNode(skimage.segmentation.clear_border),
-        )(img)
+        mask = ThresholdConst(img, 245)  # 245(ubyte) / 62965(uint16)
+        mask = LambdaNode(skimage.segmentation.clear_border, mask)()
 
-        regionprops = FindRegions(100, padding=10)(mask, img)
+        regionprops = FindRegions(mask, img, 100, padding=10)()
 
         # Extract a vignette from the image
-        vignette = ExtractROI()(img, regionprops)
+        vignette = ExtractROI(img, regionprops)()
 
         # # Extract features from vignette
         # model = resnet18(pretrained=True)
@@ -652,13 +672,17 @@ if __name__ == "__main__":
         PrintObjects()(vignette)
 
         meta = GenerateObjectId(
-            "{sample_id}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}_{i:d}")(meta)
+            "{sample_id}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}_{i:d}",
+            meta
+        )()
 
-        meta = CalculateZooProcessFeatures("object_")(regionprops, meta)
+        meta = CalculateZooProcessFeatures(regionprops, meta, "object_")()
 
         zip_dumper = DumpToZip(
             os.path.join(import_path, "export.zip"),
-            "{object_id}.jpg")(vignette, meta)
+            "{object_id}.jpg",
+            vignette, meta
+        )()
 
     print(p)
 
