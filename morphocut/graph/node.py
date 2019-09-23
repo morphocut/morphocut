@@ -1,24 +1,19 @@
 import abc
 import collections
+import inspect
 import itertools
 
 from morphocut.graph.pipeline import _pipeline_stack
+from morphocut.graph.port import Output
 
 
 class Node:
     """Represents a node in the computation graph."""
-
     def __init__(self):
         # Bind ports to self
-        inputs = getattr(self.__class__, "inputs", [])
         outputs = getattr(self.__class__, "outputs", [])
 
-        self.inputs = []
         self.outputs = []
-        self._after = None
-
-        for port in inputs:
-            self.inputs.append(self.__bind_port(port))
 
         for port in outputs:
             self.outputs.append(self.__bind_port(port))
@@ -41,76 +36,22 @@ class Node:
 
         return port
 
-    def __call__(self, *args, **kwargs):
-        """Binds output ports of other nodes to input ports of this node."""
-
-        inputs = collections.OrderedDict(
-            (inp.name, inp) for inp in self.inputs)
-
-        # Treat *args
-        for i, inp in enumerate(inputs.values()):
-            if inp.multi:
-                outs = [o.get_output() if isinstance(o, Node)
-                        else o for o in args[i:]]
-
-                inp.bind(outs)
-
-                # There's nothing after a multi
-                break
-            else:
-                try:
-                    outp = args[i]
-                except IndexError:
-                    break
-
-                if isinstance(outp, Node):
-                    outp = outp.get_output()
-                inp.bind(outp)
-
-        # Treat **kwargs
-        for name, outp in kwargs.items():
-            try:
-                inp = inputs[name]
-            except KeyError:
-                raise TypeError(
-                    "Node got an unexpected keyword argument '{}'.".format(name))
-
-            if isinstance(outp, Node):
-                outp = outp.get_output()
-
-            inp.bind(outp)
-
-        # Return value
+    def __call__(self):
+        # Return outputs
         if not self.outputs:
-            # If no outputs, this is a terminal node. Return self to be able to schedule.
-            return self
+            return None
         if len(self.outputs) == 1:
             # If one output, return exactly this
             return self.outputs[0]
         # Otherwise, return list of outputs
         return self.outputs
 
-    def after(self, other):
-        self._after = other
-
-    def transform(self, *args, **kwargs):
-        raise NotImplementedError()
-
-    def prepare_input(self, obj):
+    def prepare_input(self, obj, names):
         """Returns a tuple corresponding to the input ports."""
-        return tuple(
-            inp.get_value(obj)
-            if inp._bind is not None else None
-            for inp in self.inputs
-        )
 
-    def prepare_input_dict(self, obj):
-        """Returns a dictionary corresponding to the input ports."""
-        return {
-            inp.name: inp.get_value(obj)
-            if inp._bind is not None else None
-            for inp in self.inputs
-        }
+        return tuple(
+            v.get_value(obj) if isinstance(v, Output) else v
+            for v in (getattr(self, n) for n in names))
 
     def prepare_output(self, obj, *values):
         """Updates obj using the values corresponding to the output ports."""
@@ -134,15 +75,25 @@ class Node:
     def after_stream(self):
         pass
 
+    def _get_parameter_names(self):
+        """Inspect self.transform to get the parameter names."""
+        return [
+            p.name
+            for p in inspect.signature(self.transform).parameters.values()
+            if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
+        ]
+
     def transform_stream(self, stream):
         """Apply transform to every object in the stream.
         """
 
+        names = self._get_parameter_names()
+
         for obj in stream:
-            parameters = self.prepare_input(obj)
+            parameters = self.prepare_input(obj, names)
 
             try:
-                result = self.transform(*parameters)
+                result = self.transform(*parameters)  # pylint: disable=no-member
             except TypeError as exc:
                 raise TypeError("{} in {}".format(exc, self)) from None
 
@@ -151,36 +102,6 @@ class Node:
             yield obj
 
         self.after_stream()
-
-    def get_output(self):
-        if len(self.outputs) != 1:
-            raise ValueError("Node has not exactly one output.")
-
-        return self.outputs[0]
-
-    def _validate_inputs(self):
-        missing_inputs = [
-            inp.name for inp in self.inputs
-            if inp.required and inp._bind is None
-        ]
-
-        if missing_inputs:
-            msg = "{}: Inputs {} are not bound".format(
-                self, ", ".join(missing_inputs))
-            raise ValueError(msg)
-
-    def get_predecessors(self):
-        """Returns the set of predecessors of the current node."""
-        self._validate_inputs()
-
-        predecessors = {
-            inp._bind._node for inp in self.inputs
-            if inp._bind is not None
-        }
-        if self._after is not None:
-            predecessors.add(self._after)
-
-        return predecessors
 
     def __str__(self):
         return "{}()".format(self.__class__.__name__)
