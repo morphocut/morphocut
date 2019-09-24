@@ -49,6 +49,9 @@ class NDProxy(lazy_object_proxy.slots.Proxy):
     def unload(self):
         del self.__wrapped__
 
+    def detatch(self):
+        return self.__wrapped__
+
     def __getitem__(self, index):
         if not isinstance(index, tuple):
             index = (index, )
@@ -119,15 +122,25 @@ def combine_index(left, right):
             continue
         # combine_index((None,) + ..., ...)
         if isinstance(left[i], type(None)):
-            if right[j] == slice(None):
+            if isinstance(right[j], slice) and right[j] == slice(None):
                 result.append(None)
                 i += 1
                 j += 1
                 continue
+
             if isinstance(right[j], int):
+                if right[j] != 0:
+                    raise IndexError(
+                        "Index {} is out of bounds for {}".format(
+                            right[j], left[i]
+                        )
+                    )
                 i += 1
                 j += 1
                 continue
+            raise ValueError(
+                "{} can not be combined with {}".format(left[i], right[j])
+            )
 
         # combine_index((slice(None),) + ..., ...)
         if isinstance(left[i], slice) and left[i] == slice(None):
@@ -250,6 +263,7 @@ test_indices = [
     ([0, 1, 2], ),
     (np.array([0, 1, 2]), ),
     (np.array([True, True, False]), ),
+    (None, ),
 ]
 
 test_array = np.arange(27).reshape(3, 3, 3)
@@ -258,31 +272,6 @@ test_array = np.arange(27).reshape(3, 3, 3)
 @pytest.mark.parametrize("left", test_indices)
 @pytest.mark.parametrize("right", test_indices)
 def test_recursive(left, right):
-
-    try:
-        np.testing.assert_equal(
-            combine_index((None, ) + left, (0, ) + right),
-            combine_index(left, right)
-        )
-    except IndexError:
-        pass
-
-    try:
-        np.testing.assert_equal(
-            combine_index((None, ) + left, (slice(None), ) + right),
-            (None, ) + combine_index(left, right)
-        )
-    except IndexError:
-        pass
-
-    try:
-        np.testing.assert_equal(
-            combine_index((1, ) + left, right),
-            (1, ) + combine_index(left, right)
-        )
-    except IndexError:
-        pass
-
     native_index_error = False
     try:
         sub_native = test_array[left][right]
@@ -290,9 +279,16 @@ def test_recursive(left, right):
         native_index_error = True
 
     try:
-        sub_combine = test_array[combine_index(left, right)]
+        combined_index = combine_index(left, right)
+        sub_combine = test_array[combined_index]
     except IndexError:
+        # The occurence of an IndexError has to match the IndexError using native.
         assert native_index_error
+    except ValueError:
+        # A ValueError is ok for None in left
+        if None in left:
+            return
+        raise
     else:
         # assert not native_index_error, "Native threw IndexError, combine didn't."
         if native_index_error:
