@@ -2,3 +2,9 @@ __pycache__
 morphocut.egg-info
 .vscode
 *.pyc
+.mypy_cache
+doc/_build
+build
+dist
+htmlcov
+.coverage

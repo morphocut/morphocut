@@ -1,2 +1,3 @@
-from morphocut.graph.node import Node
-from morphocut.graph.port import Input, Output
+from .node import Node
+from .pipeline import Pipeline
+from .port import Input, Output
