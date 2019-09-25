@@ -3,7 +3,7 @@ morphocut.egg-info
 .vscode
 *.pyc
 .mypy_cache
-doc/_build
+docs/_build
 build
 dist
 htmlcov
