@@ -1,3 +1,13 @@
+"""
+- `combine_index((None,), (0,)) == ()`
+- `combine_index((None,), (None,)) == (None, None)`
+- `combine_index((None, ), (slice(None), )) == (None, )`
+- `combine_index((), (None, )) == (None, )`
+- `combine_index((), right) == right`
+- `combine_index((None,) + left, (0,) + right) == combine_index(left, right)`
+- `combine_index((None,) + left, (slice(),) + right) == (None,) + combine_index(left, right)`
+- `combine_index((n,) + left, right) == (n,) + combine_index(left, right)`
+"""
 import pickle
 from skimage.data import coins
 import numpy as np

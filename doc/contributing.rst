@@ -32,6 +32,7 @@ Code style
 ~~~~~~~~~~
 
 * Use `yapf <https://pypi.org/project/yapf/>`_ to format your code.
+* Use `isort <https://pypi.org/project/isort/>`_ to sort your imports.
 
 Documentation Contributions
 ---------------------------

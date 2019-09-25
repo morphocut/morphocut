@@ -4,3 +4,7 @@ morphocut.egg-info
 *.pyc
 .mypy_cache
 doc/_build
+build
+dist
+htmlcov
+.coverage

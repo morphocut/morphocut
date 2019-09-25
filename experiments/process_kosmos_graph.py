@@ -1,4 +1,3 @@
-# yapf: disable
 import csv
 import inspect
 import io
@@ -45,6 +44,10 @@ class DirectoryReader(Node):
     Args:
         image_root (str): Root path where images should be found.
         allowed_extensions (optional): List of allowed image extensions (including the leading dot).
+
+    Output:
+        abs_path: Absolute path of the image file.
+        rel_path: Relative path of the image file.
     """
 
     def __init__(self, image_root: str, allowed_extensions: Optional[List[str]] = None):
@@ -479,7 +482,7 @@ class DumpToZip(Node):
 
             dataframe = pd.DataFrame(dataframe)
             zf.writestr(
-                "ecotaxa_export.tsv",
+                self.meta_fn,
                 dataframe.to_csv(sep='\t', encoding='utf-8', index=False))
 
 
@@ -669,7 +672,7 @@ if __name__ == "__main__":
 
         # features = PyTorch(lambda x: model(x).cpu().numpy())(vignette)
 
-        PrintObjects()(vignette)
+        PrintObjects(vignette)
 
         meta = GenerateObjectId(
             "{sample_id}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}_{i:d}",
