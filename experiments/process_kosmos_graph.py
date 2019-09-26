@@ -49,8 +49,9 @@ class DirectoryReader(Node):
         abs_path: Absolute path of the image file.
         rel_path: Relative path of the image file.
     """
-
-    def __init__(self, image_root: str, allowed_extensions: Optional[List[str]] = None):
+    def __init__(
+        self, image_root: str, allowed_extensions: Optional[List[str]] = None
+    ):
         super().__init__()
 
         self.image_root = image_root
@@ -63,7 +64,8 @@ class DirectoryReader(Node):
     def transform_stream(self, stream):
         if stream:
             raise ValueError(
-                "DirectoryReader is a source node and does not support ingoing streams!")
+                "DirectoryReader is a source node and does not support ingoing streams!"
+            )
 
         for root, _, filenames in os.walk(self.image_root):
             rel_root = os.path.relpath(root, self.image_root)
@@ -75,9 +77,8 @@ class DirectoryReader(Node):
                     continue
 
                 yield self.prepare_output(
-                    {},
-                    os.path.join(root, fn),
-                    os.path.join(rel_root, fn))
+                    {}, os.path.join(root, fn), os.path.join(rel_root, fn)
+                )
 
 
 @Output("out")
@@ -122,9 +123,7 @@ def parse_greedystar(text):
     return text
 
 
-EXTRA_TYPES = {
-    "greedy": parse_greedystar
-}
+EXTRA_TYPES = {"greedy": parse_greedystar}
 
 
 @Output("meta")
@@ -135,14 +134,14 @@ class PathParser(Node):
         pattern (str): The pattern to look for in the input.
         case_sensitive (bool): Match pattern with case.
     """
-
     def __init__(self, pattern: str, string, case_sensitive: bool = False):
         super().__init__()
 
         self.string = string
 
         self.pattern = parse.compile(
-            pattern, extra_types=EXTRA_TYPES, case_sensitive=case_sensitive)
+            pattern, extra_types=EXTRA_TYPES, case_sensitive=case_sensitive
+        )
 
     def transform(self, string):
         return self.pattern.parse(string).named
@@ -187,7 +186,6 @@ class ImageStats(Node):
     """
     Parse information from a path
     """
-
     def __init__(self, image, name=""):
         super().__init__()
 
@@ -212,7 +210,6 @@ class JoinMetadata(Node):
     """
     Join information from a CSV/TSV/Excel/... file.
     """
-
     def __init__(self, filename, meta=None, on=None, fields=None):
         super().__init__()
 
@@ -227,10 +224,7 @@ class JoinMetadata(Node):
         else:
             with open('example.csv', newline='') as csvfile:
                 dialect = csv.Sniffer().sniff(csvfile.read(1024))
-            dataframe = pd.read_csv(
-                filename,
-                dialect=dialect,
-                usecols=fields)
+            dataframe = pd.read_csv(filename, dialect=dialect, usecols=fields)
 
         dataframe.set_index(self.on, inplace=True, verify_integrity=True)
 
@@ -279,7 +273,8 @@ class Rescale(Node):
 
     def transform(self, image):
         image = rescale_intensity(
-            image, in_range=self.in_range, out_range=self.out_range)
+            image, in_range=self.in_range, out_range=self.out_range
+        )
         if self.dtype is not None:
             image = image.astype(self.dtype, copy=False)
 
@@ -288,7 +283,9 @@ class Rescale(Node):
 
 @Output("regionprops")
 class FindRegions(Node):
-    def __init__(self, mask, image=None, min_area=None, max_area=None, padding=0):
+    def __init__(
+        self, mask, image=None, min_area=None, max_area=None, padding=0
+    ):
         super().__init__()
 
         self.mask = mask
@@ -300,7 +297,9 @@ class FindRegions(Node):
 
     @staticmethod
     def _enlarge_slice(slices, padding):
-        return tuple(slice(max(0, s.start - padding), s.stop + padding) for s in slices)
+        return tuple(
+            slice(max(0, s.start - padding), s.stop + padding) for s in slices
+        )
 
     def transform_stream(self, stream):
         for obj in stream:
@@ -317,7 +316,8 @@ class FindRegions(Node):
                     sl = self._enlarge_slice(sl, self.padding)
 
                 props = skimage.measure._regionprops._RegionProperties(
-                    sl, i+1, labels, image, True, 'rc')
+                    sl, i + 1, labels, image, True, 'rc'
+                )
 
                 if self.min_area is not None and props.area < self.min_area:
                     continue
@@ -333,10 +333,12 @@ class ExtractROI(Node):
     def __init__(self, image, regionprops):
         self.image = image
         self.regionprops = regionprops
+
     # TODO: Hide background using mask
 
     def transform(self, image, regionprops):
         return image[regionprops.slice]
+
 
 # TODO: Draw object info
 
@@ -407,7 +409,6 @@ def regionprop2zooprocess(prop):
         # 'feretareaexc': data_object['raw_img']['meta']['feret'] / property.area,
         # perim/feret
         # 'perimferet': property.perimeter / data_object['raw_img']['meta']['feret'],
-
         'bounding_box_area': prop.bbox_area,
         'eccentricity': prop.eccentricity,
         'equivalent_diameter': prop.equivalent_diameter,
@@ -423,7 +424,6 @@ def regionprop2zooprocess(prop):
 class CalculateZooProcessFeatures(Node):
     """Calculate descriptive features using skimage.measure.regionprops.
     """
-
     def __init__(self, regionprops, meta=None, prefix=None):
         super().__init__()
 
@@ -438,14 +438,18 @@ class CalculateZooProcessFeatures(Node):
         features = regionprop2zooprocess(regionprops)
 
         if prefix is not None:
-            features = {"{}{}".format(self.prefix, k)
-                                      : v for k, v in features.items()}
+            features = {
+                "{}{}".format(self.prefix, k): v
+                for k, v in features.items()
+            }
 
         return {**meta_in, **features}
 
 
 class DumpToZip(Node):
-    def __init__(self, archive_fn, image_fn, image, meta, meta_fn="ecotaxa_export.tsv"):
+    def __init__(
+        self, archive_fn, image_fn, image, meta, meta_fn="ecotaxa_export.tsv"
+    ):
         super().__init__()
         self.archive_fn = archive_fn
         self.image_fn = image_fn
@@ -473,17 +477,15 @@ class DumpToZip(Node):
 
                 zf.writestr(arcname, img_fp.getvalue())
 
-                dataframe.append({
-                    **meta,
-                    "img_file_name": arcname
-                })
+                dataframe.append({**meta, "img_file_name": arcname})
 
                 yield obj
 
             dataframe = pd.DataFrame(dataframe)
             zf.writestr(
                 self.meta_fn,
-                dataframe.to_csv(sep='\t', encoding='utf-8', index=False))
+                dataframe.to_csv(sep='\t', encoding='utf-8', index=False)
+            )
 
 
 @Output("meta_out")
@@ -496,7 +498,7 @@ class GenerateObjectId(Node):
 
     def transform_stream(self, stream):
         for i, obj in enumerate(stream):
-            meta, = self.prepare_input(obj, ("meta",))
+            meta, = self.prepare_input(obj, ("meta", ))
 
             fields = {**meta, "i": i}
             name = self.fmt.format(**fields)
@@ -513,7 +515,9 @@ class DumpImages(Node):
         self.meta = meta
 
     def transform_stream(self, stream):
-        for dirname, group in itertools.groupby(self._gen_paths(stream), operator.itemgetter(0)):
+        for dirname, group in itertools.groupby(
+            self._gen_paths(stream), operator.itemgetter(0)
+        ):
             os.makedirs(dirname, exist_ok=True)
             for _, filename, image, obj in group:
 
@@ -556,7 +560,7 @@ class AsyncQueue(Node):
         """Apply transform to every object in the stream.
         """
 
-        t = Thread(target=self._fill_queue, args=(stream,))
+        t = Thread(target=self._fill_queue, args=(stream, ))
         t.start()
 
         while True:
@@ -584,7 +588,6 @@ class _Envelope:
 #     def __iter__(self):
 #         for obj in self.stream:
 #             yield self.node.prepare_input(obj, ("image", )), _Envelope(obj)
-
 
 # @Output("output")
 # class PyTorch(Node):
@@ -621,8 +624,7 @@ class PrintObjects(Node):
 
 if __name__ == "__main__":
     with Pipeline() as p:
-        abs_path, rel_path = DirectoryReader(
-            os.path.join(import_path, "raw"))()
+        abs_path, rel_path = DirectoryReader(os.path.join(import_path, "raw"))()
         # Images are named <sampleid>/<anything>_<a|b>.tif
         # e.g. generic_Peru_20170226_slow_M1_dnet/Peru_20170226_M1_dnet_1_8_a.tif
 
@@ -633,15 +635,12 @@ if __name__ == "__main__":
 
         meta = JoinMetadata(
             os.path.join(
-                import_path, "Morphocut_header_scans_peru_kosmos_2017.xlsx"),
-            meta,
-            "sample_id"
+                import_path, "Morphocut_header_scans_peru_kosmos_2017.xlsx"
+            ), meta, "sample_id"
         )()
 
         DumpMeta(
-            os.path.join(import_path, "meta.csv"),
-            meta,
-            unique_col="sample_id"
+            os.path.join(import_path, "meta.csv"), meta, unique_col="sample_id"
         )()
 
         def _loader(id, index=None):
@@ -650,8 +649,9 @@ if __name__ == "__main__":
                 return img[index]
             return img
 
-        img = LambdaNode(lambda path: LoadableArray.load(
-            _loader, path), abs_path)()
+        img = LambdaNode(
+            lambda path: LoadableArray.load(_loader, path), abs_path
+        )()
 
         AsyncQueue(maxsize=2)
 
@@ -682,8 +682,7 @@ if __name__ == "__main__":
         meta = CalculateZooProcessFeatures(regionprops, meta, "object_")()
 
         zip_dumper = DumpToZip(
-            os.path.join(import_path, "export.zip"),
-            "{object_id}.jpg",
+            os.path.join(import_path, "export.zip"), "{object_id}.jpg",
             vignette, meta
         )()
 
