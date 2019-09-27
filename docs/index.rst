@@ -15,6 +15,5 @@ User Guide
    installation
    quickstart
    api
-   input_formats
-   output_formats
+   formats
    contributing
