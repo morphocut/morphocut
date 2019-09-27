@@ -14,13 +14,11 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
 
-
 # -- Project information -----------------------------------------------------
 
 project = 'MorphoCut'
 copyright = '2019, Simon-Martin Schroeder'
 author = 'Simon-Martin Schroeder'
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -29,9 +27,10 @@ author = 'Simon-Martin Schroeder'
 # ones.
 # napoleon is for parsing of Google-style docstrings:
 # https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings
-extensions = ['sphinx.ext.autodoc',
-              'sphinx.ext.coverage', 'sphinx.ext.napoleon',
-              'sphinxcontrib.programoutput']
+extensions = [
+    'sphinx.ext.autodoc', 'sphinx.ext.coverage', 'sphinx.ext.napoleon',
+    'sphinxcontrib.programoutput'
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -40,7 +39,6 @@ templates_path = ['_templates']
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
-
 
 # -- Options for HTML output -------------------------------------------------
 
