@@ -14,6 +14,7 @@ from typing import List, Optional, Type
 
 import numpy as np
 import pandas as pd
+import parse
 import PIL
 import scipy.ndimage as ndi
 import skimage
@@ -26,10 +27,8 @@ from skimage.exposure import rescale_intensity
 # from torchvision.models import resnet18
 from tqdm import tqdm
 
-import parse
-from morphocut.graph import Input, Node, Output, Pipeline
-from morphocut.graph.port import Port
-from morphocut.io import LoadableArray
+from morphocut.graph import Node, Output, Pipeline
+from morphocut.graph.core import _Variable
 
 #import_path = "/data-ssd/mschroeder/Datasets/generic_zooscan_peru_kosmos_2017"
 #import_path = "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017"
@@ -96,11 +95,10 @@ class LambdaNode(Node):
 
         for obj in stream:
             args = tuple(
-                v.get_value(obj) if isinstance(v, Output) else v
-                for v in self.args
+                obj[v] if isinstance(v, _Variable) else v for v in self.args
             )
             kwargs = {
-                k: v.get_value(obj) if isinstance(v, Output) else v
+                k: obj[v] if isinstance(v, _Variable) else v
                 for k, v in self.kwargs.items()
             }
 
@@ -334,6 +332,8 @@ class FindRegions(Node):
 @Output("extracted_image")
 class ExtractROI(Node):
     def __init__(self, image, regionprops):
+        super().__init__()
+
         self.image = image
         self.regionprops = regionprops
 
@@ -435,8 +435,8 @@ class CalculateZooProcessFeatures(Node):
         self.prefix = prefix
 
     def transform(self, regionprops, meta, prefix):
-        if meta_in is None:
-            meta_in = {}
+        if meta is None:
+            meta = {}
 
         features = regionprop2zooprocess(regionprops)
 
@@ -446,7 +446,7 @@ class CalculateZooProcessFeatures(Node):
                 for k, v in features.items()
             }
 
-        return {**meta_in, **features}
+        return {**meta, **features}
 
 
 class DumpToZip(Node):
@@ -554,17 +554,18 @@ class AsyncQueue(Node):
         self.queue = Queue(maxsize)
 
     def _fill_queue(self, stream):
-        for obj in stream:
-            self.queue.put(obj)
-
-        self.queue.put(self._sentinel)
+        try:
+            for obj in stream:
+                self.queue.put(obj)
+        finally:
+            self.queue.put(self._sentinel)
 
     def transform_stream(self, stream):
         """Apply transform to every object in the stream.
         """
 
-        t = Thread(target=self._fill_queue, args=(stream, ))
-        t.start()
+        thread = Thread(target=self._fill_queue, args=(stream, ), daemon=True)
+        thread.start()
 
         while True:
             obj = self.queue.get()
@@ -573,7 +574,7 @@ class AsyncQueue(Node):
             yield obj
 
         # Join filler
-        t.join()
+        thread.join()
 
 
 class _Envelope:
@@ -652,15 +653,13 @@ if __name__ == "__main__":
                 return img[index]
             return img
 
-        img = LambdaNode(
-            lambda path: LoadableArray.load(_loader, path), abs_path
-        )()
+        img = LambdaNode(lambda path: skimage.io.imread(path), abs_path)()
 
         AsyncQueue(maxsize=2)
 
         img = Rescale(img, in_range=(9252, 65278), dtype=np.uint8)()
 
-        mask = ThresholdConst(img, 245)  # 245(ubyte) / 62965(uint16)
+        mask = ThresholdConst(img, 245)()  # 245(ubyte) / 62965(uint16)
         mask = LambdaNode(skimage.segmentation.clear_border, mask)()
 
         regionprops = FindRegions(mask, img, 100, padding=10)()
