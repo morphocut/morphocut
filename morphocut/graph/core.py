@@ -1,12 +1,30 @@
 """Core components of the MorphoCut processing graph."""
 
 import inspect
+import operator
 
 from morphocut.graph.pipeline import _pipeline_stack
 
 
+def _resolve_variable(obj, variable_or_value):
+    if isinstance(variable_or_value, _Variable):
+        return obj[variable_or_value]
+
+    if isinstance(variable_or_value, tuple):
+        return tuple(_resolve_variable(obj, v) for v in variable_or_value)
+
+    if isinstance(variable_or_value, dict):
+        return {
+            k: _resolve_variable(obj, v)
+            for k, v in variable_or_value.items()
+        }
+
+    return variable_or_value
+
+
 class Node:
     """Represents a node in the computation graph."""
+
     def __init__(self):
         # Bind outputs to self
         outputs = getattr(self.__class__, "outputs", [])
@@ -14,14 +32,13 @@ class Node:
 
         # Register with pipeline
         try:
-            _pipeline_stack[-1]._add_node(self)  #pylint: disable=protected-access
+            _pipeline_stack[-1]._add_node(
+                self)  # pylint: disable=protected-access
         except IndexError:
             raise RuntimeError("Empty pipeline stack") from None
 
     def __bind_output(self, port):
-        """Bind self to port and return a variable.
-        """
-
+        """Bind self to port and return a variable."""
         variable = port.create_variable(self)
 
         return variable
@@ -47,15 +64,18 @@ class Node:
         return outputs
 
     def prepare_input(self, obj, names):
-        """Returns a tuple corresponding to the input ports."""
+        """Return a tuple corresponding to the input ports."""
+
+        if isinstance(names, str):
+            return _resolve_variable(obj, getattr(self, names))
 
         return tuple(
-            obj[v] if isinstance(v, _Variable) else v
+            _resolve_variable(obj, v)
             for v in (getattr(self, n) for n in names)
         )
 
     def prepare_output(self, obj, *values):
-        """Updates obj using the values corresponding to the output ports."""
+        """Update obj using the values corresponding to the output ports."""
 
         if not self.outputs:
             if any(values):
@@ -70,14 +90,16 @@ class Node:
                 "Length of values does not match number of output ports."
             )
 
-        for outp, r in zip(self.outputs, values):
-            obj[outp] = r
+        for variable, r in zip(self.outputs, values):
+            obj[variable] = r
 
         return obj
 
     def after_stream(self):
-        """Called after transform_stream is done.
-
+        """
+        Do something after the stream was processed.
+        
+        Called by transform_stream after stream processing is done.
         Override this in your own implementation.
         """
         pass
@@ -91,9 +113,7 @@ class Node:
         ]
 
     def transform_stream(self, stream):
-        """Apply transform to every object in the stream.
-        """
-
+        """Transform a stream."""
         names = self._get_parameter_names()
 
         for obj in stream:
@@ -128,20 +148,19 @@ class Output:
             ...
 
     """
+
     def __init__(self, name, help=None):
         self.name = name
         self.help = help
         self.node_cls = None
 
     def create_variable(self, node):
-        """
-        Return a copy of self with a reference to the node.
-        """
+        """Return a _Variable with a reference to the node."""
 
         return _Variable(self.name, node)
 
     def __repr__(self):
-        return "{}(\"{}\", )".format(
+        return "{}(\"{}\", {})".format(
             self.__class__.__name__, self.name, self.node_cls
         )
 
@@ -162,9 +181,36 @@ class Output:
 
         self.node_cls = cls
 
-        print("Done.")
-
         return cls
+
+
+@Output("out")
+class LambdaNode(Node):
+    """
+    Apply a function to the supplied variables.
+
+    Args:
+        clbl: A callable.
+        *args: Positional arguments to clbl.
+        **kwargs. Keyword-arguments to clbl.
+
+    Output:
+        The result of the function application.
+        
+    """
+    
+    def __init__(self, clbl, *args, **kwargs):
+        super().__init__()
+        self.clbl = clbl
+        self.args = args
+        self.kwargs = kwargs
+
+    def transform(self, clbl, args, kwargs):
+        """Apply clbl to the supplied arguments."""
+        return clbl(*args, **kwargs)
+
+    def __str__(self):
+        return "{}({})".format(self.__class__.__name__, self.clbl.__name__)
 
 
 class _Variable:
@@ -174,4 +220,7 @@ class _Variable:
         self.name = name
         self.node = node
 
-    #TODO: __eq__, __hash__
+    # TODO: __eq__, __hash__
+
+    def __getattr__(self, name):
+        return LambdaNode(getattr, self, name)()
