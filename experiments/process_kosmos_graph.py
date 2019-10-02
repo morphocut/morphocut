@@ -30,8 +30,9 @@ from tqdm import tqdm
 from morphocut.graph import Node, Output, Pipeline
 from morphocut.graph.core import _Variable
 
-import_path = "/data-ssd/mschroeder/Datasets/generic_zooscan_peru_kosmos_2017"
+#import_path = "/data-ssd/mschroeder/Datasets/generic_zooscan_peru_kosmos_2017"
 #import_path = "/home/moi/Work/Datasets/generic_zooscan_peru_kosmos_2017"
+import_path = '/studi-tmp/mkhan/generic_zooscan_peru_kosmos_2017'
 
 
 @Output("abs_path")
@@ -146,6 +147,8 @@ class PathParser(Node):
 
 
 class DumpMeta(Node):
+    """Create a duplicate file and dumps metadata here.
+    """
     def __init__(self, filename, meta, fields=None, unique_col=None):
         super().__init__()
 
@@ -241,12 +244,16 @@ class JoinMetadata(Node):
 
 @Output("mask")
 class ThresholdConst(Node):
+    """Set the mask of image
+    """
     def __init__(self, image, threshold):
         super().__init__()
         self.image = image
         self.threshold = threshold
 
     def transform(self, image):
+        """Check if the image is 2 dimensional
+        """
         if image.ndim != 2:
             raise ValueError("image.ndim needs to be exactly 2.")
 
@@ -257,6 +264,8 @@ class ThresholdConst(Node):
 
 @Output("rescaled")
 class Rescale(Node):
+    """Rescale the image
+    """
     def __init__(self, image, in_range='image', dtype=None):
         super().__init__()
 
@@ -281,6 +290,8 @@ class Rescale(Node):
 
 @Output("regionprops")
 class FindRegions(Node):
+    """Find different regions in image by slicing it
+    """
     def __init__(
         self, mask, image=None, min_area=None, max_area=None, padding=0
     ):
@@ -300,6 +311,8 @@ class FindRegions(Node):
         )
 
     def transform_stream(self, stream):
+        """Slice the image stream
+        """
         for obj in stream:
             mask, image = self.prepare_input(obj, ("mask", "image"))
 
@@ -328,6 +341,8 @@ class FindRegions(Node):
 
 @Output("extracted_image")
 class ExtractROI(Node):
+    """Return the extracted region/image
+    """
     def __init__(self, image, regionprops):
         super().__init__()
 
@@ -447,6 +462,8 @@ class CalculateZooProcessFeatures(Node):
 
 
 class DumpToZip(Node):
+    """Zip the image and its meta data
+    """
     def __init__(
         self, archive_fn, image_fn, image, meta, meta_fn="ecotaxa_export.tsv"
     ):
@@ -507,6 +524,8 @@ class GenerateObjectId(Node):
 
 
 class DumpImages(Node):
+    """Create a duplicate image, return its directory and filename
+    """
     def __init__(self, root, fmt, image, meta):
         super().__init__()
         self.root = root
