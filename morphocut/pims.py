@@ -1,6 +1,16 @@
-from morphocut.graph import Node, Output
+"""
+Through PIMS, MorphoCut supports reading Bioformats and Video.
+
+    "`PIMS`_ is a lazy-loading interface to
+    sequential data with numpy-like slicing."
+
+.. note::
+    `PIMS`_ is required to use the nodes defined in this module.
+
+.. _PIMS: http://soft-matter.github.io/pims/stable
+"""
 from morphocut._optional import import_optional_dependency
-import pims
+from morphocut.graph import Node, Output
 
 
 @Output("frame")
@@ -8,21 +18,25 @@ class VideoReader(Node):
     """Read frames from video files.
 
     .. note::
-        To use this reader, you need to have `PyAV`_ and `PIMS`_ installed.
+        `PyAV`_ is required to use this reader.
 
         .. _PyAV: https://docs.mikeboers.com/pyav/develop/installation.html
-        .. _PIMS: http://soft-matter.github.io/pims/stable
+        
 
     Args:
         path: Path to a video file.
         **kwargs: Additional keyword parameters for pims.PyAVReaderIndexed
 
-    Outputs:
-        frame (pims.Frame): The frame.
+    Example:
+        .. code-block:: python
 
-        - frame_no: Frame number.
-        - metadata: Frame metadata.
+            frame = VideoReader(path)()
+
+            # frame (pims.Frame): The frame.
+            #   frame.frame_no (int): Frame number.
+            #   frame.metadata (dict): Frame metadata.
     """
+
     def __init__(self, path):
         super().__init__()
 
@@ -43,30 +57,45 @@ class VideoReader(Node):
 @Output("frame")
 @Output("series")
 class BioformatsReader(Node):
-    """Read frames from Bioformats files.
+    """Read frames from Bio-Formats files.
 
     Bio-Formats is a software tool for reading and writing image data using standardized, open formats.
+    It is able to read `over 150 file formats`_, including OME-TIFF and Amnis FlowSight (.cif).
+
+    .. _over 150 file formats: https://docs.openmicroscopy.org/bio-formats/latest/supported-formats.html
 
     .. note::
-        To use this reader, you need to have `JPype`_ and `PIMS`_ installed.
+        `JPype`_ is required to use this reader.
+
+        On first use of `BioformatsReader`, the required java library `loci_tools.jar`
+        will be automatically downloaded from openmicroscopy.org.
 
         .. _JPype: https://github.com/jpype-project/jpype
-        .. _PIMS: http://soft-matter.github.io/pims/stable
 
     Args:
-        path: Path to a Bioformats file.
+        path (str): Path to a Bioformats file.
+        meta (bool, optional): When true, the metadata object is generated. Takes time to build.
+        series (int, optional):  Active image series index. Defaults to None
         **kwargs: Additional keyword parameters for pims.BioformatsReader
 
-    Outputs:
-        - frame (pims.Frame): The frame.
-            - frame_no: Frame number.
-            - metadata: Frame metadata.
-        - series (int): The series.
+    Example:
+        .. code-block:: python
+
+            frame, series = BioformatsReader(path)()
+
+            # frame (pims.Frame): The frame.
+            #   frame.frame_no (int): Frame number.
+            #   frame.metadata (dict): Frame metadata.
+            # series (int): The series extracted from the file.
+
     """
-    def __init__(self, path, **kwargs):
+
+    def __init__(self, path, meta, series, **kwargs):
         super().__init__()
 
         self.path = path
+        self.meta = meta
+        self.series = series
         self.kwargs = kwargs
 
         import_optional_dependency("jpype")
@@ -74,11 +103,16 @@ class BioformatsReader(Node):
 
     def transform_stream(self, stream):
         for obj in stream:
-            path = self.prepare_input(obj, "path")
+            path, meta, series, kwargs = self.prepare_input(
+                obj, ("path", "meta", "series", "kwargs")
+            )
 
-            series = self.kwargs.pop("series", None)
-
-            reader = self._pims.bioformats.BioformatsReader(path, **self.kwargs)
+            reader = self._pims.bioformats.BioformatsReader(
+                path,
+                meta=meta,
+                series=series,
+                **self.kwargs,
+            )
 
             if series is None:
                 series = range(reader.size_series)
