@@ -6,6 +6,10 @@
 The MorphoCut image processing pipeline library
 ===============================================
 
+.. image:: _static/morphocut_logo.png
+    :align: right
+    :width: 50%
+
 User Guide
 ----------
 
@@ -14,6 +18,8 @@ User Guide
 
    installation
    quickstart
-   api
    formats
+   stream
+   api
    contributing
+   authors

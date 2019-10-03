@@ -31,8 +31,16 @@ Please follow these  steps:
 Code style
 ~~~~~~~~~~
 
+* Follow `PEP 8`_, `PEP 257`_ and the `Google Style Guide`_.
 * Use `yapf <https://pypi.org/project/yapf/>`_ to format your code.
 * Use `isort <https://pypi.org/project/isort/>`_ to sort your imports.
+* Use `pydocstyle <https://pypi.org/project/pydocstyle/>`_ to get feedback on your docstrings.
+
+.. _Google Style Guide: http://google.github.io/styleguide/pyguide.html
+.. _PEP 8: https://www.python.org/dev/peps/pep-0008/
+.. _PEP 257: https://www.python.org/dev/peps/pep-0257/
+
+
 
 Documentation Contributions
 ---------------------------
@@ -41,10 +49,11 @@ Documentation is a very important part of this library
 and improvements are very welcome!
 It lives in the ``docs/`` directory and is written in
 `reStructuredText`_. We use `Sphinx`_ to generate the full suite of
-documentation.
+documentation. `napoleon`_ is used to interpret the docstrings.
 
 .. _reStructuredText: http://docutils.sourceforge.net/rst.html
 .. _Sphinx: http://sphinx-doc.org/index.html
+.. _napoleon: https://sphinxcontrib-napoleon.readthedocs.io/en/latest/
 
 Bug Reports
 -----------
