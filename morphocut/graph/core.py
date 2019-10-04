@@ -2,6 +2,7 @@
 
 import inspect
 import operator
+import warnings
 
 from morphocut.graph.pipeline import _pipeline_stack
 
@@ -29,11 +30,11 @@ class Node:
         # Bind outputs to self
         outputs = getattr(self.__class__, "outputs", [])
         self.outputs = [self.__bind_output(o) for o in outputs]
+        self._outputs_retrieved = False
 
         # Register with pipeline
         try:
-            _pipeline_stack[-1]._add_node(
-                self)  # pylint: disable=protected-access
+            _pipeline_stack[-1]._add_node(self)  # pylint: disable=protected-access
         except IndexError:
             raise RuntimeError("Empty pipeline stack") from None
 
@@ -53,6 +54,8 @@ class Node:
                 "'{type}' is not initialized properly. Did you forget a super().__init__() in the constructor?"
                 .format(type=type(self).__name__)
             )
+
+        self._outputs_retrieved = True
 
         # Return outputs
         if not outputs:
@@ -114,6 +117,13 @@ class Node:
 
     def transform_stream(self, stream):
         """Transform a stream."""
+
+        if not self._outputs_retrieved:
+            warnings.warn(
+                "Outputs were not retrieved. Did you forget a () after {type}(...)?"
+                .format(type=type(self).__name__)
+            )
+
         names = self._get_parameter_names()
 
         for obj in stream:
@@ -198,7 +208,7 @@ class LambdaNode(Node):
         The result of the function application.
         
     """
-    
+
     def __init__(self, clbl, *args, **kwargs):
         super().__init__()
         self.clbl = clbl
@@ -220,7 +230,11 @@ class _Variable:
         self.name = name
         self.node = node
 
-    # TODO: __eq__, __hash__
-
     def __getattr__(self, name):
         return LambdaNode(getattr, self, name)()
+
+    def __getitem__(self, key):
+        return LambdaNode(operator.getitem, self, key)()
+
+    def __setitem__(self, key, value):
+        return LambdaNode(operator.setitem, self, key, value)()
