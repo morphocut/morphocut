@@ -15,12 +15,20 @@ class TQDM(Node):
     .. _tqdm: https://github.com/tqdm/tqdm
     """
 
-    def __init__(self):
+    def __init__(self, description=None):
         super().__init__()
         self._tqdm = import_optional_dependency("tqdm")
+        self.description = description
 
     def transform_stream(self, stream):
-        for obj in self._tqdm.tqdm(stream):
+        progress = self._tqdm.tqdm(stream)
+        for obj in progress:
+
+            description = self.prepare_input(obj, "description")
+
+            if description:
+                progress.set_description(description)
+
             yield obj
 
 
