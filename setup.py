@@ -1,4 +1,5 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
+
 import versioneer
 
 with open("README.md", "r") as fp:
@@ -21,21 +22,19 @@ setup(
         'scikit-image',
         'pandas',
         'tqdm',
-        'opencv-python-headless',
+        'scipy',
     ],
     python_requires='>=3.5',
     extras_require={
-        'tests': [
-            'pytest'
-        ],
-        'docs': [
-            'sphinx >= 1.4',
-            'sphinx_rtd_theme',
-            'sphinxcontrib-programoutput'
-        ]
+        'tests': ['pytest'],
+        'docs':
+            [
+                'sphinx >= 1.4',
+                'sphinx_rtd_theme',
+                'sphinxcontrib-programoutput',
+            ]
     },
-    entry_points={
-    },
+    entry_points={},
     classifiers=[
         "Programming Language :: Python :: 3",
         'Programming Language :: Python :: 3.5',
