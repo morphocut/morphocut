@@ -1,6 +1,7 @@
-import pytest
-import os.path
 import glob
+import os.path
+
+import pytest
 
 
 @pytest.fixture

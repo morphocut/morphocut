@@ -75,7 +75,7 @@ class BioformatsReader(Node):
     Args:
         path (str): Path to a Bioformats file.
         meta (bool, optional): When true, the metadata object is generated. Takes time to build.
-        series (int, optional):  Active image series index. Defaults to None
+        series (int, optional):  Active image series index. Defaults to None, meaning that all series are read.
         **kwargs: Additional keyword parameters for pims.BioformatsReader
 
     Example:
@@ -90,7 +90,7 @@ class BioformatsReader(Node):
 
     """
 
-    def __init__(self, path, meta, series, **kwargs):
+    def __init__(self, path, meta, series=None, **kwargs):
         super().__init__()
 
         self.path = path

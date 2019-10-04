@@ -2,10 +2,10 @@
 This module implements a functional interface for image processing.
 """
 
-from skimage.filters import gaussian, threshold_otsu
-from skimage.morphology import binary_dilation, binary_erosion, dilation, disk
 import numpy as np
 from scipy.interpolate import LinearNDInterpolator
+from skimage.filters import gaussian, threshold_otsu
+from skimage.morphology import binary_dilation, binary_erosion, dilation, disk
 
 
 def calculate_flat_image(img):

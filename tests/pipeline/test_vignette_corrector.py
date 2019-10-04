@@ -1,9 +1,9 @@
 import glob
 import os.path
 
+from skimage.io import imread
 
 from morphocut.pipeline.vignette_corrector import VignetteCorrector
-from skimage.io import imread
 
 
 def test_vignette_corrector_no_channel(image_fns):

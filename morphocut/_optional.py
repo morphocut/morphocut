@@ -38,8 +38,10 @@ which is published under the following license:
 import distutils.version
 import importlib
 import types
-import warnings
 import typing as T
+import warnings
+
+__all__ = ["import_optional_dependency"]
 
 message = (
     "Missing optional dependency '{name}'. {extra} "

@@ -1,10 +1,11 @@
-from morphocut.graph import Pipeline, LambdaNode, Node
-from morphocut.pims import BioformatsReader
+from skimage.exposure import rescale_intensity
+from skimage.io import imsave
+
+from morphocut.graph import LambdaNode, Node, Pipeline
 from morphocut.io import ImageWriter
+from morphocut.pims import BioformatsReader
 from morphocut.str import Format
 from morphocut.stream import TQDM, Slice
-from skimage.io import imsave
-from skimage.exposure import rescale_intensity
 
 if __name__ == "__main__":
     with Pipeline() as p:

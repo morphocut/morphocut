@@ -8,13 +8,14 @@
 - `combine_index((None,) + left, (slice(),) + right) == (None,) + combine_index(left, right)`
 - `combine_index((n,) + left, right) == (n,) + combine_index(left, right)`
 """
-import pickle
-from skimage.data import coins
-import numpy as np
-import lazy_object_proxy.slots
 import functools
 import itertools
+import pickle
+
+import lazy_object_proxy.slots
+import numpy as np
 import pytest
+from skimage.data import coins
 
 
 def _make_factory(loader, id, index):

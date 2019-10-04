@@ -1,10 +1,13 @@
-from morphocut.graph import Node, Input, Output
 import copy
+
 import pytest
+
+from morphocut.graph import Node, Output
 
 
 @Output("outp")
 class Source(Node):
+
     def transform(self):
         for i in range(10):
             yield i
@@ -13,6 +16,7 @@ class Source(Node):
 @Input("inp")
 @Output("outp")
 class Inner(Node):
+
     def transform(self, inp):
         return copy.copy(inp)
 
@@ -21,6 +25,7 @@ class Inner(Node):
 @Output("outp1")
 @Output("outp2")
 class InnerMultiOut(Node):
+
     def transform(self, inp):
         return copy.copy(inp)
 
@@ -29,12 +34,14 @@ class InnerMultiOut(Node):
 @Input("inp2")
 @Output("outp")
 class InnerMultiIn(Node):
+
     def transform(self, inp1, inp2):
         return copy.copy(inp1)
 
 
 @Input("inp")
 class Sink(Node):
+
     def transform(self, inp):
         return None
 
