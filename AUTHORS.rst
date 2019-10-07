@@ -4,3 +4,4 @@ Contributors
 ------------
 
 - Christian Kiehn
+- Muhammad Ammar Khan
