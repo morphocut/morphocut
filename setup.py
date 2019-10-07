@@ -2,8 +2,8 @@ from setuptools import find_packages, setup
 
 import versioneer
 
-with open("README.md", "r") as fp:
-    long_description = fp.read()
+with open("README.rst", "r") as fp:
+    LONG_DESCRIPTION = fp.read()
 
 setup(
     name='morphocut',
@@ -12,8 +12,8 @@ setup(
     author='Simon-Martin Schroeder',
     author_email="martin.schroeder@nerdluecht.de",
     description="Image processing pipeline",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
+    long_description=LONG_DESCRIPTION,
+    long_description_content_type="text/x-rst",
     url="https://github.com/morphocut/morphocut",
     packages=find_packages(),
     include_package_data=True,
