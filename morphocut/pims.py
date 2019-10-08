@@ -10,7 +10,7 @@ Through PIMS, MorphoCut supports reading Bioformats and Video.
 .. _PIMS: http://soft-matter.github.io/pims/stable
 """
 from morphocut._optional import import_optional_dependency
-from morphocut.graph import Node, Output
+from morphocut import Node, Output
 
 
 @Output("frame")

@@ -10,8 +10,8 @@ from tqdm import tqdm
 
 from morphocut.ecotaxa import EcotaxaWriter
 from morphocut.file import Find
-from morphocut.graph import Pipeline
-from morphocut.graph.core import LambdaNode
+from morphocut import Pipeline
+from morphocut import LambdaNode
 from morphocut.image import ExtractROI, FindRegions, Rescale, ThresholdConst
 from morphocut.pandas import JoinMetadata, PandasWriter
 from morphocut.str import Format, Parse

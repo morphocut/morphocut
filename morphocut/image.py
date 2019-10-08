@@ -7,7 +7,7 @@ import scipy.ndimage as ndi
 import skimage.exposure
 import skimage.io
 
-from morphocut.graph import Node, Output
+from morphocut import Node, Output
 
 
 @Output("mask")

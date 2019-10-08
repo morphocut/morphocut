@@ -1,4 +1,4 @@
-from morphocut.graph import Node, Output
+from morphocut import Node, Output
 from morphocut._optional import import_optional_dependency
 import typing as T
 

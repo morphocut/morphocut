@@ -2,7 +2,7 @@ import csv
 import os
 
 from morphocut._optional import import_optional_dependency
-from morphocut.graph import Node, Output
+from morphocut import Node, Output
 
 
 def _default_writer(dataframe, path_or_buf):

@@ -14,7 +14,7 @@ import zipfile
 import PIL
 
 from morphocut._optional import import_optional_dependency
-from morphocut.graph import Node
+from morphocut import Node
 
 
 class EcotaxaWriter(Node):

@@ -1,4 +1,4 @@
-from morphocut.graph import Pipeline
+from morphocut import Pipeline
 from morphocut.str import Format
 
 

@@ -1,4 +1,4 @@
-from morphocut.graph import Pipeline
+from morphocut import Pipeline
 from morphocut.io import ImageWriter
 from morphocut.pims import VideoReader
 from morphocut.str import Format

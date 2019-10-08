@@ -2,7 +2,7 @@ import copy
 
 import pytest
 
-from morphocut.graph import Node, Output
+from morphocut import Node, Output
 
 
 @Output("outp")

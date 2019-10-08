@@ -1,7 +1,7 @@
 from skimage.exposure import rescale_intensity
 from skimage.io import imsave
 
-from morphocut.graph import LambdaNode, Node, Pipeline
+from morphocut import LambdaNode, Node, Pipeline
 from morphocut.io import ImageWriter
 from morphocut.pims import BioformatsReader
 from morphocut.str import Format

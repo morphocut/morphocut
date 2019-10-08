@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 
-from morphocut.graph import Node, Output
+from morphocut import Node, Output
 
 
 def regionprop2zooprocess(prop):

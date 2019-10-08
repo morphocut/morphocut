@@ -1,7 +1,7 @@
 import numpy as np
 import PIL
 
-from morphocut.graph import Node
+from morphocut import Node
 
 
 class ImageReader(Node):
