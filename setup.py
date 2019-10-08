@@ -26,7 +26,10 @@ setup(
     ],
     python_requires='>=3.5',
     extras_require={
-        'tests': ['pytest'],
+        'tests': [
+            'pytest',
+            "pytest-cov",
+        ],
         'docs':
             [
                 'sphinx >= 1.4',

@@ -88,10 +88,19 @@ class Node:
 
             return obj
 
-        if len(values) != len(self.outputs):
-            raise ValueError(
-                "Length of values does not match number of output ports."
-            )
+        while True:
+            n_values = len(values)
+            n_outputs = len(self.outputs)
+            if n_values != n_outputs:
+                # If values is a nested tuple, unnest and retry
+                if n_values == 1 and isinstance(values[0], tuple):
+                    values = values[0]
+                    continue
+                raise ValueError(
+                    "Length of values does not match number of output ports: {} vs. {}"
+                    .format(n_values, n_outputs)
+                )
+            break
 
         for variable, r in zip(self.outputs, values):
             obj[variable] = r
@@ -141,6 +150,13 @@ class Node:
         return "{}()".format(self.__class__.__name__)
 
     def __getattr__(self, name):
+        if name == "transform":
+            raise AttributeError(
+                "'{type}' has no attribute '{name}'".format(
+                    type=type(self).__name__, name=name
+                )
+            )
+
         raise AttributeError(
             "'{type}' has no attribute '{name}'. Did you forget a () after {type}(...)?"
             .format(type=type(self).__name__, name=name)
