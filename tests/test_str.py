@@ -1,6 +1,15 @@
 from morphocut import Pipeline
 from morphocut.str import Format
 
+import pytest
+
+try:
+    import parse
+    del parse
+    PARSE_AVAILABLE = True
+except ImportError:
+    PARSE_AVAILABLE = False
+
 
 def test_Format():
     # TODO Ammar: The invariants that we test here should be visible in the documentation of str.Format.
@@ -31,3 +40,8 @@ def test_Format():
     obj = next(stream)
 
     assert obj[result] == "3,4"
+
+
+@pytest.mark.skipif(not PARSE_AVAILABLE, reason="requires parse.")
+def test_Parse():
+    ...
