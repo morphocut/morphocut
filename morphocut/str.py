@@ -16,7 +16,8 @@ class Format(Node):
     def transform(
         self, fmt: str, _args: tuple, _kwargs: dict, args: tuple, kwargs: dict
     ):
-        return fmt.format(*_args, *args, **_kwargs, **kwargs)
+        kwargs = {**_kwargs, **kwargs}
+        return fmt.format(*args, *_args, **kwargs)
 
 
 @Output("meta")
@@ -46,11 +47,7 @@ class Parse(Node):
         )
 
     def transform(self, string):
-        try:
-            result = self.pattern.parse(string)
-        except TypeError:
-            print(repr(string))
-            raise
+        result = self.pattern.parse(string)
 
         if result is None:
             raise ValueError(
