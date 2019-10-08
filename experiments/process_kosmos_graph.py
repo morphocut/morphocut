@@ -6,16 +6,14 @@ import skimage
 import skimage.io
 import skimage.measure
 import skimage.segmentation
-from tqdm import tqdm
 
+from morphocut import LambdaNode, Pipeline
 from morphocut.ecotaxa import EcotaxaWriter
 from morphocut.file import Find
-from morphocut import Pipeline
-from morphocut import LambdaNode
 from morphocut.image import ExtractROI, FindRegions, Rescale, ThresholdConst
 from morphocut.pandas import JoinMetadata, PandasWriter
 from morphocut.str import Format, Parse
-from morphocut.stream import TQDM, PrintObjects, RunningIndex, StreamBuffer
+from morphocut.stream import TQDM, Enumerate, PrintObjects, StreamBuffer
 from morphocut.zooprocess import CalculateZooProcessFeatures
 
 #import_path = "/data-ssd/mschroeder/Datasets/generic_zooscan_peru_kosmos_2017"
@@ -76,7 +74,7 @@ if __name__ == "__main__":
 
         # features = PyTorch(lambda x: model(x).cpu().numpy())(vignette)
 
-        i = RunningIndex()()
+        i = Enumerate()()
         object_id = Format(
             "{sample_id}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}_{i:d}",
             _kwargs=meta,

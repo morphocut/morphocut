@@ -10,6 +10,8 @@ from threading import Thread
 from morphocut._optional import import_optional_dependency
 from morphocut import Node, Output
 
+__all__ = ["TQDM", "Slice"]
+
 
 class TQDM(Node):
     """
@@ -100,7 +102,7 @@ class PrintObjects(Node):
 
 
 @Output("index")
-class RunningIndex(Node):
+class Enumerate(Node):
 
     def transform_stream(self, stream):
         for i, obj in enumerate(stream):
