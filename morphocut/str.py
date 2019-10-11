@@ -1,5 +1,7 @@
 from morphocut._optional import import_optional_dependency
 from morphocut import Node, Output
+from morphocut.core import Variable
+import warnings
 
 
 @Output("string")
@@ -20,38 +22,63 @@ class Format(Node):
         return fmt.format(*args, *_args, **kwargs)
 
 
+class ParseWarning(UserWarning):
+    pass
+
+
 @Output("meta")
 class Parse(Node):
     """Parse information from a path.
 
     Args:
-        pattern (str): The pattern to look for in the input.
+        fmt (str): The pattern to look for in the input.
         case_sensitive (bool): Match pattern with case.
     """
 
-    def __init__(self, pattern: str, string, case_sensitive: bool = False):
+    def __init__(self, fmt, string, case_sensitive: bool = False):
         super().__init__()
 
+        self.fmt = fmt
         self.string = string
+        self.case_sensitive = case_sensitive
 
-        parse = import_optional_dependency("parse")
+        self._parse = import_optional_dependency("parse")
 
-        @parse.with_pattern(".*")
+        @self._parse.with_pattern(".*")
         def parse_greedystar(text):
             return text
 
-        extra_types = {"greedy": parse_greedystar}
+        self._extra_types = {"greedy": parse_greedystar}
 
-        self.pattern = parse.compile(
-            pattern, extra_types=extra_types, case_sensitive=case_sensitive
+        if not isinstance(fmt, Variable):
+            self._parser = self._compile(fmt)
+        else:
+            self._parser = None
+
+    def _compile(self, fmt):
+        parser = self._parse.compile(
+            fmt,
+            extra_types=self._extra_types,
+            case_sensitive=self.case_sensitive
         )
+        if not parser._named_fields:
+            warnings.warn(
+                "Pattern does not include any named fields: {}".format(fmt),
+                ParseWarning,
+            )
+        return parser
 
-    def transform(self, string):
-        result = self.pattern.parse(string)
+    def transform(self, fmt, string):
+        parser = self._parser
+
+        if parser is None:
+            parser = self._compile(fmt)
+
+        result = parser.parse(string)
 
         if result is None:
             raise ValueError(
-                "No match for {} in {}".format(self.pattern._format, string)
+                "No match for {} in {}".format(self._parser._format, string)
             )
 
         return result.named
