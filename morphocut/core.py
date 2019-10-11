@@ -8,7 +8,7 @@ _pipeline_stack = []
 
 
 def _resolve_variable(obj, variable_or_value):
-    if isinstance(variable_or_value, _Variable):
+    if isinstance(variable_or_value, Variable):
         return obj[variable_or_value]
 
     if isinstance(variable_or_value, tuple):
@@ -183,7 +183,7 @@ class Output:
     def create_variable(self, node):
         """Return a _Variable with a reference to the node."""
 
-        return _Variable(self.name, node)
+        return Variable(self.name, node)
 
     def __repr__(self):
         return "{}(\"{}\", {})".format(
@@ -239,7 +239,7 @@ class LambdaNode(Node):
         return "{}({})".format(self.__class__.__name__, self.clbl.__name__)
 
 
-class _Variable:
+class Variable:
     __slots__ = ["name", "node"]
 
     def __init__(self, name, node):
