@@ -28,7 +28,7 @@ class ParseWarning(UserWarning):
 
 @Output("meta")
 class Parse(Node):
-    """Parse information from a path.
+    """Parse information from a path. Also use external library 'parse'
 
     Args:
         fmt (str): The pattern to look for in the input.
