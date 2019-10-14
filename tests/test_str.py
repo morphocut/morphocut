@@ -41,22 +41,7 @@ def test_Format():
 
     assert obj[result] == "3,4"
 
-<<<<<<< HEAD
 
 @pytest.mark.skipif(not PARSE_AVAILABLE, reason="requires parse.")
 def test_Parse():
     ...
-=======
-    # Assert that the keyword arguments are reversed
-    fmt = "{d},{c},{b},{a}"
-    _kwargs = {"a": 1, "b": 2}
-    kwargs = {"c": 3, "d": 4}
-
-    with Pipeline() as pipeline:
-        result = Format(fmt, _kwargs=_kwargs, **kwargs)()
-
-    stream = pipeline.transform_stream()
-    obj = next(stream)
-
-    assert obj[result] == "4,3,2,1"
->>>>>>> test_parse incomplete
