@@ -15,7 +15,7 @@ __all__ = ["TQDM", "Slice"]
 
 class TQDM(Node):
     """
-    Provide a progress indicator via `tqdm`_.
+    Provide a progress indicator via `tqdm`_. Also use the library tqdm
 
     .. _tqdm: https://github.com/tqdm/tqdm
     """
