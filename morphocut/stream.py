@@ -116,3 +116,15 @@ class Enumerate(Node):
     def transform_stream(self, stream):
         for i, obj in enumerate(stream):
             yield self.prepare_output(obj, i)
+
+
+@Output("value")
+class FromIterator(Node):
+    """Insert values from the supplied iterator into the stream."""
+
+    def __init__(self, iterator):
+        super().__init__()
+        self.iterator = iterator
+
+    def transform(self, iterator):
+        return next(iterator)
