@@ -19,6 +19,20 @@ def test_TQDM():
     assert result.description == 'Description'
 
 
+def test_TQDM():
+    # Assert that the progress bar works with stream
+    items = range(5)
+
+    with Pipeline() as pipeline:
+        result = TQDM("Description")
+
+    stream = pipeline.transform_stream(items)
+    obj = list(stream)
+
+    assert obj == [0, 1, 2, 3, 4]
+    assert result.description == 'Description'
+
+
 def test_Slice():
     # Assert that the stream is sliced
     items = "ABCDEFG"
@@ -72,6 +86,7 @@ def test_FromIterable():
     assert values == result
 
 
+@pytest.mark.xfail
 def test_PrintObjects():
     values = list(range(10))
 

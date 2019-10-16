@@ -6,13 +6,23 @@ import warnings
 
 @Output("string")
 class Format(Node):
-    """Format a string just like :py:meth:`str.format`.
-    Create the string according to our given format
-    For example, if we want to append a string in a certain order or want to replace our arguments
     """
-    """Format a string just like :py:meth:`str.format`."""
-    """Create the string according to our given format
-    For example, if we want to append a string in a certain order or want to replace our arguments
+    Format a string just like :py:meth:`str.format`.
+    
+    Args:
+        fmt (str): A format in which we want our string to be.
+        *args: Arguments to be replaced with placeholders in fmt
+        _args: Arguments to be appended after *args
+        _kwargs: Key value paired arguments
+        **kwargs: Key value paired arguments to be appended after _kwargs
+
+    if we supply the same key twice, once in _kwargs and once in kwargs, then the values in those keys will be overwritten.
+
+    Example:
+        .. code-block:: python
+
+            result = Format(fmt, *args, _args=_args, _kwargs=_kwargs, **kwargs)()
+
     """
 
     def __init__(self, fmt, *args, _args=None, _kwargs=None, **kwargs):
@@ -38,11 +48,22 @@ class ParseWarning(UserWarning):
 class Parse(Node):
     """Parse information from a path. The class can be used to simply parse a string
     Or to search a string in some pattern.
-    It also uses external library 'parse'
+
+    .. note::
+        It also uses external library `parse`_
+
+    .. _parse: https://github.com/r1chardj0n3s/parse
 
     Args:
         fmt (str): The pattern to look for in the input.
+        string (str): A string input which is to be parsed
         case_sensitive (bool): Match pattern with case.
+
+    Example:
+        .. code-block:: python
+
+            result = Parse(pattern, string, case_sensitive)()
+
     """
 
     def __init__(self, fmt, string, case_sensitive: bool = False):
