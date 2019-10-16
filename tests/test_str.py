@@ -13,7 +13,6 @@ except ImportError:
 
 
 def test_Format():
-    # TODO Ammar: The invariants that we test here should be visible in the documentation of str.Format.
     # Assert that the arguments are appended in the right order
     fmt = "{},{},{},{},{},{},{a},{b},{c},{d}"
     args = (1, 2, 3)

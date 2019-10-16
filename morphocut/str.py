@@ -6,7 +6,10 @@ import warnings
 
 @Output("string")
 class Format(Node):
-    """Format a string just like :py:meth:`str.format`."""
+    """Format a string just like :py:meth:`str.format`.
+    Create the string according to our given format
+    For example, if we want to append a string in a certain order or want to replace our arguments
+    """
 
     def __init__(self, fmt, *args, _args=None, _kwargs=None, **kwargs):
         super().__init__()
@@ -29,7 +32,9 @@ class ParseWarning(UserWarning):
 
 @Output("meta")
 class Parse(Node):
-    """Parse information from a path. Also use external library 'parse'
+    """Parse information from a path. The class can be used to simply parse a string
+    Or to search a string in some pattern.
+    It also uses external library 'parse'
 
     Args:
         fmt (str): The pattern to look for in the input.
