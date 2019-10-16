@@ -10,6 +10,9 @@ class Format(Node):
     For example, if we want to append a string in a certain order or want to replace our arguments
     """
     """Format a string just like :py:meth:`str.format`."""
+    """Create the string according to our given format
+    For example, if we want to append a string in a certain order or want to replace our arguments
+    """
 
     def __init__(self, fmt, *args, _args=None, _kwargs=None, **kwargs):
         super().__init__()
