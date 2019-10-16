@@ -27,6 +27,7 @@ User Guide
    installation
    quickstart
    formats
+   str
    stream
    api
    contributing

@@ -6,6 +6,7 @@ import warnings
 
 @Output("string")
 class Format(Node):
+    """Format a string just like :py:meth:`str.format`."""
 
     def __init__(self, fmt, *args, _args=None, _kwargs=None, **kwargs):
         super().__init__()
@@ -23,7 +24,7 @@ class Format(Node):
 
 
 class ParseWarning(UserWarning):
-    pass
+    """Issued by :py:class:`Parse`."""
 
 
 @Output("meta")

@@ -1,7 +1,7 @@
 API
 ===
 
-.. module:: morphocut.graph
+.. module:: morphocut.core
 
 .. autoclass:: Node
     :members:
