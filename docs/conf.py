@@ -33,10 +33,13 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinxcontrib.programoutput',
     'sphinx.ext.viewcode',
+    'sphinx.ext.intersphinx',
 ]
 
 napoleon_use_param = False
 napoleon_use_keyword = False
+
+intersphinx_mapping = {'python': ('https://docs.python.org/3', None)}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
