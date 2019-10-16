@@ -15,18 +15,22 @@ __all__ = ["TQDM", "Slice"]
 
 class TQDM(Node):
     """
-    Provide a progress indicator via `tqdm`_. Returns an iterator which prints a dynamically
+    Provide a progress indicator via `tqdm`_. It prints a dynamically
     updating progressbar.
 
-    ..Note:
-       An external dependency tqdm is required to use this
+    .. note::
+       An external dependency `tqdm`_ is required to use this
 
-       .. _tqdm: https://github.com/tqdm/tqdm
+    .. _tqdm: https://github.com/tqdm/tqdm
+    
+    Args:
+        description (str): Description of a progress bar.
 
     Example:
-       ..code-block:: python
-          for i in tqdm(range(10000)):
-             pass
+        .. code-block:: python
+
+            progress = TQDM(description)()
+
     """
 
     def __init__(self, description=None):
