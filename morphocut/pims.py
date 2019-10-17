@@ -25,7 +25,7 @@ class VideoReader(Node):
 
     Args:
         path: Path to a video file.
-        **kwargs: Additional keyword parameters for pims.PyAVReaderIndexed
+        **kwargs: Additional keyword parameters for :py:class:`pims.PyAVReaderIndexed`.
 
     Example:
         .. code-block:: python
