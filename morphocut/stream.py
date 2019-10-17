@@ -107,9 +107,9 @@ class PrintObjects(Node):
 
     def transform_stream(self, stream):
         for obj in stream:
-            print(id(obj))
+            print("Stream object at 0x{:x}".format(id(obj)))
             for outp in self.args:
-                print(outp.name)
+                print("{}: ".format(outp.name), end="")
                 pprint.pprint(obj[outp])
             yield obj
 
