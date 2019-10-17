@@ -1,6 +1,6 @@
 from queue import Queue
 from morphocut import Pipeline
-from morphocut.stream import Slice, StreamBuffer, PrintObjects, TQDM, FromIterator
+from morphocut.stream import Slice, StreamBuffer, PrintObjects, TQDM, FromIterable
 
 import pytest
 
@@ -59,19 +59,11 @@ def test_StreamBuffer():
     assert obj[4] == '5'
 
 
-class TestClass:
-
-    def __init__(self, name):
-        self.name = name
-
-
-#@pytest.mark.xfail
-def test_FromIterator():
-    # Assert that the stream is buffered
+def test_FromIterable():
     values = list(range(10))
 
     with Pipeline() as pipeline:
-        value = FromIterator(values)()
+        value = FromIterable(values)()
 
     stream = pipeline.transform_stream()
 
@@ -80,18 +72,14 @@ def test_FromIterator():
     assert values == result
 
 
-@pytest.mark.xfail
 def test_PrintObjects():
-    # Assert that the stream is buffered
-    items = "12345"
-    arg = TestClass("test")
+    values = list(range(10))
 
     with Pipeline() as pipeline:
-        image = FromIterator([skimage.data.astronaut(), ...])()
+        value = FromIterable(values)()
         PrintObjects(value)()
 
-    stream = pipeline.transform_stream(items)
+    # TODO: Capture output and compare
 
-    list(stream)
-
-    assert next(stream) == '1'
+    # https://docs.pytest.org/en/latest/capture.html#accessing-captured-output-from-a-test-function
+    pipeline.run()
