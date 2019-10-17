@@ -86,6 +86,21 @@ def test_FromIterable():
     assert values == result
 
 
+#@pytest.mark.xfail
+def test_FromIterator():
+    # Assert that the stream is buffered
+    values = list(range(10))
+
+    with Pipeline() as pipeline:
+        value = FromIterator(values)()
+
+    stream = pipeline.transform_stream()
+
+    result = [o[value] for o in stream]
+
+    assert values == result
+
+
 @pytest.mark.xfail
 def test_PrintObjects():
     values = list(range(10))
