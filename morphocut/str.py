@@ -1,9 +1,10 @@
 from morphocut._optional import import_optional_dependency
-from morphocut import Node, Output
+from morphocut import Node, Output, ReturnOutputs
 from morphocut.core import Variable
 import warnings
 
 
+@ReturnOutputs
 @Output("string")
 class Format(Node):
     """Format a string just like :py:meth:`str.format`."""
@@ -27,6 +28,7 @@ class ParseWarning(UserWarning):
     """Issued by :py:class:`Parse`."""
 
 
+@ReturnOutputs
 @Output("meta")
 class Parse(Node):
     """Parse information from a path.

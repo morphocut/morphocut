@@ -1,9 +1,10 @@
 import numpy as np
 import PIL
 
-from morphocut import Node
+from morphocut import, ReturnOutputs
 
 
+@ReturnOutputs
 class ImageReader(Node):
     def __init__(self, path):
         super().__init__()
@@ -18,6 +19,7 @@ class ImageReader(Node):
             yield self.prepare_output(obj, image)
 
 
+@ReturnOutputs
 class ImageWriter(Node):
     def __init__(self, path, image):
         super().__init__()

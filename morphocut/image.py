@@ -7,9 +7,10 @@ import scipy.ndimage as ndi
 import skimage.exposure
 import skimage.io
 
-from morphocut import Node, Output
+from morphocut import Node, Output, ReturnOutputs
 
 
+@ReturnOutputs
 @Output("mask")
 class ThresholdConst(Node):
     """Set the mask of image
@@ -31,6 +32,7 @@ class ThresholdConst(Node):
         return mask
 
 
+@ReturnOutputs
 @Output("rescaled")
 class Rescale(Node):
     """Rescale the image
@@ -58,6 +60,7 @@ class Rescale(Node):
         return image
 
 
+@ReturnOutputs
 class ImageWriter(Node):
     """Create a duplicate image, return its directory and filename
     """
@@ -91,6 +94,7 @@ class ImageWriter(Node):
             yield dirname, filename, image, obj
 
 
+@ReturnOutputs
 @Output("regionprops")
 class FindRegions(Node):
     """
@@ -104,10 +108,10 @@ class FindRegions(Node):
     Example:
         .. code-block:: python
             mask = ...
-            regionsprops = FindRegions(mask)()
+            regionsprops = FindRegions(mask)
 
             # regionsprops: A skimage.measure.regionsprops object.
-    
+
     """
 
     def __init__(
@@ -157,6 +161,7 @@ class FindRegions(Node):
                 yield self.prepare_output(obj.copy(), props)
 
 
+@ReturnOutputs
 @Output("extracted_image")
 class ExtractROI(Node):
     """Return the extracted region/image
@@ -174,6 +179,7 @@ class ExtractROI(Node):
         return image[regionprops.slice]
 
 
+@ReturnOutputs
 class ImageStats(Node):
     """
     Parse information from a path

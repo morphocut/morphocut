@@ -21,7 +21,7 @@ def test_Format():
     kwargs = {"c": 9, "d": 10}
 
     with Pipeline() as pipeline:
-        result = Format(fmt, *args, _args=_args, _kwargs=_kwargs, **kwargs)()
+        result = Format(fmt, *args, _args=_args, _kwargs=_kwargs, **kwargs)
 
     stream = pipeline.transform_stream()
     obj = next(stream)
@@ -34,7 +34,7 @@ def test_Format():
     kwargs = {"a": 3, "b": 4}
 
     with Pipeline() as pipeline:
-        result = Format(fmt, _kwargs=_kwargs, **kwargs)()
+        result = Format(fmt, _kwargs=_kwargs, **kwargs)
 
     stream = pipeline.transform_stream()
     obj = next(stream)

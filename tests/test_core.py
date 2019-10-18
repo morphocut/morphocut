@@ -1,11 +1,13 @@
-from morphocut import Node, Pipeline, Output
+from morphocut import Node, Pipeline, Output, ReturnOutputs
 import pytest
 
 
+@ReturnOutputs
 class TestNodeNoTransform(Node):
     pass
 
 
+@ReturnOutputs
 @Output("a")
 @Output("b")
 @Output("c")
@@ -35,7 +37,7 @@ def test_Node():
 
     # Assert that parameters and outputs are passed as expected
     with Pipeline() as pipeline:
-        a, b, c = TestNode(1, 2, 3)()
+        a, b, c = TestNode(1, 2, 3)
 
     obj, *_ = list(pipeline.transform_stream())
     assert obj[a] == 1

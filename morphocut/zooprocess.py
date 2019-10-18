@@ -2,7 +2,7 @@ import os
 
 import numpy as np
 
-from morphocut import Node, Output
+from morphocut import Node, Output, ReturnOutputs
 
 
 def regionprop2zooprocess(prop):
@@ -82,6 +82,7 @@ def regionprop2zooprocess(prop):
     }
 
 
+@ReturnOutputs
 @Output("meta")
 class CalculateZooProcessFeatures(Node):
     """Calculate descriptive features using skimage.measure.regionprops.

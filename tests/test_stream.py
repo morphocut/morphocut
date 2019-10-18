@@ -16,7 +16,7 @@ def test_TQDM():
     obj = list(stream)
 
     assert obj == [0, 1, 2, 3, 4]
-    assert result.description == 'Description'
+    assert result.description == "Description"
 
 
 def test_Slice():
@@ -29,7 +29,7 @@ def test_Slice():
     stream = pipeline.transform_stream(items)
     obj = list(stream)
 
-    assert obj == ['A', 'B']
+    assert obj == ["A", "B"]
 
     # Assert that the stream is sliced from the specified start and end
     with Pipeline() as pipeline:
@@ -38,7 +38,7 @@ def test_Slice():
     stream = pipeline.transform_stream(items)
     obj = list(stream)
 
-    assert obj == ['C', 'D']
+    assert obj == ["C", "D"]
 
 
 def test_StreamBuffer():
@@ -52,18 +52,18 @@ def test_StreamBuffer():
     stream = result.transform_stream(items)
     obj = list(stream)
 
-    assert obj[0] == '1'
-    assert obj[1] == '2'
-    assert obj[2] == '3'
-    assert obj[3] == '4'
-    assert obj[4] == '5'
+    assert obj[0] == "1"
+    assert obj[1] == "2"
+    assert obj[2] == "3"
+    assert obj[3] == "4"
+    assert obj[4] == "5"
 
 
 def test_FromIterable():
     values = list(range(10))
 
     with Pipeline() as pipeline:
-        value = FromIterable(values)()
+        value = FromIterable(values)
 
     stream = pipeline.transform_stream()
 
@@ -76,8 +76,8 @@ def test_PrintObjects():
     values = list(range(10))
 
     with Pipeline() as pipeline:
-        value = FromIterable(values)()
-        PrintObjects(value)()
+        value = FromIterable(values)
+        PrintObjects(value)
 
     # TODO: Capture output and compare
 
