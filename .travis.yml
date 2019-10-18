@@ -1,0 +1,20 @@
+sudo: false
+language: python
+install: pip install tox-travis
+script: tox
+matrix:
+  include:
+  - python: 3.5
+  - python: 3.6
+  - python: 3.7
+    dist: xenial
+    sudo: true
+deploy:
+  provider: pypi
+  distributions: sdist bdist_wheel
+  skip_existing: true
+  user: mschroeder90
+  on:
+    tags: true
+  password:
+    secure: ZzHabFITGEI0P68GIuWN2fD8/pPO1EJa1hSU4OBRUkzEAs3ImzVQEVc7QxUYrG2li+PfFN2MBg9lBoiLdYXcXXTxO7z+6B3fo0NBxy/dCYfuQg8FBdNTOzL4EU85BNk3haNzGX7GVLVv9W3QLo6/WcfU9hUudVi0VpdZUEoC5Kt6HGO3MfRCNnI+0lx8fWgjUCJONDAXpXa1HQYWB7p/TQhjD8WiKQpGfmF8+iaGIRYdiQDindk8DMJ7xXi0rR7XQ55NCbihbVWmVP59iNtbQ0J87M6R+ENyq6O6B0llPOFFeipyD2E+66KlR7QXXTSIHSqCKb2DHGW6y0wQvrdWDeZ6HLOzY3Qg6Zez3kMn/mAl09+NEioqnA2pU2BjEZXiWz8Keuzg3gROR0+hl11aVwdV6maIpwA1GAOuqmPU+kFgG221Xo0vk8fZYewsL0VFhGrip4XZgqwNJGEQPcgCZE3rWVTLZ5OS31u806Wz58NkSG+Nlql7aTDD0vet5lnqvD7RTPl7D8HmbuLoclWRAGdj4BgFBlXvfrC+fR0idPR4Gb2KA+14Mlojmr5h1QQ5cIw0sNkDvZf6C4V7nRJ9wG9mgIfHe/l46XKDs1msZ1BlaZC3pxsvDuG2s/0B+7QaNkoPRe3khy7llSHD4b4vkSWB276vesv/UN+KRGkz/aQ=
