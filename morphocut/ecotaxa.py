@@ -14,9 +14,9 @@ import zipfile
 import PIL
 
 from morphocut._optional import import_optional_dependency
-from morphocut import Node
+from morphocut import Node, ReturnOutputs
 
-
+@ReturnOutputs
 class EcotaxaWriter(Node):
     """Zip the image and its meta data."""
 
@@ -77,6 +77,6 @@ class EcotaxaWriter(Node):
                 dataframe.to_csv(sep='\t', encoding='utf-8', index=False)
             )
 
-
+@ReturnOutputs
 class EcotaxaReader(Node):
     ...

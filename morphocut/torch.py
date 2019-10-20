@@ -1,6 +1,7 @@
-from morphocut import Node, Output
-from morphocut._optional import import_optional_dependency
 import typing as T
+
+from morphocut import Node, Output, ReturnOutputs
+from morphocut._optional import import_optional_dependency
 
 
 class _Envelope:
@@ -10,6 +11,7 @@ class _Envelope:
         self.data = data
 
 
+@ReturnOutputs
 @Output("output")
 class PyTorch(Node):
 

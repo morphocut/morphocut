@@ -1,8 +1,8 @@
 import os
 
-from morphocut import Node, Output
+from morphocut import Node, Output, ReturnOutputs
 
-
+@ReturnOutputs
 @Output("abs_path")
 class Find(Node):
     """

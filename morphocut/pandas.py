@@ -2,13 +2,14 @@ import csv
 import os
 
 from morphocut._optional import import_optional_dependency
-from morphocut import Node, Output
+from morphocut import Node, Output, ReturnOutputs
 
 
 def _default_writer(dataframe, path_or_buf):
     dataframe.to_csv(path_or_buf, index=False)
 
 
+@ReturnOutputs
 class PandasWriter(Node):
     """Create a duplicate file and dumps metadata here."""
 
@@ -49,6 +50,7 @@ class PandasWriter(Node):
         self.writer(dataframe, self.path_or_buf)
 
 
+@ReturnOutputs
 @Output("meta_out")
 class JoinMetadata(Node):
     """Join information from a CSV/TSV/Excel/... file."""

@@ -8,11 +8,12 @@ from queue import Queue
 from threading import Thread
 
 from morphocut._optional import import_optional_dependency
-from morphocut import Node, Output
+from morphocut import Node, Output, ReturnOutputs
 
 __all__ = ["TQDM", "Slice"]
 
 
+@ReturnOutputs
 class TQDM(Node):
     """
     Provide a progress indicator via `tqdm`_.
@@ -38,6 +39,7 @@ class TQDM(Node):
         progress.close()
 
 
+@ReturnOutputs
 class Slice(Node):
 
     def __init__(self, *args):
@@ -49,6 +51,7 @@ class Slice(Node):
             yield obj
 
 
+@ReturnOutputs
 class StreamBuffer(Node):
     """
     Buffer the stream.
@@ -86,6 +89,7 @@ class StreamBuffer(Node):
         thread.join()
 
 
+@ReturnOutputs
 class PrintObjects(Node):
 
     def __init__(self, *args):
@@ -101,6 +105,7 @@ class PrintObjects(Node):
             yield obj
 
 
+@ReturnOutputs
 @Output("index")
 class Enumerate(Node):
 
@@ -109,6 +114,7 @@ class Enumerate(Node):
             yield self.prepare_output(obj, i)
 
 
+@ReturnOutputs
 @Output("value")
 class FromIterable(Node):
     """Insert values from the supplied iterator into the stream."""
