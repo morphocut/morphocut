@@ -1,8 +1,9 @@
 from queue import Queue
 from morphocut import Pipeline
-from morphocut.stream import Slice, StreamBuffer, PrintObjects, TQDM
+from morphocut.stream import Slice, StreamBuffer, PrintObjects, TQDM, FromIterable
 
 import pytest
+
 
 def test_TQDM():
     # Assert that the progress bar works with stream
@@ -16,6 +17,21 @@ def test_TQDM():
 
     assert obj == [0, 1, 2, 3, 4]
     assert result.description == 'Description'
+
+
+def test_TQDM():
+    # Assert that the progress bar works with stream
+    items = range(5)
+
+    with Pipeline() as pipeline:
+        result = TQDM("Description")
+
+    stream = pipeline.transform_stream(items)
+    obj = list(stream)
+
+    assert obj == [0, 1, 2, 3, 4]
+    assert result.description == 'Description'
+
 
 def test_Slice():
     # Assert that the stream is sliced
@@ -55,20 +71,51 @@ def test_StreamBuffer():
     assert obj[3] == '4'
     assert obj[4] == '5'
 
-class TestClass:
-    def __init__(self, name):
-        self.name = name
 
-@pytest.mark.xfail
-def test_PrintObjects():
-    # Assert that the stream is buffered
-    items = "12345"
-    arg = TestClass("test")
+def test_FromIterable():
+    values = list(range(10))
 
     with Pipeline() as pipeline:
-        result = PrintObjects(arg)
+        value = FromIterable(values)()
 
-    stream = pipeline.transform_stream(items)
+    stream = pipeline.transform_stream()
 
-    assert stream.__next__() == '1'
-    
+    result = [o[value] for o in stream]
+
+    assert values == result
+
+
+#@pytest.mark.xfail
+def test_FromIterator():
+    # Assert that the stream is buffered
+    values = list(range(10))
+
+    with Pipeline() as pipeline:
+        value = FromIterable(values)()
+
+    stream = pipeline.transform_stream()
+
+    result = [o[value] for o in stream]
+
+    assert values == result
+
+
+def test_PrintObjects(capsys):
+    values = list(range(10))
+
+    with Pipeline() as pipeline:
+        value = FromIterable(values)()
+        PrintObjects(value)()
+
+    # TODO: Capture output and compare
+
+    # https://docs.pytest.org/en/latest/capture.html#accessing-captured-output-from-a-test-function
+    #pipeline.run()
+    stream = pipeline.transform_stream()
+    result = [o[value] for o in stream]
+
+    captured = capsys.readouterr()
+    print(captured.out)
+    assert result == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    #captured = capsys.readouterr()
+    #assert captured.out == '9'

@@ -8,7 +8,7 @@ import warnings
 class Format(Node):
     """
     Format a string just like :py:meth:`str.format`.
-
+    
     Args:
         fmt (str): A format in which we want our string to be.
         *args: Arguments to be replaced with placeholders in fmt

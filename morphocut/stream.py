@@ -107,9 +107,9 @@ class PrintObjects(Node):
 
     def transform_stream(self, stream):
         for obj in stream:
-            print(id(obj))
+            print("Stream object at 0x{:x}".format(id(obj)))
             for outp in self.args:
-                print(outp.name)
+                print("{}: ".format(outp.name), end="")
                 pprint.pprint(obj[outp])
             yield obj
 
@@ -123,12 +123,18 @@ class Enumerate(Node):
 
 
 @Output("value")
-class FromIterator(Node):
+class FromIterable(Node):
     """Insert values from the supplied iterator into the stream."""
 
-    def __init__(self, iterator):
+    def __init__(self, iterable):
         super().__init__()
-        self.iterator = iterator
+        self.iterable = iterable
 
-    def transform(self, iterator):
-        return next(iterator)
+    def transform_stream(self, stream):
+        """Transform a stream."""
+
+        for obj in stream:
+            iterable = self.prepare_input(obj, "iterable")
+
+            for value in iterable:
+                yield self.prepare_output(obj.copy(), value)
