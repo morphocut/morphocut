@@ -6,7 +6,7 @@ import typing
 import warnings
 from functools import wraps
 
-__pipeline_stack: typing.List['Pipeline'] = []
+__pipeline_stack = []  # type: ignore
 
 
 def _resolve_variable(obj, variable_or_value):
@@ -20,6 +20,31 @@ def _resolve_variable(obj, variable_or_value):
         return {k: _resolve_variable(obj, v) for k, v in variable_or_value.items()}
 
     return variable_or_value
+
+
+T = typing.TypeVar('T')
+
+
+class Variable(typing.Generic[T]):
+    __slots__ = ["name", "node"]
+
+    def __init__(self, name, node):
+        self.name = name
+        self.node = node
+
+    def __getattr__(self, name):
+        return LambdaNode(getattr, self, name)
+
+    def __getitem__(self, key):
+        return LambdaNode(operator.getitem, self, key)
+
+    def __setitem__(self, key, value):
+        return LambdaNode(operator.setitem, self, key, value)
+
+
+class RawOrVariable:
+    def __class_getitem__(cls, t):
+        return typing.Union[t, Variable[t]]
 
 
 class Node:
@@ -245,31 +270,6 @@ class LambdaNode(Node):
 
     def __str__(self):
         return "{}({})".format(self.__class__.__name__, self.clbl.__name__)
-
-
-T = typing.TypeVar('T')
-
-
-class Variable(typing.Generic[T]):
-    __slots__ = ["name", "node"]
-
-    def __init__(self, name, node):
-        self.name = name
-        self.node = node
-
-    def __getattr__(self, name):
-        return LambdaNode(getattr, self, name)
-
-    def __getitem__(self, key):
-        return LambdaNode(operator.getitem, self, key)
-
-    def __setitem__(self, key, value):
-        return LambdaNode(operator.setitem, self, key, value)
-
-
-class RawOrVariable:
-    def __class_getitem__(cls, t):
-        return typing.Union[t, Variable[t]]
 
 
 class Pipeline:
