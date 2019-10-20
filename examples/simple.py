@@ -1,9 +1,10 @@
 from morphocut import Pipeline
 from morphocut.io import ImageReader, ImageWriter
+from morphocut.file import Glob
 
 with Pipeline() as p:
-    # TODO: Work on many images
-    image = ImageReader("/path/to/input.png")
+    path = Glob("/path/to/input/files")
+    image = ImageReader(path)
     ImageWriter("/path/to/output.png", image)
 
 p.run()

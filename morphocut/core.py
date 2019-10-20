@@ -70,7 +70,7 @@ class Node:
 
         return variable
 
-    def __call__(self) -> typing.Union[Variable, typing.Tuple[Variable]]:
+    def __call__(self) -> typing.Union[Variable, typing.Tuple[Variable], None]:
         """Return outputs."""
 
         try:
@@ -147,8 +147,8 @@ class Node:
         return [
             p.name
             for p in inspect.signature(
-                self.transform
-            ).parameters.values()  # pylint: disable=no-member
+                self.transform  # pylint: disable=no-member
+            ).parameters.values()
             if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
         ]
 
