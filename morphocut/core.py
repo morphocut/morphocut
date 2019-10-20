@@ -6,7 +6,7 @@ import typing
 import warnings
 from functools import wraps
 
-__pipeline_stack = []  # type: ignore
+_pipeline_stack = []  # type: ignore, pylint: disable=invalid-name
 
 
 def _resolve_variable(obj, variable_or_value):
@@ -59,7 +59,7 @@ class Node:
         # Register with pipeline
         try:
             # pylint: disable=protected-access
-            __pipeline_stack[-1]._add_node(
+            _pipeline_stack[-1]._add_node(
                 self)
         except IndexError:
             raise RuntimeError("Empty pipeline stack") from None
@@ -278,13 +278,13 @@ class Pipeline:
 
     def __enter__(self):
         # Push self to pipeline stack
-        __pipeline_stack.append(self)
+        _pipeline_stack.append(self)
 
         return self
 
     def __exit__(self, *_):
         # Pop self from pipeline stack
-        item = __pipeline_stack.pop()
+        item = _pipeline_stack.pop()
 
         assert item is self
 
