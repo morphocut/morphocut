@@ -32,8 +32,7 @@ class Find(Node):
                     ext = os.path.splitext(fn)[1]
 
                     # Skip non-allowed extensions
-                    if ext not in self.eReturns:
-        Variable[str]: Path matching ``pathname``.xtensions:
+                    if ext not in self.extensions:
                         continue
 
                     yield self.prepare_output(
@@ -51,11 +50,11 @@ class Glob(Node):
     For more information see :py:mod:`glob`.
 
     Args:
-        pathname (RawOrVariable[str]): Pattern for path names containing a path specification.
+        pathname (str or Variable[str]): Pattern for path names containing a path specification.
             Can be either absolute (like ``/path/to/file``) or relative (like ``../../foo/*/*.bar``)
             and can contain shell-style wildcards.
             If the pattern is followed by an ``os.sep`` or ``os.altsep`` then files will not match.
-        recursive (RawOrVariable[bool]): If true, the pattern "``**``"
+        recursive (bool or Variable[bool]): If true, the pattern "``**``"
             will match any files and zero or more directories, subdirectories
             and symbolic links to directories.
 
