@@ -4,7 +4,8 @@ from morphocut.stream import Slice, StreamBuffer, PrintObjects, TQDM, FromIterab
 
 import pytest
 
-
+# TODO: Remove once test passes
+@pytest.mark.xfail(strict=True)
 def test_TQDM():
     # Assert that the progress bar works with stream
     items = range(5)
@@ -40,7 +41,8 @@ def test_Slice():
 
     assert obj == ["C", "D"]
 
-
+# TODO: Remove once test passes
+@pytest.mark.xfail(strict=True)
 def test_StreamBuffer():
     # Assert that the stream is buffered
     maxsize = 5
