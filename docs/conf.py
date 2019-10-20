@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.abspath('..'))
 
 # -- Project information -----------------------------------------------------
 
-from morphocut import __version__
+from morphocut import __version__  # noqa
 
 project = 'MorphoCut'
 copyright = '2019, Simon-Martin Schroeder'
@@ -41,11 +41,12 @@ extensions = [
 
 napoleon_use_param = False
 napoleon_use_keyword = False
+napoleon_use_rtype = False
 
 intersphinx_mapping = {
     'python': ('https://docs.python.org/3', None),
     # TODO: Always link to the latest stable
-    'pims': ('https://soft-matter.github.io/pims/v0.4.1/', None)
+    'pims': ('https://soft-matter.github.io/pims/v0.4.1/', None),
 }
 
 # Add any paths that contain templates here, relative to this directory.

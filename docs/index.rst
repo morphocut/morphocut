@@ -28,6 +28,7 @@ User Guide
    quickstart
    formats
    str
+   file
    stream
    api
    contributing
