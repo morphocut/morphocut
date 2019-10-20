@@ -2,9 +2,10 @@
 
 import inspect
 import operator
+import typing
 import warnings
 
-_pipeline_stack = []
+__pipeline_stack: typing.List['Pipeline'] = []
 
 
 def _resolve_variable(obj, variable_or_value):
@@ -34,7 +35,9 @@ class Node:
 
         # Register with pipeline
         try:
-            _pipeline_stack[-1]._add_node(self)  # pylint: disable=protected-access
+            # pylint: disable=protected-access
+            __pipeline_stack[-1]._add_node(
+                self)
         except IndexError:
             raise RuntimeError("Empty pipeline stack") from None
 
@@ -110,11 +113,10 @@ class Node:
     def after_stream(self):
         """
         Do something after the stream was processed.
-        
+
         Called by transform_stream after stream processing is done.
         Override this in your own implementation.
         """
-        pass
 
     def _get_parameter_names(self):
         """Inspect self.transform to get the parameter names."""
@@ -175,9 +177,13 @@ class Output:
 
     """
 
-    def __init__(self, name, help=None):
+    def __init__(
+        self,
+        name,
+        doc=None
+    ):
         self.name = name
-        self.help = help
+        self.doc = doc
         self.node_cls = None
 
     def create_variable(self, node):
@@ -222,7 +228,7 @@ class LambdaNode(Node):
 
     Output:
         The result of the function application.
-        
+
     """
 
     def __init__(self, clbl, *args, **kwargs):
@@ -239,7 +245,10 @@ class LambdaNode(Node):
         return "{}({})".format(self.__class__.__name__, self.clbl.__name__)
 
 
-class Variable:
+T = typing.TypeVar('T')
+
+
+class Variable(typing.Generic[T]):
     __slots__ = ["name", "node"]
 
     def __init__(self, name, node):
@@ -256,6 +265,11 @@ class Variable:
         return LambdaNode(operator.setitem, self, key, value)()
 
 
+class RawOrVariable:
+    def __class_getitem__(cls, t):
+        return typing.Union[t, Variable[t]]
+
+
 class Pipeline:
 
     def __init__(self):
@@ -263,13 +277,13 @@ class Pipeline:
 
     def __enter__(self):
         # Push self to pipeline stack
-        _pipeline_stack.append(self)
+        __pipeline_stack.append(self)
 
         return self
 
     def __exit__(self, *_):
         # Pop self from pipeline stack
-        item = _pipeline_stack.pop()
+        item = __pipeline_stack.pop()
 
         assert item is self
 
