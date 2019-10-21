@@ -1,7 +1,8 @@
 import glob
 import os
+from typing import Collection
 
-from morphocut import Node, Output, ReturnOutputs, Variable
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs, Variable
 
 
 @ReturnOutputs
@@ -18,7 +19,7 @@ class Find(Node):
         Variable[str]: Path of the matching file.
     """
 
-    def __init__(self, root: str, extensions):
+    def __init__(self, root: str, extensions: Collection):
         super().__init__()
 
         self.root = root
@@ -62,7 +63,7 @@ class Glob(Node):
         Variable[str]: Path matching ``pathname``.
     """
 
-    def __init__(self, pathname, recursive=False):
+    def __init__(self, pathname: RawOrVariable[str], recursive: RawOrVariable[bool] = False):
         super().__init__()
 
         self.pathname = pathname

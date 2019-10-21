@@ -38,8 +38,8 @@ which is published under the following license:
 import distutils.version
 import importlib
 import types
-import typing as T
 import warnings
+from typing import Optional
 
 __all__ = ["import_optional_dependency"]
 
@@ -69,7 +69,7 @@ def _get_version(module: types.ModuleType) -> str:
 def import_optional_dependency(
     name: str,
     extra: str = "",
-    min_version: T.Optional[str] = None,
+    min_version: Optional[str] = None,
     raise_on_missing: bool = True,
     on_version: str = "raise"
 ):

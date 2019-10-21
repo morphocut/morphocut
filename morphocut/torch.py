@@ -1,6 +1,6 @@
-import typing as T
+from typing import Callable
 
-from morphocut import Node, Output, ReturnOutputs
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 from morphocut._optional import import_optional_dependency
 
 
@@ -15,7 +15,7 @@ class _Envelope:
 @Output("output")
 class PyTorch(Node):
 
-    def __init__(self, model: T.Callable, image):
+    def __init__(self, model: Callable, image: RawOrVariable):
         super().__init__()
         self.model = model
         self.image = image

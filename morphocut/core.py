@@ -2,9 +2,9 @@
 
 import inspect
 import operator
-import typing
 import warnings
 from functools import wraps
+from typing import Callable, Generic, Tuple, TypeVar, Union
 
 _pipeline_stack = []  # type: ignore, pylint: disable=invalid-name
 
@@ -22,10 +22,10 @@ def _resolve_variable(obj, variable_or_value):
     return variable_or_value
 
 
-T = typing.TypeVar('T')
+T = TypeVar('T')
 
 
-class Variable(typing.Generic[T]):
+class Variable(Generic[T]):
     __slots__ = ["name", "node"]
 
     def __init__(self, name, node):
@@ -42,8 +42,8 @@ class Variable(typing.Generic[T]):
         return LambdaNode(operator.setitem, self, key, value)
 
 
-RawOrVariable = typing.Union[T, Variable[T]]
-NodeCallReturnType = typing.Union[None, Variable, typing.Tuple[Variable]]
+RawOrVariable = Union[T, Variable[T]]
+NodeCallReturnType = Union[None, Variable, Tuple[Variable]]
 
 
 class Node:
@@ -257,7 +257,7 @@ class LambdaNode(Node):
 
     """
 
-    def __init__(self, clbl, *args, **kwargs):
+    def __init__(self, clbl: Callable, *args, **kwargs):
         super().__init__()
         self.clbl = clbl
         self.args = args

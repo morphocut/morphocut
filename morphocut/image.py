@@ -1,13 +1,14 @@
 import itertools
 import operator
 import os
+from typing import Any, List, Mapping
 
 import numpy as np
 import scipy.ndimage as ndi
 import skimage.exposure
 import skimage.io
 
-from morphocut import Node, Output, ReturnOutputs
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 
 
 @ReturnOutputs
@@ -16,7 +17,7 @@ class ThresholdConst(Node):
     """Set the mask of image
     """
 
-    def __init__(self, image, threshold):
+    def __init__(self, image: RawOrVariable, threshold: RawOrVariable):
         super().__init__()
         self.image = image
         self.threshold = threshold
@@ -38,7 +39,7 @@ class Rescale(Node):
     """Rescale the image
     """
 
-    def __init__(self, image, in_range='image', dtype=None):
+    def __init__(self, image: RawOrVariable, in_range='image', dtype=None):
         super().__init__()
 
         self.image = image
@@ -65,7 +66,7 @@ class ImageWriter(Node):
     """Create a duplicate image, return its directory and filename
     """
 
-    def __init__(self, root, fmt, image, meta):
+    def __init__(self, root: str, fmt: str, image: RawOrVariable, meta: RawOrVariable[Mapping]):
         super().__init__()
         self.root = root
         self.fmt = fmt
@@ -115,7 +116,7 @@ class FindRegions(Node):
     """
 
     def __init__(
-        self, mask, image=None, min_area=None, max_area=None, padding=0
+        self, mask: RawOrVariable, image: RawOrVariable = None, min_area=None, max_area=None, padding=0
     ):
         super().__init__()
 
@@ -167,7 +168,7 @@ class ExtractROI(Node):
     """Return the extracted region/image
     """
 
-    def __init__(self, image, regionprops):
+    def __init__(self, image: RawOrVariable, regionprops: RawOrVariable):
         super().__init__()
 
         self.image = image
@@ -185,11 +186,12 @@ class ImageStats(Node):
     Parse information from a path
     """
 
-    def __init__(self, image, name=""):
+    def __init__(self, image: RawOrVariable, name: str = ""):
         super().__init__()
 
-        self.min = []
-        self.max = []
+        self.min = []  # type: List[Any]
+        self.max = []  # type: List[Any]
+        self.image = image
         self.name = name
 
     def transform(self, image):

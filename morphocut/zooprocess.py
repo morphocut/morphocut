@@ -1,8 +1,9 @@
 import os
+from typing import Mapping, Optional
 
 import numpy as np
 
-from morphocut import Node, Output, ReturnOutputs
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 
 
 def regionprop2zooprocess(prop):
@@ -88,7 +89,7 @@ class CalculateZooProcessFeatures(Node):
     """Calculate descriptive features using skimage.measure.regionprops.
     """
 
-    def __init__(self, regionprops, meta=None, prefix=None):
+    def __init__(self, regionprops: RawOrVariable, meta: Optional[RawOrVariable[Mapping]] = None, prefix: Optional[RawOrVariable[str]] = None):
         super().__init__()
 
         self.regionprops = regionprops

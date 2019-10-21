@@ -6,9 +6,10 @@ import itertools
 import pprint
 from queue import Queue
 from threading import Thread
+from typing import Iterable, Optional, Tuple
 
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs, Variable
 from morphocut._optional import import_optional_dependency
-from morphocut import Node, Output, ReturnOutputs
 
 __all__ = ["TQDM", "Slice"]
 
@@ -21,7 +22,7 @@ class TQDM(Node):
     .. _tqdm: https://github.com/tqdm/tqdm
     """
 
-    def __init__(self, description=None):
+    def __init__(self, description: Optional[RawOrVariable[str]] = None):
         super().__init__()
         self._tqdm = import_optional_dependency("tqdm")
         self.description = description
@@ -42,7 +43,7 @@ class TQDM(Node):
 @ReturnOutputs
 class Slice(Node):
 
-    def __init__(self, *args):
+    def __init__(self, *args: Optional[int]):
         super().__init__()
         self.args = args
 
@@ -61,7 +62,7 @@ class StreamBuffer(Node):
 
     _sentinel = object()
 
-    def __init__(self, maxsize):
+    def __init__(self, maxsize: int):
         super().__init__()
         self.queue = Queue(maxsize)
 
@@ -92,7 +93,7 @@ class StreamBuffer(Node):
 @ReturnOutputs
 class PrintObjects(Node):
 
-    def __init__(self, *args):
+    def __init__(self, *args: Tuple[Variable]):
         super().__init__()
         self.args = args
 
@@ -119,7 +120,7 @@ class Enumerate(Node):
 class FromIterable(Node):
     """Insert values from the supplied iterator into the stream."""
 
-    def __init__(self, iterable):
+    def __init__(self, iterable: RawOrVariable[Iterable]):
         super().__init__()
         self.iterable = iterable
 

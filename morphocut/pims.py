@@ -9,8 +9,10 @@ Through PIMS, MorphoCut supports reading Bioformats and Video.
 
 .. _PIMS: http://soft-matter.github.io/pims/stable
 """
+from typing import Optional
+
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 from morphocut._optional import import_optional_dependency
-from morphocut import Node, Output, ReturnOutputs
 
 
 @ReturnOutputs
@@ -38,7 +40,7 @@ class VideoReader(Node):
             #   frame.metadata (dict): Frame metadata.
     """
 
-    def __init__(self, path):
+    def __init__(self, path: RawOrVariable[str]):
         super().__init__()
 
         self.path = path
@@ -92,7 +94,7 @@ class BioformatsReader(Node):
 
     """
 
-    def __init__(self, path, meta, series=None, **kwargs):
+    def __init__(self, path: RawOrVariable[str], meta: RawOrVariable[bool], series: Optional[RawOrVariable[int]] = None, **kwargs):
         super().__init__()
 
         self.path = path
@@ -113,7 +115,7 @@ class BioformatsReader(Node):
                 path,
                 meta=meta,
                 series=series,
-                **self.kwargs,
+                **kwargs,
             )
 
             if series is None:

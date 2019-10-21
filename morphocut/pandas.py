@@ -1,8 +1,9 @@
 import csv
 import os
+from typing import Collection, List, Mapping, Optional, Sequence  # noqa
 
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 from morphocut._optional import import_optional_dependency
-from morphocut import Node, Output, ReturnOutputs
 
 
 def _default_writer(dataframe, path_or_buf):
@@ -16,9 +17,9 @@ class PandasWriter(Node):
     def __init__(
         self,
         path_or_buf,
-        data,
-        columns=None,
-        drop_duplicates_subset=None,
+        data: RawOrVariable[Mapping],
+        columns: Optional[Collection] = None,
+        drop_duplicates_subset: Optional[Collection] = None,
         writer=_default_writer,
     ):
         super().__init__()
@@ -27,7 +28,7 @@ class PandasWriter(Node):
         self.data = data
         self.columns = columns
         self.drop_duplicates_subset = drop_duplicates_subset
-        self.dataframe = []
+        self.dataframe = []  # type: List[Mapping]
         self.writer = writer
 
         self._pd = import_optional_dependency("pandas")
@@ -55,7 +56,7 @@ class PandasWriter(Node):
 class JoinMetadata(Node):
     """Join information from a CSV/TSV/Excel/... file."""
 
-    def __init__(self, filename, data=None, on=None, fields=None):
+    def __init__(self, filename: str, data: RawOrVariable[Mapping] = None, on=None, fields: Sequence = None):
         super().__init__()
 
         self.data = data

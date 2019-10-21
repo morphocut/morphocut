@@ -1,7 +1,8 @@
-from morphocut._optional import import_optional_dependency
-from morphocut import Node, Output, ReturnOutputs
-from morphocut.core import Variable
 import warnings
+from typing import Mapping, Optional, Tuple
+
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs, Variable
+from morphocut._optional import import_optional_dependency
 
 
 @ReturnOutputs
@@ -9,7 +10,7 @@ import warnings
 class Format(Node):
     """Format a string just like :py:meth:`str.format`."""
 
-    def __init__(self, fmt, *args, _args=None, _kwargs=None, **kwargs):
+    def __init__(self, fmt: RawOrVariable[str], *args: Tuple[RawOrVariable], _args: Optional[RawOrVariable[Tuple]] = None, _kwargs: RawOrVariable[Mapping] = None, **kwargs: Mapping[str, RawOrVariable]):
         super().__init__()
         self.fmt = fmt
         self._args = _args or ()
@@ -38,7 +39,7 @@ class Parse(Node):
         case_sensitive (bool): Match pattern with case.
     """
 
-    def __init__(self, fmt, string, case_sensitive: bool = False):
+    def __init__(self, fmt: RawOrVariable[str], string: RawOrVariable, case_sensitive: bool = False):
         super().__init__()
 
         self.fmt = fmt
