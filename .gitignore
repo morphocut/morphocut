@@ -10,3 +10,4 @@ htmlcov
 .coverage
 .ipynb_checkpoints
 .tox/
+pip-wheel-metadata/
