@@ -2,10 +2,12 @@ from morphocut import Node, Pipeline, Output, ReturnOutputs, LambdaNode
 import pytest
 
 
+@ReturnOutputs
 class TestNodeNoTransform(Node):
     pass
 
 
+@ReturnOutputs
 @Output("a")
 @Output("b")
 @Output("c")
