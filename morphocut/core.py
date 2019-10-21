@@ -42,9 +42,8 @@ class Variable(typing.Generic[T]):
         return LambdaNode(operator.setitem, self, key, value)
 
 
-class RawOrVariable:
-    def __class_getitem__(cls, t):
-        return typing.Union[t, Variable[t]]
+RawOrVariable = typing.Union[T, Variable[T]]
+NodeCallReturnType = typing.Union[None, Variable, typing.Tuple[Variable]]
 
 
 class Node:
@@ -70,7 +69,7 @@ class Node:
 
         return variable
 
-    def __call__(self) -> typing.Union[Variable, typing.Tuple[Variable], None]:
+    def __call__(self) -> NodeCallReturnType:
         """Return outputs."""
 
         try:
@@ -236,7 +235,7 @@ def ReturnOutputs(node_cls):
         )
 
     @wraps(node_cls)
-    def wrapper(*args, **kwargs) -> typing.Union[Variable, typing.Tuple[Variable]]:
+    def wrapper(*args, **kwargs) -> NodeCallReturnType:
         return node_cls(*args, **kwargs)()
     wrapper.node_cls = node_cls
     return wrapper
