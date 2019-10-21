@@ -253,7 +253,8 @@ def ReturnOutputs(node_cls):
     def wrapper(*args, **kwargs) -> NodeCallReturnType:
         return node_cls(*args, **kwargs)()
 
-    wrapper.node_cls = node_cls
+    wrapper._node_cls = node_cls
+    wrapper.__mro__ = node_cls.__mro__
     return wrapper
 
 
