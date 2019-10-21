@@ -3,8 +3,9 @@
 import inspect
 import operator
 import warnings
+from collections import abc
 from functools import wraps
-from typing import Callable, Generic, Tuple, TypeVar, Union
+from typing import Callable, Generic, Iterable, Mapping, Optional, Tuple, TypeVar, Union
 
 _pipeline_stack = []  # type: ignore, pylint: disable=invalid-name
 
@@ -22,10 +23,20 @@ def _resolve_variable(obj, variable_or_value):
     return variable_or_value
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class Variable(Generic[T]):
+    """
+    A Variable identifies a value in the stream.
+
+    Variables are (almost) never instanciated manually, they are created when calling a Node.
+
+    Attributes:
+        name: The name of the Variable.
+        node: The node that created the Variable.
+    """
+
     __slots__ = ["name", "node"]
 
     def __init__(self, name, node):
@@ -42,24 +53,28 @@ class Variable(Generic[T]):
         return LambdaNode(operator.setitem, self, key, value)
 
 
+# Types
 RawOrVariable = Union[T, Variable[T]]
 NodeCallReturnType = Union[None, Variable, Tuple[Variable]]
+Stream = Iterable["StreamObject"]
 
 
 class Node:
-    """Represents a node in the computation graph."""
+    """
+    Base class for all nodes.
+
+    A Node applies creates, updates or deletes stream objects.
+    """
 
     def __init__(self):
         # Bind outputs to self
         outputs = getattr(self.__class__, "outputs", [])
         self.outputs = [self.__bind_output(o) for o in outputs]
-        self._outputs_retrieved = False
 
         # Register with pipeline
         try:
             # pylint: disable=protected-access
-            _pipeline_stack[-1]._add_node(
-                self)
+            _pipeline_stack[-1]._add_node(self)
         except IndexError:
             raise RuntimeError("Empty pipeline stack") from None
 
@@ -68,29 +83,6 @@ class Node:
         variable = port.create_variable(self)
 
         return variable
-
-    def __call__(self) -> NodeCallReturnType:
-        """Return outputs."""
-
-        try:
-            outputs = self.__dict__["outputs"]
-        except KeyError:
-            raise RuntimeError(
-                "'{type}' is not initialized properly. Did you forget a super().__init__() in the constructor?".format(
-                    type=type(self).__name__
-                )
-            )
-
-        self._outputs_retrieved = True
-
-        # Return outputs
-        if not outputs:
-            return None
-        if len(outputs) == 1:
-            # If one output, return exactly this
-            return outputs[0]
-        # Otherwise, return list of outputs
-        return outputs
 
     def prepare_input(self, obj, names):
         """Return a tuple corresponding to the input ports."""
@@ -138,7 +130,7 @@ class Node:
         Do something after the stream was processed.
 
         Called by transform_stream after stream processing is done.
-        Override this in your own implementation.
+        *Override this in your own subclass.*
         """
 
     def _get_parameter_names(self):
@@ -151,15 +143,15 @@ class Node:
             if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
         ]
 
-    def transform_stream(self, stream):
-        """Transform a stream."""
+    def transform_stream(self, stream: Stream) -> Stream:
+        """
+        Transform a stream.
 
-        if not self._outputs_retrieved:
-            warnings.warn(
-                "Outputs were not retrieved. Did you forget a () after {type}(...)?".format(
-                    type=type(self).__name__
-                )
-            )
+        By default, this calls ``self.transform`` with appropriate parameters.
+        ``transform`` has to be implemented by a subclass if ``transform_stream`` is not overridden.
+
+        Override if the stream has to be altered in some way, i.e. objects are created, deleted, re-arranged, ...
+        """
 
         names = self._get_parameter_names()
 
@@ -177,25 +169,36 @@ class Node:
     def __str__(self):
         return "{}()".format(self.__class__.__name__)
 
+    def as_variable(self) -> Variable:
+        if len(self.outputs) != 1:
+            raise ValueError(
+                "Node with outputs ({}) can not be casted as Variable".format(
+                    ",".join(o.name for o in self.outputs)
+                )
+            )
+        return self.outputs[0]
+
+    def __iter__(self):
+        return iter(self.outputs)
+
 
 class Output:
-    """Stores meta data about a output of a Node.
+    """
+    Define an Output of a node.
 
     This is used as a decorator.
 
     Example:
-        @ReturnOutputs
-        @Output("bar")
-        class Foo(Node):
-            ...
+        .. code-block:: python
+
+            @ReturnOutputs
+            @Output("bar")
+            class Foo(Node):
+                ...
 
     """
 
-    def __init__(
-        self,
-        name,
-        doc=None
-    ):
+    def __init__(self, name, doc=None):
         self.name = name
         self.doc = doc
         self.node_cls = None
@@ -228,32 +231,29 @@ class Output:
         return cls
 
 
-def ReturnOutputs(node_cls):
-    if not issubclass(node_cls, Node):
-        raise ValueError(
-            "This decorator is meant to be applied to a subclass of Node."
-        )
-
-    @wraps(node_cls)
-    def wrapper(*args, **kwargs) -> NodeCallReturnType:
-        return node_cls(*args, **kwargs)()
-    wrapper.node_cls = node_cls
-    return wrapper
-
-
-@ReturnOutputs
-@Output("out")
+@Output("result")
 class LambdaNode(Node):
     """
     Apply a function to the supplied variables.
 
+    For every object in the stream, apply ``clbl`` to the corresponding stream variables.
+
     Args:
         clbl: A callable.
-        *args: Positional arguments to clbl.
-        **kwargs. Keyword-arguments to clbl.
+        *args: Positional arguments to ``clbl``.
+        **kwargs: Keyword-arguments to ``clbl``.
 
-    Output:
-        The result of the function application.
+    Returns:
+        Variable: The result of the function invocation.
+
+    Example:
+        .. code-block:: python
+
+            def foo(bar):
+                return bar
+
+            baz = ... # baz is a stream variable.
+            result = LambdaNode(foo, baz)
 
     """
 
@@ -271,9 +271,54 @@ class LambdaNode(Node):
         return "{}({})".format(self.__class__.__name__, self.clbl.__name__)
 
 
-class Pipeline:
+class StreamObject(abc.MutableMapping):
+    __slots__ = ["data"]
+
     def __init__(self):
-        self.nodes = []
+        self.data = {}
+
+    def _as_key(self, obj):
+        if isinstance(obj, Node):
+            obj = obj.as_variable()
+        # if isinstance(obj, Variable):
+        #     obj = obj.id
+        return obj
+
+    def __setitem__(self, key, value):
+        self.data[self._as_key(key)] = value
+
+    def __delitem__(self, key):
+        del self.data[self._as_key(key)]
+
+    def __getitem__(self, key):
+        return self.data[self._as_key(key)]
+
+    def __iter__(self):
+        return iter(self.data)
+
+    def __len__(self):
+        return len(self.data)
+
+
+class Pipeline:
+    """
+    A Pipeline manages the execution of nodes.
+
+    Nodes defined inside the pipeline context will be added to the pipeline.
+    When the pipeline is executed, stream objects are passed
+    from one node to the next in the same order.
+
+    Example:
+        .. code-block:: python
+
+            with Pipeline() as pipeline:
+                ...
+
+            pipeline.run()
+    """
+
+    def __init__(self):
+        self.nodes = []  # type: List[Node]
 
     def __enter__(self):
         # Push self to pipeline stack
@@ -287,20 +332,41 @@ class Pipeline:
 
         assert item is self
 
-    def transform_stream(self, stream=None):
-        if stream is None:
-            stream = [{}]
+    def transform_stream(self, stream: Optional[Stream] = None) -> Stream:
+        """
+        Run the stream through all nodes and return it.
 
-        for node in self.nodes:
+        Args:
+            stream: A stream to transform.
+                *This argument is solely to be used internally.*
+
+        Returns:
+            Stream: An iterable of stream objects.
+
+        """
+        if stream is None:
+            stream = [StreamObject()]
+
+        for node in self.nodes:  # type: Node
             stream = node.transform_stream(stream)
 
         return stream
 
     def run(self):
+        """
+        Run the complete pipeline.
+
+        This is a convenience method to be used in place of:
+
+        .. code-block:: python
+
+            for _ in pipeline.transform_stream():
+                pass
+        """
         for _ in self.transform_stream():
             pass
 
-    def _add_node(self, node):
+    def _add_node(self, node: Node):
         self.nodes.append(node)
 
     def __str__(self):

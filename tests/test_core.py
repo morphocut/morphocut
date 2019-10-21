@@ -1,18 +1,15 @@
-from morphocut import Node, Pipeline, Output, ReturnOutputs
+from morphocut import Node, Pipeline, Output, ReturnOutputs, LambdaNode
 import pytest
 
 
-@ReturnOutputs
 class TestNodeNoTransform(Node):
     pass
 
 
-@ReturnOutputs
 @Output("a")
 @Output("b")
 @Output("c")
 class TestNode(Node):
-
     def __init__(self, a, b, c):
         super().__init__()
         self.a = a
@@ -43,3 +40,14 @@ def test_Node():
     assert obj[a] == 1
     assert obj[b] == 2
     assert obj[c] == 3
+
+
+def test_LambdaNode():
+    def foo(bar, baz):
+        return bar, baz
+
+    with Pipeline() as pipeline:
+        result = LambdaNode(foo, 1, 2)
+
+    obj, *_ = list(pipeline.transform_stream())
+    assert obj[result] == (1, 2)
