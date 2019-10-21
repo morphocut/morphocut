@@ -2,20 +2,9 @@
 
 import inspect
 import operator
-import warnings
 from collections import abc
 from functools import wraps
-from typing import (
-    Callable,
-    Dict,
-    Generic,
-    Iterable,
-    Mapping,
-    Optional,
-    Tuple,
-    TypeVar,
-    Union,
-)
+from typing import Callable, Dict, Generic, Iterable, Optional, Tuple, TypeVar, Union
 
 _pipeline_stack = []  # type: ignore, pylint: disable=invalid-name
 
@@ -47,11 +36,15 @@ class Variable(Generic[T]):
         node: The node that created the Variable.
     """
 
-    __slots__ = ["name", "node"]
+    __slots__ = ["name", "node", "hash"]
 
-    def __init__(self, name, node):
+    def __init__(self, name: str, node: "Node"):
         self.name = name
         self.node = node
+        self.hash = hash((node.id, name))
+
+    def __str__(self):
+        return "<Variable {}.{}>".format(self.node, self.name)
 
     def __getattr__(self, name):
         return LambdaNode(getattr, self, name)
@@ -77,6 +70,8 @@ class Node:
     """
 
     def __init__(self):
+        self.id = "{:x}".format(id(self))
+
         # Bind outputs to self
         outputs = getattr(self.__class__, "outputs", [])
         self.outputs = [self.__bind_output(o) for o in outputs]
@@ -88,7 +83,7 @@ class Node:
         except IndexError:
             raise RuntimeError("Empty pipeline stack") from None
 
-    def __bind_output(self, port):
+    def __bind_output(self, port: "Output"):
         """Bind self to port and return a variable."""
         variable = port.create_variable(self)
 
@@ -222,7 +217,7 @@ class Output:
         self.doc = doc
         self.node_cls = None
 
-    def create_variable(self, node):
+    def create_variable(self, node: Node):
         """Return a _Variable with a reference to the node."""
 
         return Variable(self.name, node)
@@ -315,10 +310,8 @@ class StreamObject(abc.MutableMapping):
         return StreamObject(self.data.copy())
 
     def _as_key(self, obj):
-        if isinstance(obj, Node):
-            obj = obj.as_variable()
-        # if isinstance(obj, Variable):
-        #     obj = obj.id
+        if isinstance(obj, Variable):
+            return obj.hash
         return obj
 
     def __setitem__(self, key, value):
