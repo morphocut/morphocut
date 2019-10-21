@@ -12,15 +12,16 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('..'))
+
+sys.path.insert(0, os.path.abspath(".."))
 
 # -- Project information -----------------------------------------------------
 
 from morphocut import __version__  # noqa
 
-project = 'MorphoCut'
-copyright = '2019, Simon-Martin Schroeder'
-author = 'Simon-Martin Schroeder'
+project = "MorphoCut"
+copyright = "2019, Simon-Martin Schroeder"
+author = "Simon-Martin Schroeder"
 version = __version__
 
 # -- General configuration ---------------------------------------------------
@@ -31,31 +32,33 @@ version = __version__
 # napoleon is for parsing of Google-style docstrings:
 # https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.coverage',
-    'sphinx.ext.napoleon',
-    'sphinxcontrib.programoutput',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.intersphinx',
+    "sphinx.ext.autodoc",
+    "sphinx.ext.coverage",
+    "sphinx.ext.napoleon",
+    "sphinxcontrib.programoutput",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.intersphinx",
+    "sphinx_autodoc_typehints",
 ]
 
 napoleon_use_param = False
 napoleon_use_keyword = False
 napoleon_use_rtype = False
+typehints_document_rtype = False
 
 intersphinx_mapping = {
-    'python': ('https://docs.python.org/3', None),
+    "python": ("https://docs.python.org/3", None),
     # TODO: Always link to the latest stable
-    'pims': ('https://soft-matter.github.io/pims/v0.4.1/', None),
+    "pims": ("https://soft-matter.github.io/pims/v0.4.1/", None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -68,4 +71,4 @@ html_theme = "sphinx_rtd_theme"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
