@@ -32,7 +32,7 @@ Code style
 ~~~~~~~~~~
 
 * Follow `PEP 8`_, `PEP 257`_ and the `Google Style Guide`_.
-* Use `yapf <https://pypi.org/project/yapf/>`_ to format your code.
+* Use `black <https://black.readthedocs.io/en/stable/>`_ to format your code.
 * Use `isort <https://pypi.org/project/isort/>`_ to sort your imports.
 * Use `pydocstyle <https://pypi.org/project/pydocstyle/>`_ to get feedback on your docstrings.
 
@@ -40,6 +40,9 @@ Code style
 .. _PEP 8: https://www.python.org/dev/peps/pep-0008/
 .. _PEP 257: https://www.python.org/dev/peps/pep-0257/
 
+The repository contains a ``.vscode/settings.json.default`` file that contains
+the required settings.
+Use it as a starting point if you're developing in VS Code.
 
 
 Documentation Contributions
