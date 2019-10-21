@@ -84,6 +84,27 @@ class Node:
 
         return variable
 
+    def __call__(self) -> NodeCallReturnType:
+        """Return outputs."""
+
+        try:
+            outputs = self.__dict__["outputs"]
+        except KeyError:
+            raise RuntimeError(
+                "'{type}' is not initialized properly. Did you forget a super().__init__() in the constructor?".format(
+                    type=type(self).__name__
+                )
+            )
+
+        # Return outputs
+        if not outputs:
+            return None
+        if len(outputs) == 1:
+            # If one output, return exactly this
+            return outputs[0]
+        # Otherwise, return list of outputs
+        return outputs
+
     def prepare_input(self, obj, names):
         """Return a tuple corresponding to the input ports."""
 
@@ -169,18 +190,6 @@ class Node:
     def __str__(self):
         return "{}()".format(self.__class__.__name__)
 
-    def as_variable(self) -> Variable:
-        if len(self.outputs) != 1:
-            raise ValueError(
-                "Node with outputs ({}) can not be casted as Variable".format(
-                    ",".join(o.name for o in self.outputs)
-                )
-            )
-        return self.outputs[0]
-
-    def __iter__(self):
-        return iter(self.outputs)
-
 
 class Output:
     """
@@ -231,6 +240,19 @@ class Output:
         return cls
 
 
+def ReturnOutputs(node_cls):
+    if not issubclass(node_cls, Node):
+        raise ValueError("This decorator is meant to be applied to a subclass of Node.")
+
+    @wraps(node_cls)
+    def wrapper(*args, **kwargs) -> NodeCallReturnType:
+        return node_cls(*args, **kwargs)()
+
+    wrapper.node_cls = node_cls
+    return wrapper
+
+
+@ReturnOutputs
 @Output("result")
 class LambdaNode(Node):
     """
