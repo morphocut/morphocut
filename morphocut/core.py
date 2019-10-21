@@ -5,7 +5,17 @@ import operator
 import warnings
 from collections import abc
 from functools import wraps
-from typing import Callable, Generic, Iterable, Mapping, Optional, Tuple, TypeVar, Union
+from typing import (
+    Callable,
+    Dict,
+    Generic,
+    Iterable,
+    Mapping,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 _pipeline_stack = []  # type: ignore, pylint: disable=invalid-name
 
@@ -296,8 +306,13 @@ class LambdaNode(Node):
 class StreamObject(abc.MutableMapping):
     __slots__ = ["data"]
 
-    def __init__(self):
-        self.data = {}
+    def __init__(self, data: Dict = None):
+        if data is None:
+            data = {}
+        self.data = data
+
+    def copy(self) -> "StreamObject":
+        return StreamObject(self.data.copy())
 
     def _as_key(self, obj):
         if isinstance(obj, Node):
