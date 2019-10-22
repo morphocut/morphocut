@@ -9,10 +9,13 @@ Through PIMS, MorphoCut supports reading Bioformats and Video.
 
 .. _PIMS: http://soft-matter.github.io/pims/stable
 """
+from typing import Optional
+
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 from morphocut._optional import import_optional_dependency
-from morphocut import Node, Output
 
 
+@ReturnOutputs
 @Output("frame")
 class VideoReader(Node):
     """Read frames from video files.
@@ -21,7 +24,7 @@ class VideoReader(Node):
         `PyAV`_ is required to use this reader.
 
         .. _PyAV: https://docs.mikeboers.com/pyav/develop/installation.html
-        
+
 
     Args:
         path: Path to a video file.
@@ -30,14 +33,14 @@ class VideoReader(Node):
     Example:
         .. code-block:: python
 
-            frame = VideoReader(path)()
+            frame = VideoReader(path)
 
             # frame (pims.Frame): The frame.
             #   frame.frame_no (int): Frame number.
             #   frame.metadata (dict): Frame metadata.
     """
 
-    def __init__(self, path):
+    def __init__(self, path: RawOrVariable[str]):
         super().__init__()
 
         self.path = path
@@ -54,6 +57,7 @@ class VideoReader(Node):
                 yield self.prepare_output(obj.copy(), frame)
 
 
+@ReturnOutputs
 @Output("frame")
 @Output("series")
 class BioformatsReader(Node):
@@ -81,7 +85,7 @@ class BioformatsReader(Node):
     Example:
         .. code-block:: python
 
-            frame, series = BioformatsReader(path)()
+            frame, series = BioformatsReader(path)
 
             # frame (pims.Frame): The frame.
             #   frame.frame_no (int): Frame number.
@@ -90,7 +94,7 @@ class BioformatsReader(Node):
 
     """
 
-    def __init__(self, path, meta, series=None, **kwargs):
+    def __init__(self, path: RawOrVariable[str], meta: RawOrVariable[bool], series: Optional[RawOrVariable[int]] = None, **kwargs):
         super().__init__()
 
         self.path = path
@@ -111,7 +115,7 @@ class BioformatsReader(Node):
                 path,
                 meta=meta,
                 series=series,
-                **self.kwargs,
+                **kwargs,
             )
 
             if series is None:

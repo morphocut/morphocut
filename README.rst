@@ -1,6 +1,9 @@
 MorphoCut
 =========
 
+.. image:: https://travis-ci.org/morphocut/morphocut.svg?branch=master
+    :target: https://travis-ci.org/morphocut/morphocut
+
 This repository contains the MorphoCut image processing pipeline
 library.
 

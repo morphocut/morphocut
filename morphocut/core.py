@@ -2,9 +2,12 @@
 
 import inspect
 import operator
+import typing
 import warnings
+from functools import wraps
+from typing import Callable, Generic, Tuple, TypeVar, Union
 
-_pipeline_stack = []
+_pipeline_stack = []  # type: ignore, pylint: disable=invalid-name
 
 
 def _resolve_variable(obj, variable_or_value):
@@ -15,12 +18,33 @@ def _resolve_variable(obj, variable_or_value):
         return tuple(_resolve_variable(obj, v) for v in variable_or_value)
 
     if isinstance(variable_or_value, dict):
-        return {
-            k: _resolve_variable(obj, v)
-            for k, v in variable_or_value.items()
-        }
+        return {k: _resolve_variable(obj, v) for k, v in variable_or_value.items()}
 
     return variable_or_value
+
+
+T = TypeVar('T')
+
+
+class Variable(Generic[T]):
+    __slots__ = ["name", "node"]
+
+    def __init__(self, name, node):
+        self.name = name
+        self.node = node
+
+    def __getattr__(self, name):
+        return LambdaNode(getattr, self, name)
+
+    def __getitem__(self, key):
+        return LambdaNode(operator.getitem, self, key)
+
+    def __setitem__(self, key, value):
+        return LambdaNode(operator.setitem, self, key, value)
+
+
+RawOrVariable = Union[T, Variable[T]]
+NodeCallReturnType = Union[None, Variable, Tuple[Variable]]
 
 
 class Node:
@@ -34,7 +58,9 @@ class Node:
 
         # Register with pipeline
         try:
-            _pipeline_stack[-1]._add_node(self)  # pylint: disable=protected-access
+            # pylint: disable=protected-access
+            _pipeline_stack[-1]._add_node(
+                self)
         except IndexError:
             raise RuntimeError("Empty pipeline stack") from None
 
@@ -44,15 +70,16 @@ class Node:
 
         return variable
 
-    def __call__(self):
+    def __call__(self) -> NodeCallReturnType:
         """Return outputs."""
 
         try:
             outputs = self.__dict__["outputs"]
         except KeyError:
             raise RuntimeError(
-                "'{type}' is not initialized properly. Did you forget a super().__init__() in the constructor?"
-                .format(type=type(self).__name__)
+                "'{type}' is not initialized properly. Did you forget a super().__init__() in the constructor?".format(
+                    type=type(self).__name__
+                )
             )
 
         self._outputs_retrieved = True
@@ -73,8 +100,7 @@ class Node:
             return _resolve_variable(obj, getattr(self, names))
 
         return tuple(
-            _resolve_variable(obj, v)
-            for v in (getattr(self, n) for n in names)
+            _resolve_variable(obj, v) for v in (getattr(self, n) for n in names)
         )
 
     def prepare_output(self, obj, *values):
@@ -97,8 +123,9 @@ class Node:
                     values = values[0]
                     continue
                 raise ValueError(
-                    "Length of values does not match number of output ports: {} vs. {}"
-                    .format(n_values, n_outputs)
+                    "Length of values does not match number of output ports: {} vs. {}".format(
+                        n_values, n_outputs
+                    )
                 )
             break
 
@@ -110,17 +137,18 @@ class Node:
     def after_stream(self):
         """
         Do something after the stream was processed.
-        
+
         Called by transform_stream after stream processing is done.
         Override this in your own implementation.
         """
-        pass
 
     def _get_parameter_names(self):
         """Inspect self.transform to get the parameter names."""
         return [
             p.name
-            for p in inspect.signature(self.transform).parameters.values()  # pylint: disable=no-member
+            for p in inspect.signature(
+                self.transform  # pylint: disable=no-member
+            ).parameters.values()
             if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
         ]
 
@@ -129,8 +157,9 @@ class Node:
 
         if not self._outputs_retrieved:
             warnings.warn(
-                "Outputs were not retrieved. Did you forget a () after {type}(...)?"
-                .format(type=type(self).__name__)
+                "Outputs were not retrieved. Did you forget a () after {type}(...)?".format(
+                    type=type(self).__name__
+                )
             )
 
         names = self._get_parameter_names()
@@ -149,19 +178,6 @@ class Node:
     def __str__(self):
         return "{}()".format(self.__class__.__name__)
 
-    def __getattr__(self, name):
-        if name == "transform":
-            raise AttributeError(
-                "'{type}' has no attribute '{name}'".format(
-                    type=type(self).__name__, name=name
-                )
-            )
-
-        raise AttributeError(
-            "'{type}' has no attribute '{name}'. Did you forget a () after {type}(...)?"
-            .format(type=type(self).__name__, name=name)
-        )
-
 
 class Output:
     """Stores meta data about a output of a Node.
@@ -169,15 +185,20 @@ class Output:
     This is used as a decorator.
 
     Example:
+        @ReturnOutputs
         @Output("bar")
         class Foo(Node):
             ...
 
     """
 
-    def __init__(self, name, help=None):
+    def __init__(
+        self,
+        name,
+        doc=None
+    ):
         self.name = name
-        self.help = help
+        self.doc = doc
         self.node_cls = None
 
     def create_variable(self, node):
@@ -186,9 +207,7 @@ class Output:
         return Variable(self.name, node)
 
     def __repr__(self):
-        return "{}(\"{}\", {})".format(
-            self.__class__.__name__, self.name, self.node_cls
-        )
+        return '{}("{}", {})'.format(self.__class__.__name__, self.name, self.node_cls)
 
     def __call__(self, cls):
         """Add this output to the list of a nodes outputs."""
@@ -210,6 +229,20 @@ class Output:
         return cls
 
 
+def ReturnOutputs(node_cls):
+    if not issubclass(node_cls, Node):
+        raise ValueError(
+            "This decorator is meant to be applied to a subclass of Node."
+        )
+
+    @wraps(node_cls)
+    def wrapper(*args, **kwargs) -> NodeCallReturnType:
+        return node_cls(*args, **kwargs)()
+    wrapper.node_cls = node_cls
+    return wrapper
+
+
+@ReturnOutputs
 @Output("out")
 class LambdaNode(Node):
     """
@@ -222,10 +255,10 @@ class LambdaNode(Node):
 
     Output:
         The result of the function application.
-        
+
     """
 
-    def __init__(self, clbl, *args, **kwargs):
+    def __init__(self, clbl: Callable, *args, **kwargs):
         super().__init__()
         self.clbl = clbl
         self.args = args
@@ -239,25 +272,7 @@ class LambdaNode(Node):
         return "{}({})".format(self.__class__.__name__, self.clbl.__name__)
 
 
-class Variable:
-    __slots__ = ["name", "node"]
-
-    def __init__(self, name, node):
-        self.name = name
-        self.node = node
-
-    def __getattr__(self, name):
-        return LambdaNode(getattr, self, name)()
-
-    def __getitem__(self, key):
-        return LambdaNode(operator.getitem, self, key)()
-
-    def __setitem__(self, key, value):
-        return LambdaNode(operator.setitem, self, key, value)()
-
-
 class Pipeline:
-
     def __init__(self):
         self.nodes = []
 

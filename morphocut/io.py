@@ -1,36 +1,38 @@
 import numpy as np
 import PIL
 
-from morphocut import Node
+from morphocut import Node, RawOrVariable, ReturnOutputs
 
 
+@ReturnOutputs
 class ImageReader(Node):
-    def __init__(self, path):
+    def __init__(self, fp: RawOrVariable):
         super().__init__()
-        self.path = path
+        self.fp = fp
 
     def transform_stream(self, stream):
         for obj in stream:
-            path = self.prepare_input(obj, "path")
+            fp = self.prepare_input(obj, "fp")
 
-            image = np.array(PIL.Image.open(path))
+            image = np.array(PIL.Image.open(fp))
 
             yield self.prepare_output(obj, image)
 
 
+@ReturnOutputs
 class ImageWriter(Node):
-    def __init__(self, path, image):
+    def __init__(self, fp: RawOrVariable, image: RawOrVariable):
         super().__init__()
-        self.path = path
+        self.fp = fp
         self.image = image
 
     def transform_stream(self, stream):
         for obj in stream:
-            path, image = self.prepare_input(obj, ("path", "image"))
+            fp, image = self.prepare_input(obj, ("fp", "image"))
 
-            print(path)
+            print(fp)
 
             img = PIL.Image.fromarray(image)
-            img.save(path)
+            img.save(fp)
 
             yield obj

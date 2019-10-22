@@ -1,21 +1,23 @@
 import itertools
 import operator
 import os
+from typing import Any, List, Mapping
 
 import numpy as np
 import scipy.ndimage as ndi
 import skimage.exposure
 import skimage.io
 
-from morphocut import Node, Output
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 
 
+@ReturnOutputs
 @Output("mask")
 class ThresholdConst(Node):
     """Set the mask of image
     """
 
-    def __init__(self, image, threshold):
+    def __init__(self, image: RawOrVariable, threshold: RawOrVariable):
         super().__init__()
         self.image = image
         self.threshold = threshold
@@ -31,12 +33,13 @@ class ThresholdConst(Node):
         return mask
 
 
+@ReturnOutputs
 @Output("rescaled")
 class Rescale(Node):
     """Rescale the image
     """
 
-    def __init__(self, image, in_range='image', dtype=None):
+    def __init__(self, image: RawOrVariable, in_range='image', dtype=None):
         super().__init__()
 
         self.image = image
@@ -58,11 +61,12 @@ class Rescale(Node):
         return image
 
 
+@ReturnOutputs
 class ImageWriter(Node):
     """Create a duplicate image, return its directory and filename
     """
 
-    def __init__(self, root, fmt, image, meta):
+    def __init__(self, root: str, fmt: str, image: RawOrVariable, meta: RawOrVariable[Mapping]):
         super().__init__()
         self.root = root
         self.fmt = fmt
@@ -91,6 +95,7 @@ class ImageWriter(Node):
             yield dirname, filename, image, obj
 
 
+@ReturnOutputs
 @Output("regionprops")
 class FindRegions(Node):
     """
@@ -104,14 +109,14 @@ class FindRegions(Node):
     Example:
         .. code-block:: python
             mask = ...
-            regionsprops = FindRegions(mask)()
+            regionsprops = FindRegions(mask)
 
             # regionsprops: A skimage.measure.regionsprops object.
-    
+
     """
 
     def __init__(
-        self, mask, image=None, min_area=None, max_area=None, padding=0
+        self, mask: RawOrVariable, image: RawOrVariable = None, min_area=None, max_area=None, padding=0
     ):
         super().__init__()
 
@@ -157,12 +162,13 @@ class FindRegions(Node):
                 yield self.prepare_output(obj.copy(), props)
 
 
+@ReturnOutputs
 @Output("extracted_image")
 class ExtractROI(Node):
     """Return the extracted region/image
     """
 
-    def __init__(self, image, regionprops):
+    def __init__(self, image: RawOrVariable, regionprops: RawOrVariable):
         super().__init__()
 
         self.image = image
@@ -174,16 +180,18 @@ class ExtractROI(Node):
         return image[regionprops.slice]
 
 
+@ReturnOutputs
 class ImageStats(Node):
     """
     Parse information from a path
     """
 
-    def __init__(self, image, name=""):
+    def __init__(self, image: RawOrVariable, name: str = ""):
         super().__init__()
 
-        self.min = []
-        self.max = []
+        self.min = []  # type: List[Any]
+        self.max = []  # type: List[Any]
+        self.image = image
         self.name = name
 
     def transform(self, image):
@@ -196,3 +204,15 @@ class ImageStats(Node):
         mean_max = np.mean(self.max)
         print("Absolute: ", min(self.min), max(self.max))
         print("Average: ", mean_min, mean_max)
+
+
+image = skimage.data.camera()
+with Pipeline() as pipeline:
+    result = ThresholdConst(image, 256)
+
+stream = pipeline.transform_stream()
+result = [o[result] for o in stream]
+#result.transform(image)
+#obj = next(stream)
+
+assert np.array_equal(result[0], np.ones((512,512), dtype=bool))

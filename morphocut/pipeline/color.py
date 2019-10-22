@@ -1,14 +1,14 @@
+from morphocut import Node, Output
 from morphocut.pipeline import SimpleNodeBase
-from skimage.color import rgb2gray, gray2rgb
+from skimage.color import gray2rgb, rgb2gray
 
 
-class Gray2RGB(SimpleNodeBase):
-    def process(self, facet):
-        image = facet["image"]
+class Gray2RGB(Node):
+    def __init__(self, image):
+        self.image = image
 
-        return {
-            "image": gray2rgb(image)
-        }
+    def transform(self, image):
+        return gray2rgb(image)
 
 
 class RGB2Gray(SimpleNodeBase):

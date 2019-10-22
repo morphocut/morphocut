@@ -1,0 +1,8 @@
+{
+    "restructuredtext.confPath": "${workspaceFolder}/docs",
+    "editor.formatOnSave": true,
+    "python.linting.mypyEnabled": true,
+    "python.linting.enabled": true,
+    "python.linting.pydocstyleEnabled": true,
+    "python.formatting.provider": "black",
+}

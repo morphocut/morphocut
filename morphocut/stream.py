@@ -6,13 +6,15 @@ import itertools
 import pprint
 from queue import Queue
 from threading import Thread
+from typing import Iterable, Optional, Tuple
 
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs, Variable
 from morphocut._optional import import_optional_dependency
-from morphocut import Node, Output
 
 __all__ = ["TQDM", "Slice"]
 
 
+@ReturnOutputs
 class TQDM(Node):
     """
     Provide a progress indicator via `tqdm`_. It prints a dynamically
@@ -33,7 +35,7 @@ class TQDM(Node):
 
     """
 
-    def __init__(self, description=None):
+    def __init__(self, description: Optional[RawOrVariable[str]] = None):
         super().__init__()
         self._tqdm = import_optional_dependency("tqdm")
         self.description = description
@@ -51,9 +53,10 @@ class TQDM(Node):
         progress.close()
 
 
+@ReturnOutputs
 class Slice(Node):
 
-    def __init__(self, *args):
+    def __init__(self, *args: Optional[int]):
         super().__init__()
         self.args = args
 
@@ -62,6 +65,7 @@ class Slice(Node):
             yield obj
 
 
+@ReturnOutputs
 class StreamBuffer(Node):
     """
     Buffer the stream.
@@ -71,7 +75,7 @@ class StreamBuffer(Node):
 
     _sentinel = object()
 
-    def __init__(self, maxsize):
+    def __init__(self, maxsize: int):
         super().__init__()
         self.queue = Queue(maxsize)
 
@@ -99,9 +103,10 @@ class StreamBuffer(Node):
         thread.join()
 
 
+@ReturnOutputs
 class PrintObjects(Node):
 
-    def __init__(self, *args):
+    def __init__(self, *args: Tuple[Variable]):
         super().__init__()
         self.args = args
 
@@ -114,6 +119,7 @@ class PrintObjects(Node):
             yield obj
 
 
+@ReturnOutputs
 @Output("index")
 class Enumerate(Node):
 
@@ -122,11 +128,12 @@ class Enumerate(Node):
             yield self.prepare_output(obj, i)
 
 
+@ReturnOutputs
 @Output("value")
 class FromIterable(Node):
     """Insert values from the supplied iterator into the stream."""
 
-    def __init__(self, iterable):
+    def __init__(self, iterable: RawOrVariable[Iterable]):
         super().__init__()
         self.iterable = iterable
 

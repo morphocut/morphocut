@@ -10,18 +10,23 @@ Read and write EcoTaxa archives.
 import io
 import os
 import zipfile
+from typing import Mapping, Tuple, TypeVar, Union
 
 import PIL
 
+from morphocut import Node, RawOrVariable, ReturnOutputs
 from morphocut._optional import import_optional_dependency
-from morphocut import Node
+
+T = TypeVar("T")
+MaybeTuple = Union[T, Tuple[T]]
 
 
+@ReturnOutputs
 class EcotaxaWriter(Node):
     """Zip the image and its meta data."""
 
     def __init__(
-        self, archive_fn, image_fn, image, meta, meta_fn="ecotaxa_export.tsv"
+        self, archive_fn: str, image_fn: MaybeTuple[str], image: MaybeTuple[RawOrVariable], meta: RawOrVariable[Mapping], meta_fn: str = "ecotaxa_export.tsv"
     ):
         super().__init__()
         self.archive_fn = archive_fn
@@ -77,6 +82,6 @@ class EcotaxaWriter(Node):
                 dataframe.to_csv(sep='\t', encoding='utf-8', index=False)
             )
 
-
+@ReturnOutputs
 class EcotaxaReader(Node):
     ...
