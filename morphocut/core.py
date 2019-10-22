@@ -4,9 +4,20 @@ import inspect
 import operator
 from collections import abc
 from functools import wraps
-from typing import Callable, Dict, Generic, Iterable, Optional, Tuple, TypeVar, Union
+from typing import (
+    Callable,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
-_pipeline_stack = []  # type: ignore, pylint: disable=invalid-name
+_pipeline_stack = []  # type: List[Pipeline] # pylint: disable=invalid-name
 
 
 def _resolve_variable(obj, variable_or_value):
@@ -200,20 +211,17 @@ class Output:
     """
     Define an Output of a node.
 
-    This is used as a decorator.
-
-    Example:
-        .. code-block:: python
-
-            @ReturnOutputs
-            @Output("bar")
-            class Foo(Node):
-                ...
-
+    Args:
+        name (str): Name of the output.
+        type (type, optional): Type of the output.
+        doc (str, optional): Description  of the output.
     """
 
-    def __init__(self, name, doc=None):
+    def __init__(
+        self, name: str, type: Optional[Type] = None, doc: Optional[str] = None
+    ):
         self.name = name
+        self.type = type
         self.doc = doc
         self.node_cls = None
 
@@ -246,6 +254,7 @@ class Output:
 
 
 def ReturnOutputs(node_cls):
+    """Turn Node into a function returning Output variables."""
     if not issubclass(node_cls, Node):
         raise ValueError("This decorator is meant to be applied to a subclass of Node.")
 

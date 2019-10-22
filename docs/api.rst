@@ -33,6 +33,10 @@ If a Node has multiple outputs or needs to change the stream,
 :py:class:`Node` has to be subclassed.
 
 The subclass has no or any number of :py:obj:`@Output <Output>` decorators.
+:py:obj:`@ReturnOutputs <ReturnOutputs>` is used to turn :py:class:`Node`
+subclasses into a functions returning stream variables.
+
+.. TODO: Simple and complex
 
 .. code-block:: python
 
@@ -49,5 +53,6 @@ The subclass has no or any number of :py:obj:`@Output <Output>` decorators.
             def transform(self, ham, spam):
                 return ham, spam
 
-.. autodecorator:: Output
+.. autodecorator:: Output(name, type, doc)
 
+.. autodecorator:: ReturnOutputs
