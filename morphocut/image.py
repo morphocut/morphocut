@@ -205,14 +205,3 @@ class ImageStats(Node):
         print("Absolute: ", min(self.min), max(self.max))
         print("Average: ", mean_min, mean_max)
 
-
-image = skimage.data.camera()
-with Pipeline() as pipeline:
-    result = ThresholdConst(image, 256)
-
-stream = pipeline.transform_stream()
-result = [o[result] for o in stream]
-#result.transform(image)
-#obj = next(stream)
-
-assert np.array_equal(result[0], np.ones((512,512), dtype=bool))

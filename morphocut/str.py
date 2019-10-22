@@ -18,12 +18,19 @@ class Format(Node):
         _kwargs: Key value paired arguments
         **kwargs: Key value paired arguments to be appended after _kwargs
 
-    if we supply the same key twice, once in _kwargs and once in kwargs, then the values in those keys will be overwritten.
+    As positional arguments, :py:meth:`str.format` receives ``args`` then ``_args``.
+    As keyword arguments, :py:meth:`str.format` receives ``_kwargs`` then ``kwargs``.
+    This means that keys passed as keyword arguments overwrite keys in a dict passed as ``_kwargs``.
 
     Example:
         .. code-block:: python
 
-            result = Format(fmt, *args, _args=_args, _kwargs=_kwargs, **kwargs)()
+            with Pipeline() as pipeline:
+                result = Format(fmt, *args, _args=_args, _kwargs=_kwargs, **kwargs)
+
+            stream = pipeline.transform_stream()
+            obj = next(stream)
+            print(obj[result])
 
     """
 
@@ -49,11 +56,11 @@ class ParseWarning(UserWarning):
 @ReturnOutputs
 @Output("meta")
 class Parse(Node):
-    """Parse information from a path. The class can be used to simply parse a string
+    """Parse information from a string. The class can be used to simply parse a string
     Or to search a string in some pattern.
 
     .. note::
-        It also uses external library `parse`_
+        The external dependency `parse`_ is required to use this Node.
 
     .. _parse: https://github.com/r1chardj0n3s/parse
 
@@ -65,7 +72,12 @@ class Parse(Node):
     Example:
         .. code-block:: python
 
-            result = Parse(pattern, string, case_sensitive)()
+            with Pipeline() as pipeline:
+                result = Parse(pattern, string, case_sensitive)
+
+            stream = pipeline.transform_stream()
+            obj = next(stream)
+            print(obj[result])
 
     """
 

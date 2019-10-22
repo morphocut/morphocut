@@ -21,17 +21,22 @@ class TQDM(Node):
     updating progressbar.
 
     .. note::
-       An external dependency `tqdm`_ is required to use this
+       The external dependency `tqdm`_ is required to use this Node.
 
     .. _tqdm: https://github.com/tqdm/tqdm
     
     Args:
-        description (str): Description of a progress bar.
+        description (str): Description of the progress bar.
 
     Example:
         .. code-block:: python
 
-            progress = TQDM(description)()
+            items = range(5)
+
+            with Pipeline() as pipeline:
+                result = TQDM("Description")
+
+            stream = pipeline.transform_stream(items)
 
     """
 
