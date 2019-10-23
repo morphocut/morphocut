@@ -38,13 +38,81 @@ T = TypeVar("T")
 
 class Variable(Generic[T]):
     """
-    A Variable identifies a value in the stream.
+    A Variable identifies a value in a stream object.
 
     Variables are (almost) never instanciated manually, they are created when calling a Node.
 
     Attributes:
         name: The name of the Variable.
         node: The node that created the Variable.
+
+    Operations:
+        Variables support the following operations.
+        Each operation is realized as a new Node in the Pipeline,
+        so use them sparingly.
+
+        +-----------------------+-------------------------+
+        | Operation             | Syntax                  |
+        +=======================+=========================+
+        | Addition              | ``a + b``               |
+        +-----------------------+-------------------------+
+        | True Division         | ``a / b``               |
+        +-----------------------+-------------------------+
+        | Integer Division      | ``a // b``              |
+        +-----------------------+-------------------------+
+        | Bitwise And           | ``a & b``               |
+        +-----------------------+-------------------------+
+        | Bitwise Exclusive Or  | ``a ^ b``               |
+        +-----------------------+-------------------------+
+        | Bitwise Inversion     | ``~ a``                 |
+        +-----------------------+-------------------------+
+        | Bitwise Or            | ``a | b``               |
+        +-----------------------+-------------------------+
+        | Exponentiation        | ``a ** b``              |
+        +-----------------------+-------------------------+
+        | Indexed Assignment    | ``obj[k] = v``          |
+        +-----------------------+-------------------------+
+        | Indexed Deletion      | ``del obj[k]``          |
+        +-----------------------+-------------------------+
+        | Indexing              | ``obj[k]``              |
+        +-----------------------+-------------------------+
+        | Left Shift            | ``a << b``              |
+        +-----------------------+-------------------------+
+        | Modulo                | ``a % b``               |
+        +-----------------------+-------------------------+
+        | Multiplication        | ``a * b``               |
+        +-----------------------+-------------------------+
+        | Matrix Multiplication | ``a @ b``               |
+        +-----------------------+-------------------------+
+        | Negation (Arithmetic) | ``- a``                 |
+        +-----------------------+-------------------------+
+        | Positive              | ``+ a``                 |
+        +-----------------------+-------------------------+
+        | Right Shift           | ``a >> b``              |
+        +-----------------------+-------------------------+
+        | Slice Assignment      | ``seq[i:j] = values``   |
+        +-----------------------+-------------------------+
+        | Slice Deletion        | ``del seq[i:j]``        |
+        +-----------------------+-------------------------+
+        | Slicing               | ``seq[i:j]``            |
+        +-----------------------+-------------------------+
+        | Subtraction           | ``a - b``               |
+        +-----------------------+-------------------------+
+        | Ordering              | ``a < b``               |
+        +-----------------------+-------------------------+
+        | Ordering              | ``a <= b``              |
+        +-----------------------+-------------------------+
+        | Equality              | ``a == b``              |
+        +-----------------------+-------------------------+
+        | Difference            | ``a != b``              |
+        +-----------------------+-------------------------+
+        | Ordering              | ``a >= b``              |
+        +-----------------------+-------------------------+
+        | Ordering              | ``a > b``               |
+        +-----------------------+-------------------------+
+
+        ``a``, ``b``, ``i``, ``j`` and ``k`` can be either
+        :py:class:`Variable` instances or raw values.
     """
 
     __slots__ = ["name", "node", "hash"]
@@ -57,14 +125,35 @@ class Variable(Generic[T]):
     def __str__(self):
         return "<Variable {}.{}>".format(self.node, self.name)
 
+    # Attribute access
     def __getattr__(self, name):
         return LambdaNode(getattr, self, name)
 
+    # Item access
     def __getitem__(self, key):
         return LambdaNode(operator.getitem, self, key)
 
     def __setitem__(self, key, value):
         return LambdaNode(operator.setitem, self, key, value)
+
+    # Rich comparison methods
+    def __lt__(self, other):
+        return LambdaNode(operator.lt, self, other)
+
+    def __le__(self, other):
+        return LambdaNode(operator.le, self, other)
+
+    def __eq__(self, other):
+        return LambdaNode(operator.eq, self, other)
+
+    def __ne__(self, other):
+        return LambdaNode(operator.ne, self, other)
+
+    def __gt__(self, other):
+        return LambdaNode(operator.gt, self, other)
+
+    def __ge__(self, other):
+        return LambdaNode(operator.ge, self, other)
 
 
 # Types
@@ -74,11 +163,7 @@ Stream = Iterable["StreamObject"]
 
 
 class Node:
-    """
-    Base class for all nodes.
-
-    A Node applies creates, updates or deletes stream objects.
-    """
+    """Base class for all nodes."""
 
     def __init__(self):
         self.id = "{:x}".format(id(self))
@@ -187,7 +272,8 @@ class Node:
         By default, this calls ``self.transform`` with appropriate parameters.
         ``transform`` has to be implemented by a subclass if ``transform_stream`` is not overridden.
 
-        Override if the stream has to be altered in some way, i.e. objects are created, deleted, re-arranged, ...
+        Override if the stream has to be altered in some way,
+        i.e. objects are created, deleted or re-arranged.
         """
 
         names = self._get_parameter_names()
@@ -209,7 +295,7 @@ class Node:
 
 class Output:
     """
-    Define an Output of a node.
+    Define an Output of a Node.
 
     Args:
         name (str): Name of the output.

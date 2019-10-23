@@ -53,3 +53,13 @@ def test_LambdaNode():
 
     obj, *_ = list(pipeline.transform_stream())
     assert obj[result] == (1, 2)
+
+
+import operator
+
+
+@pytest.mark.parametrize("inp", [(operator.add, 1, 2)])
+def test_VariableOperations(inp):
+    op, *args = inp
+
+    ...
