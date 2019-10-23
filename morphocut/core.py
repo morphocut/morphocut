@@ -50,66 +50,75 @@ class Variable(Generic[T]):
         Variables support the following operations.
         Each operation is realized as a new Node in the Pipeline,
         so use them sparingly.
+        Operator and method can be used interchangeably (if both present).
 
-        +-----------------------+-------------------------+
-        | Operation             | Syntax                  |
-        +=======================+=========================+
-        | Addition              | ``a + b``               |
-        +-----------------------+-------------------------+
-        | True Division         | ``a / b``               |
-        +-----------------------+-------------------------+
-        | Integer Division      | ``a // b``              |
-        +-----------------------+-------------------------+
-        | Bitwise And           | ``a & b``               |
-        +-----------------------+-------------------------+
-        | Bitwise Exclusive Or  | ``a ^ b``               |
-        +-----------------------+-------------------------+
-        | Bitwise Inversion     | ``~ a``                 |
-        +-----------------------+-------------------------+
-        | Bitwise Or            | ``a | b``               |
-        +-----------------------+-------------------------+
-        | Exponentiation        | ``a ** b``              |
-        +-----------------------+-------------------------+
-        | Indexed Assignment    | ``obj[k] = v``          |
-        +-----------------------+-------------------------+
-        | Indexed Deletion      | ``del obj[k]``          |
-        +-----------------------+-------------------------+
-        | Indexing              | ``obj[k]``              |
-        +-----------------------+-------------------------+
-        | Left Shift            | ``a << b``              |
-        +-----------------------+-------------------------+
-        | Modulo                | ``a % b``               |
-        +-----------------------+-------------------------+
-        | Multiplication        | ``a * b``               |
-        +-----------------------+-------------------------+
-        | Matrix Multiplication | ``a @ b``               |
-        +-----------------------+-------------------------+
-        | Negation (Arithmetic) | ``- a``                 |
-        +-----------------------+-------------------------+
-        | Positive              | ``+ a``                 |
-        +-----------------------+-------------------------+
-        | Right Shift           | ``a >> b``              |
-        +-----------------------+-------------------------+
-        | Slice Assignment      | ``seq[i:j] = values``   |
-        +-----------------------+-------------------------+
-        | Slice Deletion        | ``del seq[i:j]``        |
-        +-----------------------+-------------------------+
-        | Slicing               | ``seq[i:j]``            |
-        +-----------------------+-------------------------+
-        | Subtraction           | ``a - b``               |
-        +-----------------------+-------------------------+
-        | Ordering              | ``a < b``               |
-        +-----------------------+-------------------------+
-        | Ordering              | ``a <= b``              |
-        +-----------------------+-------------------------+
-        | Equality              | ``a == b``              |
-        +-----------------------+-------------------------+
-        | Difference            | ``a != b``              |
-        +-----------------------+-------------------------+
-        | Ordering              | ``a >= b``              |
-        +-----------------------+-------------------------+
-        | Ordering              | ``a > b``               |
-        +-----------------------+-------------------------+
+        +-----------------------+-----------------------+---------------------------------+
+        |       Operation       |      Operator         |             Method              |
+        +=======================+=======================+=================================+
+        | Addition              | ``a + b``             | ``a.add(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Containment Test      |                       | ``a.contains(b)``, ``b.in_(a)`` |
+        +-----------------------+-----------------------+---------------------------------+
+        | True Division         | ``a / b``             | ``a.truediv(b)``                |
+        +-----------------------+-----------------------+---------------------------------+
+        | Integer Division      | ``a // b``            | ``a.floordiv(b)``               |
+        +-----------------------+-----------------------+---------------------------------+
+        | Bitwise And           | ``a & b``             | ``a.and_(b)``                   |
+        +-----------------------+-----------------------+---------------------------------+
+        | Bitwise Exclusive Or  | ``a ^ b``             | ``a.xor(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Bitwise Inversion     | ``~ a``               | ``a.invert(b)``                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Bitwise Or            | ``a | b``             | ``a.or_(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Exponentiation        | ``a ** b``            | ``a.pow(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Identity              |                       | ``a.is_(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Identity              |                       | ``a.is_not(b)``                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Indexed Assignment    | ``obj[k] = v``        |                                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Indexed Deletion      | ``del obj[k]``        |                                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Indexing              | ``obj[k]``            |                                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Left Shift            | ``a << b``            | ``a.lshift(b)``                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Modulo                | ``a % b``             | ``a.mod(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Multiplication        | ``a * b``             | ``a.mul(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Matrix Multiplication | ``a @ b``             | ``a.matmul(b)``                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Negation (Arithmetic) | ``- a``               | ``a.neg(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Negation (Logical)    |                       | ``a.not_()``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Positive              | ``+ a``               | ``a.pos(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Right Shift           | ``a >> b``            | ``a.rshift(b)``                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Slice Assignment      | ``seq[i:j] = values`` |                                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Slice Deletion        | ``del seq[i:j]``      |                                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Slicing               | ``seq[i:j]``          |                                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Subtraction           | ``a - b``             | ``a.sub(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Ordering              | ``a < b``             | ``a.lt(b)``                     |
+        +-----------------------+-----------------------+---------------------------------+
+        | Ordering              | ``a <= b``            | ``a.leq(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Equality              | ``a == b``            | ``a.eq(b)``                     |
+        +-----------------------+-----------------------+---------------------------------+
+        | Difference            | ``a != b``            | ``a.ne(b)``                     |
+        +-----------------------+-----------------------+---------------------------------+
+        | Ordering              | ``a >= b``            | ``a.ge(b)``                     |
+        +-----------------------+-----------------------+---------------------------------+
+        | Ordering              | ``a > b``             | ``a.gt(b)``                     |
+        +-----------------------+-----------------------+---------------------------------+
 
         ``a``, ``b``, ``i``, ``j`` and ``k`` can be either
         :py:class:`Variable` instances or raw values.
@@ -136,6 +145,9 @@ class Variable(Generic[T]):
     def __setitem__(self, key, value):
         return LambdaNode(operator.setitem, self, key, value)
 
+    def __delitem__(self, key):
+        return LambdaNode(operator.delitem, self, key)
+
     # Rich comparison methods
     def __lt__(self, other):
         return LambdaNode(operator.lt, self, other)
@@ -154,6 +166,150 @@ class Variable(Generic[T]):
 
     def __ge__(self, other):
         return LambdaNode(operator.ge, self, other)
+
+    # Binary arithmetic operations
+    def __add__(self, other):
+        return LambdaNode(operator.add, self, other)
+
+    def __sub__(self, other):
+        return LambdaNode(operator.sub, self, other)
+
+    def __mul__(self, other):
+        return LambdaNode(operator.mul, self, other)
+
+    def __matmul__(self, other):
+        return LambdaNode(operator.matmul, self, other)
+
+    def __truediv__(self, other):
+        return LambdaNode(operator.truediv, self, other)
+
+    def __floordiv__(self, other):
+        return LambdaNode(operator.floordiv, self, other)
+
+    def __mod__(self, other):
+        return LambdaNode(operator.mod, self, other)
+
+    def __pow__(self, other):
+        return LambdaNode(operator.pow, self, other)
+
+    def __lshift__(self, other):
+        return LambdaNode(operator.lshift, self, other)
+
+    def __rshift__(self, other):
+        return LambdaNode(operator.rshift, self, other)
+
+    def __and__(self, other):
+        return LambdaNode(operator.and_, self, other)
+
+    def __xor__(self, other):
+        return LambdaNode(operator.xor, self, other)
+
+    def __or__(self, other):
+        return LambdaNode(operator.or_, self, other)
+
+    # Binary arithmetic operations with reflected (swapped) operands
+    def __radd__(self, other):
+        return LambdaNode(operator.add, other, self)
+
+    def __rsub__(self, other):
+        return LambdaNode(operator.sub, other, self)
+
+    def __rmul__(self, other):
+        return LambdaNode(operator.mul, other, self)
+
+    def __rmatmul__(self, other):
+        return LambdaNode(operator.matmul, other, self)
+
+    def __rtruediv__(self, other):
+        return LambdaNode(operator.truediv, other, self)
+
+    def __rfloordiv__(self, other):
+        return LambdaNode(operator.floordiv, other, self)
+
+    def __rmod__(self, other):
+        return LambdaNode(operator.mod, other, self)
+
+    def __rpow__(self, other):
+        return LambdaNode(operator.pow, other, self)
+
+    def __rlshift__(self, other):
+        return LambdaNode(operator.lshift, other, self)
+
+    def __rrshift__(self, other):
+        return LambdaNode(operator.rshift, other, self)
+
+    def __rand__(self, other):
+        return LambdaNode(operator.and_, other, self)
+
+    def __rxor__(self, other):
+        return LambdaNode(operator.xor, other, self)
+
+    def __ror__(self, other):
+        return LambdaNode(operator.or_, other, self)
+
+    # Unary arithmetic operations
+    def __neg__(self):
+        return LambdaNode(operator.neg, self)
+
+    def __pos__(self):
+        return LambdaNode(operator.pos, self)
+
+    def __abs__(self):
+        return LambdaNode(operator.abs, self)
+
+    def __invert__(self):
+        return LambdaNode(operator.invert, self)
+
+    # Above operators without underscores
+    getattr = __getattr__
+    lt = __lt__
+    le = __le__
+    eq = __eq__
+    ne = __ne__
+    gt = __gt__
+    ge = __ge__
+    add = __add__
+    sub = __sub__
+    mul = __mul__
+    matmul = __matmul__
+    truediv = __truediv__
+    floordiv = __floordiv__
+    mod = __mod__
+    pow = __pow__
+    lshift = __lshift__
+    rshift = __rshift__
+    and_ = __and__
+    xor = __xor__
+    or_ = __or__
+    neg = __neg__
+    pos = __pos__
+    abs = __abs__
+    invert = __invert__
+
+    # Special operators
+    def not_(self):
+        """Return the outcome of not obj."""
+        return LambdaNode(operator.not_, self)
+
+    def truth(self):
+        """Return True if obj is true, and False otherwise."""
+        return LambdaNode(operator.truth, self)
+
+    def is_(self, other):
+        """Return ``self is other``. Tests object identity."""
+        return LambdaNode(operator.is_, self, other)
+
+    def is_not(self, other):
+        """Return ``self is not other``. Tests object identity."""
+        return LambdaNode(operator.is_not, self, other)
+
+    def in_(self, other):
+        """Return the outcome of the test  ``self in other``. Tests containment."""
+        return LambdaNode(operator.contains, other, self)
+
+    def contains(self, other):
+        """Return the outcome of the test  ``other in self``. Tests containment."""
+        return LambdaNode(operator.contains, self, other)
 
 
 # Types

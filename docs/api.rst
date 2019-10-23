@@ -119,4 +119,3 @@ Upon instanciation, Nodes return Variables
 that are used to identify values in stream objects.
 
 .. autoclass:: Variable
-    :members:
