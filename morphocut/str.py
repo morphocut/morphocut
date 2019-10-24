@@ -10,6 +10,9 @@ from morphocut._optional import import_optional_dependency
 class Format(Node):
     """
     Format a string just like :py:meth:`str.format`.
+
+    This class allows you to create and customize your own string formatting behaviors using the same 
+    implementation as the :py:meth:`str.format` methods.
     
     Args:
         fmt (str): A format in which we want our string to be.
@@ -24,13 +27,15 @@ class Format(Node):
 
     Example:
         .. code-block:: python
+            
+            fmt = "{},{},{},{},{},{},{a},{b},{c},{d}"
+            args = (1, 2, 3)
+            _args = (4, 5, 6)
+            _kwargs = {"a": 7, "b": 8}
+            kwargs = {"c": 9, "d": 10}
 
             with Pipeline() as pipeline:
                 result = Format(fmt, *args, _args=_args, _kwargs=_kwargs, **kwargs)
-
-            stream = pipeline.transform_stream()
-            obj = next(stream)
-            print(obj[result])
 
     """
 
@@ -56,8 +61,10 @@ class ParseWarning(UserWarning):
 @ReturnOutputs
 @Output("meta")
 class Parse(Node):
-    """Parse information from a string. The class can be used to simply parse a string
-    Or to search a string in some pattern.
+    """
+    Parse information from a string.
+
+    Parse strings using a specification based on the :ref:`Python Format String Syntax <python:formatstrings>`.
 
     .. note::
         The external dependency `parse`_ is required to use this Node.
@@ -72,12 +79,12 @@ class Parse(Node):
     Example:
         .. code-block:: python
 
+            fmt = "This is a {named}"
+            string = "This is a TEST"
+            case_sensitive = True
+            
             with Pipeline() as pipeline:
-                result = Parse(pattern, string, case_sensitive)
-
-            stream = pipeline.transform_stream()
-            obj = next(stream)
-            print(obj[result])
+                result = Parse(fmt, string, case_sensitive)
 
     """
 
