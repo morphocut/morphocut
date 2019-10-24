@@ -333,7 +333,11 @@ class Node:
             # pylint: disable=protected-access
             _pipeline_stack[-1]._add_node(self)
         except IndexError:
-            raise RuntimeError("Empty pipeline stack") from None
+            raise RuntimeError(
+                "Empty pipeline stack. {} has to be called in a pipeline context.".format(
+                    self.__class__.__name__
+                )
+            ) from None
 
     def __bind_output(self, port: "Output"):
         """Bind self to port and return a variable."""
