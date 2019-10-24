@@ -4,6 +4,10 @@ MorphoCut
 .. image:: https://travis-ci.org/morphocut/morphocut.svg?branch=master
     :target: https://travis-ci.org/morphocut/morphocut
 
+.. image:: https://codecov.io/gh/morphocut/morphocut/branch/master/graph/badge.svg
+    :alt: Codecov
+    :target: https://codecov.io/gh/morphocut/morphocut
+
 This repository contains the MorphoCut image processing pipeline
 library.
 
