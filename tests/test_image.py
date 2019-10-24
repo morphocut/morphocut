@@ -1,10 +1,10 @@
-from morphocut import Pipeline
-from morphocut.image import ThresholdConst, Rescale, ImageWriter
-
 import numpy as np
+import pytest
 import skimage.io
 
-import pytest
+from morphocut import Pipeline
+from morphocut.image import FindRegions, ImageWriter, Rescale, ThresholdConst
+
 
 def test_ThresholdConst():
     image = skimage.data.camera()
@@ -39,15 +39,13 @@ def test_ImageWriter():
 #Also ExtractROI class is dependent on FindRegion so couldn't write test of it either
 
 
-'''
+
 @pytest.mark.xfail(strict=True)
 def test_FindRegions():
     image = skimage.data.camera()
-    mask = ThresholdConst(image, 255)
     with Pipeline() as pipeline:
+        mask = ThresholdConst(image, 255)
         result = FindRegions(mask, image, 0, 100, padding=10)
 
     stream = pipeline.transform_stream()
     pipeline.run()
-'''
-
