@@ -2,11 +2,22 @@
 
 import inspect
 import operator
-import warnings
+from collections import abc
 from functools import wraps
-from typing import Callable, Generic, Tuple, TypeVar, Union
+from typing import (
+    Callable,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
-_pipeline_stack = []  # type: ignore, pylint: disable=invalid-name
+_pipeline_stack = []  # type: List[Pipeline] # pylint: disable=invalid-name
 
 
 def _resolve_variable(obj, variable_or_value):
@@ -22,48 +33,313 @@ def _resolve_variable(obj, variable_or_value):
     return variable_or_value
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class Variable(Generic[T]):
-    __slots__ = ["name", "node"]
+    """
+    A Variable identifies a value in a stream object.
 
-    def __init__(self, name, node):
+    Variables are (almost) never instanciated manually, they are created when calling a Node.
+
+    Attributes:
+        name: The name of the Variable.
+        node: The node that created the Variable.
+
+    Operations:
+        Variables support the following operations.
+        Each operation is realized as a new Node in the Pipeline,
+        so use them sparingly.
+        Operator and method can be used interchangeably (if both present).
+
+        +-----------------------+-----------------------+---------------------------------+
+        |       Operation       |      Operator         |             Method              |
+        +=======================+=======================+=================================+
+        | Addition              | ``a + b``             | ``a.add(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Containment Test      |                       | ``a.contains(b)``, ``b.in_(a)`` |
+        +-----------------------+-----------------------+---------------------------------+
+        | True Division         | ``a / b``             | ``a.truediv(b)``                |
+        +-----------------------+-----------------------+---------------------------------+
+        | Integer Division      | ``a // b``            | ``a.floordiv(b)``               |
+        +-----------------------+-----------------------+---------------------------------+
+        | Bitwise And           | ``a & b``             | ``a.and_(b)``                   |
+        +-----------------------+-----------------------+---------------------------------+
+        | Bitwise Exclusive Or  | ``a ^ b``             | ``a.xor(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Bitwise Inversion     | ``~ a``               | ``a.invert(b)``                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Bitwise Or            | ``a | b``             | ``a.or_(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Exponentiation        | ``a ** b``            | ``a.pow(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Identity              |                       | ``a.is_(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Identity              |                       | ``a.is_not(b)``                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Indexed Assignment    | ``obj[k] = v``        |                                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Indexed Deletion      | ``del obj[k]``        |                                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Indexing              | ``obj[k]``            |                                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Left Shift            | ``a << b``            | ``a.lshift(b)``                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Modulo                | ``a % b``             | ``a.mod(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Multiplication        | ``a * b``             | ``a.mul(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Matrix Multiplication | ``a @ b``             | ``a.matmul(b)``                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Negation (Arithmetic) | ``- a``               | ``a.neg(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Negation (Logical)    |                       | ``a.not_()``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Positive              | ``+ a``               | ``a.pos(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Right Shift           | ``a >> b``            | ``a.rshift(b)``                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Slice Assignment      | ``seq[i:j] = values`` |                                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Slice Deletion        | ``del seq[i:j]``      |                                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Slicing               | ``seq[i:j]``          |                                 |
+        +-----------------------+-----------------------+---------------------------------+
+        | Subtraction           | ``a - b``             | ``a.sub(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Ordering              | ``a < b``             | ``a.lt(b)``                     |
+        +-----------------------+-----------------------+---------------------------------+
+        | Ordering              | ``a <= b``            | ``a.leq(b)``                    |
+        +-----------------------+-----------------------+---------------------------------+
+        | Equality              | ``a == b``            | ``a.eq(b)``                     |
+        +-----------------------+-----------------------+---------------------------------+
+        | Difference            | ``a != b``            | ``a.ne(b)``                     |
+        +-----------------------+-----------------------+---------------------------------+
+        | Ordering              | ``a >= b``            | ``a.ge(b)``                     |
+        +-----------------------+-----------------------+---------------------------------+
+        | Ordering              | ``a > b``             | ``a.gt(b)``                     |
+        +-----------------------+-----------------------+---------------------------------+
+
+        ``a``, ``b``, ``i``, ``j`` and ``k`` can be either
+        :py:class:`Variable` instances or raw values.
+    """
+
+    __slots__ = ["name", "node", "hash"]
+
+    def __init__(self, name: str, node: "Node"):
         self.name = name
         self.node = node
+        self.hash = hash((node.id, name))
 
+    def __str__(self):
+        return "<Variable {}.{}>".format(self.node, self.name)
+
+    # Attribute access
     def __getattr__(self, name):
         return LambdaNode(getattr, self, name)
 
+    # Item access
     def __getitem__(self, key):
         return LambdaNode(operator.getitem, self, key)
 
     def __setitem__(self, key, value):
         return LambdaNode(operator.setitem, self, key, value)
 
+    def __delitem__(self, key):
+        return LambdaNode(operator.delitem, self, key)
 
+    # Rich comparison methods
+    def __lt__(self, other):
+        return LambdaNode(operator.lt, self, other)
+
+    def __le__(self, other):
+        return LambdaNode(operator.le, self, other)
+
+    def __eq__(self, other):
+        return LambdaNode(operator.eq, self, other)
+
+    def __ne__(self, other):
+        return LambdaNode(operator.ne, self, other)
+
+    def __gt__(self, other):
+        return LambdaNode(operator.gt, self, other)
+
+    def __ge__(self, other):
+        return LambdaNode(operator.ge, self, other)
+
+    # Binary arithmetic operations
+    def __add__(self, other):
+        return LambdaNode(operator.add, self, other)
+
+    def __sub__(self, other):
+        return LambdaNode(operator.sub, self, other)
+
+    def __mul__(self, other):
+        return LambdaNode(operator.mul, self, other)
+
+    def __matmul__(self, other):
+        return LambdaNode(operator.matmul, self, other)
+
+    def __truediv__(self, other):
+        return LambdaNode(operator.truediv, self, other)
+
+    def __floordiv__(self, other):
+        return LambdaNode(operator.floordiv, self, other)
+
+    def __mod__(self, other):
+        return LambdaNode(operator.mod, self, other)
+
+    def __pow__(self, other):
+        return LambdaNode(operator.pow, self, other)
+
+    def __lshift__(self, other):
+        return LambdaNode(operator.lshift, self, other)
+
+    def __rshift__(self, other):
+        return LambdaNode(operator.rshift, self, other)
+
+    def __and__(self, other):
+        return LambdaNode(operator.and_, self, other)
+
+    def __xor__(self, other):
+        return LambdaNode(operator.xor, self, other)
+
+    def __or__(self, other):
+        return LambdaNode(operator.or_, self, other)
+
+    # Binary arithmetic operations with reflected (swapped) operands
+    def __radd__(self, other):
+        return LambdaNode(operator.add, other, self)
+
+    def __rsub__(self, other):
+        return LambdaNode(operator.sub, other, self)
+
+    def __rmul__(self, other):
+        return LambdaNode(operator.mul, other, self)
+
+    def __rmatmul__(self, other):
+        return LambdaNode(operator.matmul, other, self)
+
+    def __rtruediv__(self, other):
+        return LambdaNode(operator.truediv, other, self)
+
+    def __rfloordiv__(self, other):
+        return LambdaNode(operator.floordiv, other, self)
+
+    def __rmod__(self, other):
+        return LambdaNode(operator.mod, other, self)
+
+    def __rpow__(self, other):
+        return LambdaNode(operator.pow, other, self)
+
+    def __rlshift__(self, other):
+        return LambdaNode(operator.lshift, other, self)
+
+    def __rrshift__(self, other):
+        return LambdaNode(operator.rshift, other, self)
+
+    def __rand__(self, other):
+        return LambdaNode(operator.and_, other, self)
+
+    def __rxor__(self, other):
+        return LambdaNode(operator.xor, other, self)
+
+    def __ror__(self, other):
+        return LambdaNode(operator.or_, other, self)
+
+    # Unary arithmetic operations
+    def __neg__(self):
+        return LambdaNode(operator.neg, self)
+
+    def __pos__(self):
+        return LambdaNode(operator.pos, self)
+
+    def __abs__(self):
+        return LambdaNode(operator.abs, self)
+
+    def __invert__(self):
+        return LambdaNode(operator.invert, self)
+
+    # Above operators without underscores
+    getattr = __getattr__
+    lt = __lt__
+    le = __le__
+    eq = __eq__
+    ne = __ne__
+    gt = __gt__
+    ge = __ge__
+    add = __add__
+    sub = __sub__
+    mul = __mul__
+    matmul = __matmul__
+    truediv = __truediv__
+    floordiv = __floordiv__
+    mod = __mod__
+    pow = __pow__
+    lshift = __lshift__
+    rshift = __rshift__
+    and_ = __and__
+    xor = __xor__
+    or_ = __or__
+    neg = __neg__
+    pos = __pos__
+    abs = __abs__
+    invert = __invert__
+
+    # Special operators
+    def not_(self):
+        """Return the outcome of not obj."""
+        return LambdaNode(operator.not_, self)
+
+    def truth(self):
+        """Return True if obj is true, and False otherwise."""
+        return LambdaNode(operator.truth, self)
+
+    def is_(self, other):
+        """Return ``self is other``. Tests object identity."""
+        return LambdaNode(operator.is_, self, other)
+
+    def is_not(self, other):
+        """Return ``self is not other``. Tests object identity."""
+        return LambdaNode(operator.is_not, self, other)
+
+    def in_(self, other):
+        """Return the outcome of the test  ``self in other``. Tests containment."""
+        return LambdaNode(operator.contains, other, self)
+
+    def contains(self, other):
+        """Return the outcome of the test  ``other in self``. Tests containment."""
+        return LambdaNode(operator.contains, self, other)
+
+
+# Types
 RawOrVariable = Union[T, Variable[T]]
 NodeCallReturnType = Union[None, Variable, Tuple[Variable]]
+Stream = Iterable["StreamObject"]
 
 
 class Node:
-    """Represents a node in the computation graph."""
+    """Base class for all nodes."""
 
     def __init__(self):
+        self.id = "{:x}".format(id(self))
+
         # Bind outputs to self
         outputs = getattr(self.__class__, "outputs", [])
         self.outputs = [self.__bind_output(o) for o in outputs]
-        self._outputs_retrieved = False
 
         # Register with pipeline
         try:
             # pylint: disable=protected-access
-            _pipeline_stack[-1]._add_node(
-                self)
+            _pipeline_stack[-1]._add_node(self)
         except IndexError:
-            raise RuntimeError("Empty pipeline stack") from None
+            raise RuntimeError(
+                "Empty pipeline stack. {} has to be called in a pipeline context.".format(
+                    self.__class__.__name__
+                )
+            ) from None
 
-    def __bind_output(self, port):
+    def __bind_output(self, port: "Output"):
         """Bind self to port and return a variable."""
         variable = port.create_variable(self)
 
@@ -80,8 +356,6 @@ class Node:
                     type=type(self).__name__
                 )
             )
-
-        self._outputs_retrieved = True
 
         # Return outputs
         if not outputs:
@@ -138,7 +412,7 @@ class Node:
         Do something after the stream was processed.
 
         Called by transform_stream after stream processing is done.
-        Override this in your own implementation.
+        *Override this in your own subclass.*
         """
 
     def _get_parameter_names(self):
@@ -151,15 +425,16 @@ class Node:
             if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
         ]
 
-    def transform_stream(self, stream):
-        """Transform a stream."""
+    def transform_stream(self, stream: Stream) -> Stream:
+        """
+        Transform a stream.
 
-        if not self._outputs_retrieved:
-            warnings.warn(
-                "Outputs were not retrieved. Did you forget a () after {type}(...)?".format(
-                    type=type(self).__name__
-                )
-            )
+        By default, this calls ``self.transform`` with appropriate parameters.
+        ``transform`` has to be implemented by a subclass if ``transform_stream`` is not overridden.
+
+        Override if the stream has to be altered in some way,
+        i.e. objects are created, deleted or re-arranged.
+        """
 
         names = self._get_parameter_names()
 
@@ -179,28 +454,24 @@ class Node:
 
 
 class Output:
-    """Stores meta data about a output of a Node.
+    """
+    Define an Output of a Node.
 
-    This is used as a decorator.
-
-    Example:
-        @ReturnOutputs
-        @Output("bar")
-        class Foo(Node):
-            ...
-
+    Args:
+        name (str): Name of the output.
+        type (type, optional): Type of the output.
+        doc (str, optional): Description  of the output.
     """
 
     def __init__(
-        self,
-        name,
-        doc=None
+        self, name: str, type: Optional[Type] = None, doc: Optional[str] = None
     ):
         self.name = name
+        self.type = type
         self.doc = doc
         self.node_cls = None
 
-    def create_variable(self, node):
+    def create_variable(self, node: Node):
         """Return a _Variable with a reference to the node."""
 
         return Variable(self.name, node)
@@ -229,31 +500,43 @@ class Output:
 
 
 def ReturnOutputs(node_cls):
+    """Turn Node into a function returning Output variables."""
     if not issubclass(node_cls, Node):
-        raise ValueError(
-            "This decorator is meant to be applied to a subclass of Node."
-        )
+        raise ValueError("This decorator is meant to be applied to a subclass of Node.")
 
     @wraps(node_cls)
     def wrapper(*args, **kwargs) -> NodeCallReturnType:
         return node_cls(*args, **kwargs)()
-    wrapper.node_cls = node_cls
+
+    wrapper._node_cls = node_cls
+    wrapper.__mro__ = node_cls.__mro__
     return wrapper
 
 
 @ReturnOutputs
-@Output("out")
+@Output("result")
 class LambdaNode(Node):
     """
     Apply a function to the supplied variables.
 
+    For every object in the stream, apply ``clbl`` to the corresponding stream variables.
+
     Args:
         clbl: A callable.
-        *args: Positional arguments to clbl.
-        **kwargs. Keyword-arguments to clbl.
+        *args: Positional arguments to ``clbl``.
+        **kwargs: Keyword-arguments to ``clbl``.
 
-    Output:
-        The result of the function application.
+    Returns:
+        Variable: The result of the function invocation.
+
+    Example:
+        .. code-block:: python
+
+            def foo(bar):
+                return bar
+
+            baz = ... # baz is a stream variable.
+            result = LambdaNode(foo, baz)
 
     """
 
@@ -271,9 +554,57 @@ class LambdaNode(Node):
         return "{}({})".format(self.__class__.__name__, self.clbl.__name__)
 
 
+class StreamObject(abc.MutableMapping):
+    __slots__ = ["data"]
+
+    def __init__(self, data: Dict = None):
+        if data is None:
+            data = {}
+        self.data = data
+
+    def copy(self) -> "StreamObject":
+        return StreamObject(self.data.copy())
+
+    def _as_key(self, obj):
+        if isinstance(obj, Variable):
+            return obj.hash
+        return obj
+
+    def __setitem__(self, key, value):
+        self.data[self._as_key(key)] = value
+
+    def __delitem__(self, key):
+        del self.data[self._as_key(key)]
+
+    def __getitem__(self, key):
+        return self.data[self._as_key(key)]
+
+    def __iter__(self):
+        return iter(self.data)
+
+    def __len__(self):
+        return len(self.data)
+
+
 class Pipeline:
+    """
+    A Pipeline manages the execution of nodes.
+
+    Nodes defined inside the pipeline context will be added to the pipeline.
+    When the pipeline is executed, stream objects are passed
+    from one node to the next in the same order.
+
+    Example:
+        .. code-block:: python
+
+            with Pipeline() as pipeline:
+                ...
+
+            pipeline.run()
+    """
+
     def __init__(self):
-        self.nodes = []
+        self.nodes = []  # type: List[Node]
 
     def __enter__(self):
         # Push self to pipeline stack
@@ -287,20 +618,41 @@ class Pipeline:
 
         assert item is self
 
-    def transform_stream(self, stream=None):
-        if stream is None:
-            stream = [{}]
+    def transform_stream(self, stream: Optional[Stream] = None) -> Stream:
+        """
+        Run the stream through all nodes and return it.
 
-        for node in self.nodes:
+        Args:
+            stream: A stream to transform.
+                *This argument is solely to be used internally.*
+
+        Returns:
+            Stream: An iterable of stream objects.
+
+        """
+        if stream is None:
+            stream = [StreamObject()]
+
+        for node in self.nodes:  # type: Node
             stream = node.transform_stream(stream)
 
         return stream
 
     def run(self):
+        """
+        Run the complete pipeline.
+
+        This is a convenience method to be used in place of:
+
+        .. code-block:: python
+
+            for _ in pipeline.transform_stream():
+                pass
+        """
         for _ in self.transform_stream():
             pass
 
-    def _add_node(self, node):
+    def _add_node(self, node: Node):
         self.nodes.append(node)
 
     def __str__(self):

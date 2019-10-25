@@ -1,14 +1,44 @@
-"""
-This module implements a functional interface for image processing.
-"""
+from typing import Any, List, Mapping
 
 import numpy as np
 from scipy.interpolate import LinearNDInterpolator
+from skimage.color import rgb2gray
 from skimage.filters import gaussian, threshold_otsu
 from skimage.morphology import binary_dilation, binary_erosion, dilation, disk
 
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 
-def calculate_flat_image(img):
+
+@ReturnOutputs
+@Output("result")
+class VignettingCorrector(Node):
+    """Remove the vignette effect from an image."""
+
+    def __init__(self, image):
+        super().__init__()
+        self.image = image
+
+    def transform(self, image: RawOrVariable):
+
+        if len(image.shape) == 2:
+            grey_img = image
+        elif image.shape[-1] == 1:
+            grey_img = image[:-1]
+        else:
+            grey_img = rgb2gray(image)
+
+        flat_image = calculate_flat_image(grey_img)
+
+        # Add a dimension for multichannel input images
+        if len(image.shape) == 3:
+            flat_image = flat_image[:, :, np.newaxis]
+
+        corrected_img = image / flat_image
+
+        return corrected_img
+
+
+def calculate_flat_image(img: np.ndarray) -> np.ndarray:
     """
     Calculate a flat background image by removing dark objects and max-filtering.
 

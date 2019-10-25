@@ -1,13 +1,17 @@
 import glob
-import os.path
+import pathlib
 
 import pytest
 
 
-@pytest.fixture
-def image_fns():
-    image_glob = os.path.join(os.path.realpath(
-        os.path.dirname(__file__)), "images", "*.png")
+@pytest.fixture(scope="session")
+def data_path():
+    return pathlib.Path(__file__).parent / "data"
+
+
+@pytest.fixture(scope="session")
+def image_fns(data_path):
+    image_glob = str(data_path / "images" / "*.png")
 
     image_fns = glob.glob(image_glob)
 
