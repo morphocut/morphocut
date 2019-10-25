@@ -4,9 +4,11 @@ import os
 from typing import Any, List, Mapping
 
 import numpy as np
+import PIL
 import scipy.ndimage as ndi
 import skimage.exposure
 import skimage.io
+import skimage.measure
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 
@@ -39,7 +41,7 @@ class Rescale(Node):
     """Rescale the image
     """
 
-    def __init__(self, image: RawOrVariable, in_range='image', dtype=None):
+    def __init__(self, image: RawOrVariable, in_range="image", dtype=None):
         super().__init__()
 
         self.image = image
@@ -59,40 +61,6 @@ class Rescale(Node):
             image = image.astype(self.dtype, copy=False)
 
         return image
-
-
-@ReturnOutputs
-class ImageWriter(Node):
-    """Create a duplicate image, return its directory and filename
-    """
-
-    def __init__(self, root: str, fmt: str, image: RawOrVariable, meta: RawOrVariable[Mapping]):
-        super().__init__()
-        self.root = root
-        self.fmt = fmt
-        self.image = image
-        self.meta = meta
-
-    def transform_stream(self, stream):
-        for dirname, group in itertools.groupby(
-            self._gen_paths(stream), operator.itemgetter(0)
-        ):
-            os.makedirs(dirname, exist_ok=True)
-            for _, filename, image, obj in group:
-
-                skimage.io.imsave(filename, image)
-
-                yield obj
-
-    def _gen_paths(self, stream):
-        for obj in stream:
-            image, meta = self.prepare_input(obj, ("image", "meta"))
-
-            filename = os.path.join(self.root, self.fmt.format(**meta))
-
-            dirname = os.path.dirname(filename)
-
-            yield dirname, filename, image, obj
 
 
 @ReturnOutputs
@@ -116,7 +84,12 @@ class FindRegions(Node):
     """
 
     def __init__(
-        self, mask: RawOrVariable, image: RawOrVariable = None, min_area=None, max_area=None, padding=0
+        self,
+        mask: RawOrVariable,
+        image: RawOrVariable = None,
+        min_area=None,
+        max_area=None,
+        padding=0,
     ):
         super().__init__()
 
@@ -129,9 +102,7 @@ class FindRegions(Node):
 
     @staticmethod
     def _enlarge_slice(slices, padding):
-        return tuple(
-            slice(max(0, s.start - padding), s.stop + padding) for s in slices
-        )
+        return tuple(slice(max(0, s.start - padding), s.stop + padding) for s in slices)
 
     def transform_stream(self, stream):
         """Slice the image stream
@@ -150,7 +121,7 @@ class FindRegions(Node):
                     sl = self._enlarge_slice(sl, self.padding)
 
                 props = skimage.measure._regionprops._RegionProperties(
-                    sl, i + 1, labels, image, True, 'rc'
+                    sl, i + 1, labels, image, True, "rc"
                 )
 
                 if self.min_area is not None and props.area < self.min_area:
@@ -205,3 +176,36 @@ class ImageStats(Node):
         print("Absolute: ", min(self.min), max(self.max))
         print("Average: ", mean_min, mean_max)
 
+
+@ReturnOutputs
+class ImageReader(Node):
+    def __init__(self, fp: RawOrVariable):
+        super().__init__()
+        self.fp = fp
+
+    def transform_stream(self, stream):
+        for obj in stream:
+            fp = self.prepare_input(obj, "fp")
+
+            image = np.array(PIL.Image.open(fp))
+
+            yield self.prepare_output(obj, image)
+
+
+@ReturnOutputs
+class ImageWriter(Node):
+    def __init__(self, fp: RawOrVariable, image: RawOrVariable):
+        super().__init__()
+        self.fp = fp
+        self.image = image
+
+    def transform_stream(self, stream):
+        for obj in stream:
+            fp, image = self.prepare_input(obj, ("fp", "image"))
+
+            print(fp)
+
+            img = PIL.Image.fromarray(image)
+            img.save(fp)
+
+            yield obj

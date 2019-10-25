@@ -1,8 +1,9 @@
 import glob
 import os
-from typing import Collection
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, Variable
+
+from typing import Container
 
 
 @ReturnOutputs
@@ -19,7 +20,7 @@ class Find(Node):
         Variable[str]: Path of the matching file.
     """
 
-    def __init__(self, root: str, extensions: Collection):
+    def __init__(self, root: str, extensions: Container):
         super().__init__()
 
         self.root = root
@@ -36,10 +37,7 @@ class Find(Node):
                     if ext not in self.extensions:
                         continue
 
-                    yield self.prepare_output(
-                        {},
-                        os.path.join(root, fn),
-                    )
+                    yield self.prepare_output({}, os.path.join(root, fn))
 
 
 @ReturnOutputs
@@ -63,7 +61,9 @@ class Glob(Node):
         Variable[str]: Path matching ``pathname``.
     """
 
-    def __init__(self, pathname: RawOrVariable[str], recursive: RawOrVariable[bool] = False):
+    def __init__(
+        self, pathname: RawOrVariable[str], recursive: RawOrVariable[bool] = False
+    ):
         super().__init__()
 
         self.pathname = pathname
@@ -71,10 +71,6 @@ class Glob(Node):
 
     def transform_stream(self, stream):
         for obj in stream:
-            pathname, recursive = self.prepare_input(
-                obj, ("pathname", "recursive"))
+            pathname, recursive = self.prepare_input(obj, ("pathname", "recursive"))
             for path in glob.iglob(pathname, recursive=recursive):
-                yield self.prepare_output(
-                    {},
-                    path
-                )
+                yield self.prepare_output({}, path)

@@ -1,2 +1,2 @@
-git+https://github.com/moi90/sphinx-autodoc-typehints.git@typehints_document_rtype#egg=sphinx-autodoc-typehints
+git+https://github.com/moi90/sphinx-autodoc-typehints.git@master#egg=sphinx-autodoc-typehints
 -e .[tests,docs]

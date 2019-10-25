@@ -11,3 +11,4 @@ htmlcov
 .ipynb_checkpoints
 .tox/
 pip-wheel-metadata/
+docs/inventory/
