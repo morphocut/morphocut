@@ -8,6 +8,7 @@ import PIL
 import scipy.ndimage as ndi
 import skimage.exposure
 import skimage.io
+import skimage.measure
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 
