@@ -12,7 +12,7 @@ class Format(Node):
     Format a string just like :py:meth:`str.format`.
 
     This class allows you to create and customize your own string formatting behaviors using the same 
-    implementation as the :py:meth:`str.format` methods.
+    implementation as the :ref:`Python Format String Syntax <python:formatstrings>` methods.
     
     Args:
         fmt (str): A format in which we want our string to be.
@@ -36,6 +36,8 @@ class Format(Node):
 
             with Pipeline() as pipeline:
                 result = Format(fmt, *args, _args=_args, _kwargs=_kwargs, **kwargs)
+    
+    The produces the output: "1,2,3,4,5,6,7,8,9,10"
 
     """
 
@@ -85,6 +87,8 @@ class Parse(Node):
             
             with Pipeline() as pipeline:
                 result = Parse(fmt, string, case_sensitive)
+
+    This returns the following key-value output: {'named': 'TEST'}
 
     """
 

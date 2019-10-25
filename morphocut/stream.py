@@ -17,9 +17,7 @@ __all__ = ["TQDM", "Slice"]
 @ReturnOutputs
 class TQDM(Node):
     """
-    Provide a progress indicator via `tqdm`_.
-    
-    Show a dynamically updating progressbar using `tqdm`_.
+    Show a dynamically updating progress bar using `tqdm`_.
 
     .. note::
        The external dependency `tqdm`_ is required to use this Node.
@@ -32,10 +30,10 @@ class TQDM(Node):
     Example:
         .. code-block:: python
 
-            items = range(5)
-
             with Pipeline() as pipeline:
                 TQDM("Description")
+
+    Output: Description|███████████████████████| [00:00, 2434.24it/s]
 
     """
 
