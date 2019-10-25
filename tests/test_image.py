@@ -22,19 +22,6 @@ def test_Rescale():
     stream = pipeline.transform_stream()
     pipeline.run()
 
-#TODO: Confused in fmt and meta. 
-@pytest.mark.xfail(strict=True)
-def test_ImageWriter():
-    image_root = "/tests/images/"
-    fmt = "{ext}"
-    meta = ...
-    image = skimage.data.camera()
-    with Pipeline() as pipeline:
-        result = ImageWriter(image_root, fmt, image, meta)
-
-    stream = pipeline.transform_stream()
-    pipeline.run()
-
 #transform_stream method of FindRegion has an error because of which test fails
 #Also ExtractROI class is dependent on FindRegion so couldn't write test of it either
 
