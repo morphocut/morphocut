@@ -9,10 +9,7 @@ from morphocut._optional import import_optional_dependency
 @Output("string")
 class Format(Node):
     """
-    Format a string just like :py:meth:`str.format`.
-
-    This class allows you to create and customize your own string formatting behaviors using the same 
-    implementation as the :ref:`Python Format String Syntax <python:formatstrings>` methods.
+    Format strings like :py:meth:`str.format` using the the :ref:`Python Format String Syntax <python:formatstrings>`.
     
     Args:
         fmt (str): A format in which we want our string to be.
@@ -37,7 +34,7 @@ class Format(Node):
             with Pipeline() as pipeline:
                 result = Format(fmt, *args, _args=_args, _kwargs=_kwargs, **kwargs)
     
-    The produces the output: "1,2,3,4,5,6,7,8,9,10"
+        Result: `obj[result]` == `"1,2,3,4,5,6,7,8,9,10"` for a stream object `obj`.
 
     """
 
@@ -88,7 +85,7 @@ class Parse(Node):
             with Pipeline() as pipeline:
                 result = Parse(fmt, string, case_sensitive)
 
-    This returns the following key-value output: {'named': 'TEST'}
+        Result: `obj[result]` == `{'named': 'TEST'}` for a stream object `obj`.
 
     """
 
