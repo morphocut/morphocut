@@ -33,7 +33,7 @@ class TQDM(Node):
             with Pipeline() as pipeline:
                 TQDM("Description")
 
-    Output: Description|███████████████████████| [00:00, 2434.24it/s]
+        Output: Description|███████████████████████| [00:00, 2434.24it/s]
 
     """
 
@@ -57,7 +57,6 @@ class TQDM(Node):
 
 @ReturnOutputs
 class Slice(Node):
-
     def __init__(self, *args: Optional[int]):
         super().__init__()
         self.args = args
@@ -92,7 +91,7 @@ class StreamBuffer(Node):
         """Apply transform to every object in the stream.
         """
 
-        thread = Thread(target=self._fill_queue, args=(stream, ), daemon=True)
+        thread = Thread(target=self._fill_queue, args=(stream,), daemon=True)
         thread.start()
 
         while True:
@@ -107,7 +106,6 @@ class StreamBuffer(Node):
 
 @ReturnOutputs
 class PrintObjects(Node):
-
     def __init__(self, *args: Tuple[Variable]):
         super().__init__()
         self.args = args
@@ -124,7 +122,6 @@ class PrintObjects(Node):
 @ReturnOutputs
 @Output("index")
 class Enumerate(Node):
-
     def transform_stream(self, stream):
         for i, obj in enumerate(stream):
             yield self.prepare_output(obj, i)
