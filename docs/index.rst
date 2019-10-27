@@ -34,6 +34,8 @@ User Guide
    contributing
    authors
 
+.. TODO: Compatibility: No Pylint, no MyPy.
+
 Acknowledgements
 ----------------
 
