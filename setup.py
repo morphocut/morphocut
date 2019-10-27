@@ -20,7 +20,13 @@ setup(
     install_requires=["numpy", "scikit-image", "pandas", "tqdm", "scipy"],
     python_requires=">=3.5",
     extras_require={
-        "tests": ["pytest", "pytest-cov"],
+        "tests": [
+            # Pytest
+            "pytest",
+            "pytest-cov",
+            # Optional dependencies
+            "parse",
+        ],
         "docs": [
             "sphinx >= 1.4",
             "sphinx_rtd_theme",
