@@ -53,10 +53,13 @@ def test_ImageWriter(tmp_path):
     stream = pipeline.transform_stream()
     pipeline.run()
 
-def test_ImageReader():
+@pytest.mark.xfail(strict=True)
+def test_ImageReader(data_path):
+    d = data_path / "images"
+    d.mkdir()
+    p = d / "test_image_3.png"
     with Pipeline() as pipeline:
-        path = Glob("/morphocut/tests/images/test_image_3.png")
-        image = ImageReader(path)
+        image = ImageReader(p)
 
     stream = pipeline.transform_stream()
     pipeline.run()
