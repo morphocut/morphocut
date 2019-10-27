@@ -17,9 +17,24 @@ __all__ = ["TQDM", "Slice"]
 @ReturnOutputs
 class TQDM(Node):
     """
-    Provide a progress indicator via `tqdm`_.
+    Show a dynamically updating progress bar using `tqdm`_.
+
+    .. note::
+       The external dependency `tqdm`_ is required to use this Node.
 
     .. _tqdm: https://github.com/tqdm/tqdm
+    
+    Args:
+        description (str): Description of the progress bar.
+
+    Example:
+        .. code-block:: python
+
+            with Pipeline() as pipeline:
+                TQDM("Description")
+
+    Output: Description|███████████████████████| [00:00, 2434.24it/s]
+
     """
 
     def __init__(self, description: Optional[RawOrVariable[str]] = None):
@@ -99,9 +114,9 @@ class PrintObjects(Node):
 
     def transform_stream(self, stream):
         for obj in stream:
-            print(id(obj))
+            print("Stream object at 0x{:x}".format(id(obj)))
             for outp in self.args:
-                print(outp.name)
+                print("{}: ".format(outp.name), end="")
                 pprint.pprint(obj[outp])
             yield obj
 

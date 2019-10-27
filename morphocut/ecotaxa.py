@@ -82,7 +82,6 @@ class EcotaxaWriter(Node):
                 dataframe.to_csv(sep='\t', encoding='utf-8', index=False)
             )
 
-
 @ReturnOutputs
 class EcotaxaReader(Node):
     ...

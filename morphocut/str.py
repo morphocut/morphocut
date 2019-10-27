@@ -8,7 +8,35 @@ from morphocut._optional import import_optional_dependency
 @ReturnOutputs
 @Output("string")
 class Format(Node):
-    """Format a string just like :py:meth:`str.format`."""
+    """
+    Format strings like :py:meth:`str.format` using the the :ref:`Python Format String Syntax <python:formatstrings>`.
+    
+    Args:
+        fmt (str): A format in which we want our string to be.
+        *args: Arguments to be replaced with placeholders in fmt
+        _args: Arguments to be appended after *args
+        _kwargs: Key value paired arguments
+        **kwargs: Key value paired arguments to be appended after _kwargs
+
+    As positional arguments, :py:meth:`str.format` receives ``args`` then ``_args``.
+    As keyword arguments, :py:meth:`str.format` receives ``_kwargs`` then ``kwargs``.
+    This means that keys passed as keyword arguments overwrite keys in a dict passed as ``_kwargs``.
+
+    Example:
+        .. code-block:: python
+            
+            fmt = "{},{},{},{},{},{},{a},{b},{c},{d}"
+            args = (1, 2, 3)
+            _args = (4, 5, 6)
+            _kwargs = {"a": 7, "b": 8}
+            kwargs = {"c": 9, "d": 10}
+
+            with Pipeline() as pipeline:
+                result = Format(fmt, *args, _args=_args, _kwargs=_kwargs, **kwargs)
+    
+        Result: `obj[result]` == `"1,2,3,4,5,6,7,8,9,10"` for a stream object `obj`.
+
+    """
 
     def __init__(self, fmt: RawOrVariable[str], *args: Tuple[RawOrVariable], _args: Optional[RawOrVariable[Tuple]] = None, _kwargs: RawOrVariable[Mapping] = None, **kwargs: Mapping[str, RawOrVariable]):
         super().__init__()
@@ -32,11 +60,33 @@ class ParseWarning(UserWarning):
 @ReturnOutputs
 @Output("meta")
 class Parse(Node):
-    """Parse information from a path.
+    """
+    Parse information from a string.
+
+    Parse strings using a specification based on the :ref:`Python Format String Syntax <python:formatstrings>`.
+
+    .. note::
+        The external dependency `parse`_ is required to use this Node.
+
+    .. _parse: https://github.com/r1chardj0n3s/parse
 
     Args:
         fmt (str): The pattern to look for in the input.
+        string (str): A string input which is to be parsed
         case_sensitive (bool): Match pattern with case.
+
+    Example:
+        .. code-block:: python
+
+            fmt = "This is a {named}"
+            string = "This is a TEST"
+            case_sensitive = True
+            
+            with Pipeline() as pipeline:
+                result = Parse(fmt, string, case_sensitive)
+
+        Result: `obj[result]` == `{'named': 'TEST'}` for a stream object `obj`.
+
     """
 
     def __init__(self, fmt: RawOrVariable[str], string: RawOrVariable, case_sensitive: bool = False):

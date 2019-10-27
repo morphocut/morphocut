@@ -1,5 +1,6 @@
 from morphocut import Pipeline
 from morphocut.str import Format
+from morphocut.str import Parse
 
 import pytest
 
@@ -12,7 +13,6 @@ except ImportError:
 
 
 def test_Format():
-    # TODO Ammar: The invariants that we test here should be visible in the documentation of str.Format.
     # Assert that the arguments are appended in the right order
     fmt = "{},{},{},{},{},{},{a},{b},{c},{d}"
     args = (1, 2, 3)
@@ -44,4 +44,15 @@ def test_Format():
 
 @pytest.mark.skipif(not PARSE_AVAILABLE, reason="requires parse.")
 def test_Parse():
-    ...
+    # Assert that the string given is rightly parsed
+    pattern = "This is a {named}"
+    string = "This is a TEST"
+    case_sensitive = True
+
+    with Pipeline() as pipeline:
+        result = Parse(pattern, string, case_sensitive)
+
+    stream = pipeline.transform_stream()
+    obj = next(stream)
+
+    assert obj[result] == {'named': 'TEST'}
