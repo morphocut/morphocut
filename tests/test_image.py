@@ -3,7 +3,8 @@ import pytest
 import skimage.io
 
 from morphocut import Pipeline
-from morphocut.image import FindRegions, ImageWriter, Rescale, ThresholdConst
+from morphocut.file import Glob
+from morphocut.image import FindRegions, Rescale, ThresholdConst, ImageWriter, ImageReader, ExtractROI
 
 
 def test_ThresholdConst():
@@ -22,17 +23,40 @@ def test_Rescale():
     stream = pipeline.transform_stream()
     pipeline.run()
 
-#transform_stream method of FindRegion has an error because of which test fails
-#Also ExtractROI class is dependent on FindRegion so couldn't write test of it either
-
-
-
-@pytest.mark.xfail(strict=True)
 def test_FindRegions():
     image = skimage.data.camera()
     with Pipeline() as pipeline:
         mask = ThresholdConst(image, 255)
         result = FindRegions(mask, image, 0, 100, padding=10)
+
+    stream = pipeline.transform_stream()
+    pipeline.run()
+
+def test_ExtractROI():
+    image = skimage.data.camera()
+    with Pipeline() as pipeline:
+        mask = ThresholdConst(image, 255)
+        regions = FindRegions(mask, image, 0, 100, padding=10)
+        result = ExtractROI(image, regions)
+
+    stream = pipeline.transform_stream()
+    pipeline.run()
+
+def test_ImageWriter(tmp_path):
+    d = tmp_path / "sub"
+    d.mkdir()
+    p = d / "new.jpg"
+    image = skimage.data.camera()
+    with Pipeline() as pipeline:
+        result = ImageWriter(p, image)
+
+    stream = pipeline.transform_stream()
+    pipeline.run()
+
+def test_ImageReader():
+    with Pipeline() as pipeline:
+        path = Glob("/morphocut/tests/images/test_image_3.png")
+        image = ImageReader(path)
 
     stream = pipeline.transform_stream()
     pipeline.run()
