@@ -32,9 +32,8 @@ User Guide
    stream
    api
    contributing
+   compatibility
    authors
-
-.. TODO: Compatibility: No Pylint, no MyPy.
 
 Acknowledgements
 ----------------
