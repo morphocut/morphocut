@@ -32,6 +32,7 @@ User Guide
    stream
    api
    contributing
+   compatibility
    authors
 
 Acknowledgements
