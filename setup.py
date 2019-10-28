@@ -18,7 +18,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=["numpy", "scikit-image>=0.16.0", "pandas", "tqdm", "scipy"],
-    python_requires=">=3.5",
+    python_requires=">=3.6",
     extras_require={
         "tests": [
             # Pytest
@@ -37,7 +37,6 @@ setup(
     entry_points={},
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "License :: OSI Approved :: MIT License",
