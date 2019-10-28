@@ -17,7 +17,7 @@ setup(
     url="https://github.com/morphocut/morphocut",
     packages=find_packages(),
     include_package_data=True,
-    install_requires=["numpy", "scikit-image", "pandas", "tqdm", "scipy"],
+    install_requires=["numpy", "scikit-image>=0.16.0", "pandas", "tqdm", "scipy"],
     python_requires=">=3.5",
     extras_require={
         "tests": [
