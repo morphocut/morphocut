@@ -22,15 +22,15 @@ from typing import (
 _pipeline_stack = []  # type: List[Pipeline] # pylint: disable=invalid-name
 
 
-def _resolve_variable(obj, variable_or_value):
+def resolve_variable(obj, variable_or_value):
     if isinstance(variable_or_value, Variable):
         return obj[variable_or_value]
 
     if isinstance(variable_or_value, tuple):
-        return tuple(_resolve_variable(obj, v) for v in variable_or_value)
+        return tuple(resolve_variable(obj, v) for v in variable_or_value)
 
     if isinstance(variable_or_value, dict):
-        return {k: _resolve_variable(obj, v) for k, v in variable_or_value.items()}
+        return {k: resolve_variable(obj, v) for k, v in variable_or_value.items()}
 
     return variable_or_value
 
@@ -133,8 +133,8 @@ class Variable(Generic[T]):
         self.node = node
         self.hash = hash((node.id, name))
 
-    def __str__(self):
-        return "<Variable {}.{}>".format(self.node, self.name)
+    def __repr__(self):
+        return "<Variable {}.{} ({})>".format(self.node, self.name, self.hash)
 
     # Attribute access
     def __getattr__(self, name):
@@ -372,10 +372,10 @@ class Node:
         """Return a tuple corresponding to the input ports."""
 
         if isinstance(names, str):
-            return _resolve_variable(obj, getattr(self, names))
+            return resolve_variable(obj, getattr(self, names))
 
         return tuple(
-            _resolve_variable(obj, v) for v in (getattr(self, n) for n in names)
+            resolve_variable(obj, v) for v in (getattr(self, n) for n in names)
         )
 
     def prepare_output(self, obj, *values):
@@ -510,9 +510,13 @@ def ReturnOutputs(node_cls):
     def wrapper(*args, **kwargs) -> NodeCallReturnType:
         return node_cls(*args, **kwargs)()
 
-    wrapper._node_cls = node_cls
+    wrapper._node_cls = node_cls  # pylint: disable=protected-access
     wrapper.__mro__ = node_cls.__mro__
     return wrapper
+
+
+def raw_node(node_cls_wrapper):
+    return node_cls_wrapper._node_cls  # pylint: disable=protected-access
 
 
 @ReturnOutputs
@@ -586,6 +590,9 @@ class StreamObject(abc.MutableMapping):
 
     def __len__(self):
         return len(self.data)
+
+    def __str__(self):
+        return "StreamObject({})".format(self.data)
 
 
 class Pipeline:
