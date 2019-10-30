@@ -41,7 +41,7 @@ class Find(Node):
                     if ext not in self.extensions:
                         continue
 
-                    yield self.prepare_output({}, os.path.join(root, fn))
+                    yield self.prepare_output(obj.copy(), os.path.join(root, fn))
 
 
 @ReturnOutputs
@@ -81,4 +81,4 @@ class Glob(Node):
             pathname = str(pathname)
 
             for path in glob.iglob(pathname, recursive=recursive):
-                yield self.prepare_output({}, path)
+                yield self.prepare_output(obj.copy(), path)
