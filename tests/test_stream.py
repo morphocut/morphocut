@@ -19,7 +19,6 @@ def test_TQDM():
     assert obj == [0, 1, 2, 3, 4]
     assert result.description == "Description"
 
-
 def test_Slice():
     # Assert that the stream is sliced
     items = "ABCDEFG"
@@ -74,7 +73,7 @@ def test_FromIterable():
     assert values == result
 
 
-def test_PrintObjects():
+def test_PrintObjects(capsys):
     values = list(range(10))
 
     with Pipeline() as pipeline:
@@ -84,4 +83,12 @@ def test_PrintObjects():
     # TODO: Capture output and compare
 
     # https://docs.pytest.org/en/latest/capture.html#accessing-captured-output-from-a-test-function
-    pipeline.run()
+    #pipeline.run()
+    stream = pipeline.transform_stream()
+    result = [o[value] for o in stream]
+
+    captured = capsys.readouterr()
+    print(captured.out)
+    assert result == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    #captured = capsys.readouterr()
+    #assert captured.out == '9'

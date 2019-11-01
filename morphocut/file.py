@@ -1,9 +1,9 @@
 import glob
 import os
+from pathlib import Path
+from typing import Iterable, Set, Union
 
-from morphocut import Node, Output, RawOrVariable, ReturnOutputs, Variable
-
-from typing import Container
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 
 
 @ReturnOutputs
@@ -13,22 +13,26 @@ class Find(Node):
     Find files under the specified directory.
 
     Args:
-        root (str): Root path where images should be found.
-        extensions (list): List of allowed extensions (including the leading dot).
+        root (str or Path, raw or Variable): Root path where images should be found.
+        extensions (list, raw): List of allowed extensions (including the leading dot).
 
     Returns:
         Variable[str]: Path of the matching file.
     """
 
-    def __init__(self, root: str, extensions: Container):
+    def __init__(self, root: RawOrVariable[Union[str, Path]], extensions: Iterable):
         super().__init__()
 
         self.root = root
-        self.extensions = set(extensions)
+        self.extensions = set(extensions)  # type: Set[str]
 
     def transform_stream(self, stream):
         for obj in stream:
             root = self.prepare_input(obj, "root")
+
+            # Convert to str to allow Path objects in Python 3.5
+            root = str(root)
+
             for root, _, filenames in os.walk(root):
                 for fn in filenames:
                     ext = os.path.splitext(fn)[1]
@@ -37,7 +41,7 @@ class Find(Node):
                     if ext not in self.extensions:
                         continue
 
-                    yield self.prepare_output({}, os.path.join(root, fn))
+                    yield self.prepare_output(obj.copy(), os.path.join(root, fn))
 
 
 @ReturnOutputs
@@ -72,5 +76,9 @@ class Glob(Node):
     def transform_stream(self, stream):
         for obj in stream:
             pathname, recursive = self.prepare_input(obj, ("pathname", "recursive"))
+
+            # Convert to str to allow Path objects in Python 3.5
+            pathname = str(pathname)
+
             for path in glob.iglob(pathname, recursive=recursive):
-                yield self.prepare_output({}, path)
+                yield self.prepare_output(obj.copy(), path)

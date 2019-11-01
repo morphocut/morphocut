@@ -17,9 +17,24 @@ __all__ = ["TQDM", "Slice"]
 @ReturnOutputs
 class TQDM(Node):
     """
-    Provide a progress indicator via `tqdm`_.
+    Show a dynamically updating progress bar using `tqdm`_.
+
+    .. note::
+       The external dependency `tqdm`_ is required to use this Node.
 
     .. _tqdm: https://github.com/tqdm/tqdm
+    
+    Args:
+        description (str): Description of the progress bar.
+
+    Example:
+        .. code-block:: python
+
+            with Pipeline() as pipeline:
+                TQDM("Description")
+
+        Output: Description|███████████████████████| [00:00, 2434.24it/s]
+
     """
 
     def __init__(self, description: Optional[RawOrVariable[str]] = None):
@@ -42,7 +57,6 @@ class TQDM(Node):
 
 @ReturnOutputs
 class Slice(Node):
-
     def __init__(self, *args: Optional[int]):
         super().__init__()
         self.args = args
@@ -77,7 +91,7 @@ class StreamBuffer(Node):
         """Apply transform to every object in the stream.
         """
 
-        thread = Thread(target=self._fill_queue, args=(stream, ), daemon=True)
+        thread = Thread(target=self._fill_queue, args=(stream,), daemon=True)
         thread.start()
 
         while True:
@@ -92,16 +106,15 @@ class StreamBuffer(Node):
 
 @ReturnOutputs
 class PrintObjects(Node):
-
     def __init__(self, *args: Tuple[Variable]):
         super().__init__()
         self.args = args
 
     def transform_stream(self, stream):
         for obj in stream:
-            print(id(obj))
+            print("Stream object at 0x{:x}".format(id(obj)))
             for outp in self.args:
-                print(outp.name)
+                print("{}: ".format(outp.name), end="")
                 pprint.pprint(obj[outp])
             yield obj
 
@@ -109,7 +122,6 @@ class PrintObjects(Node):
 @ReturnOutputs
 @Output("index")
 class Enumerate(Node):
-
     def transform_stream(self, stream):
         for i, obj in enumerate(stream):
             yield self.prepare_output(obj, i)
