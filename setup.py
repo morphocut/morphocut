@@ -24,6 +24,7 @@ setup(
             # Pytest
             "pytest",
             "pytest-cov",
+            "timer-cm",
             # Optional dependencies
             "parse",
         ],
