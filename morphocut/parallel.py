@@ -54,8 +54,35 @@ def _worker_loop(
 
 
 class ParallelPipeline(Pipeline):
-    def __init__(self, num_workers, multiprocessing_context=None, parent=None):
+    """
+    Parallel processing of the stream in multiple processes.
+
+    Args:
+        num_workers (int, optional): Number of worker processes.
+            Default: Number of CPUs in the system.
+        parent (:py:class:`Pipeline <morphocut.Pipeline>`):
+            The parent pipeline.
+
+    Example:
+        .. code-block:: python
+
+            with Pipeline() as pipeline:
+                # Regular sequential processing
+                ...
+                with ParallelPipeline(parent=pipeline) as pp:
+                    # Parallelized processing in this block,
+                    # work is distributed between all cores.
+                    ...
+
+            pipeline.run()
+    """
+
+    def __init__(self, num_workers=None, multiprocessing_context=None, parent=None):
         super().__init__(parent=parent)
+
+        if num_workers is None:
+            multiprocessing.cpu_count()
+
         self.num_workers = num_workers
 
         if multiprocessing_context is None:
