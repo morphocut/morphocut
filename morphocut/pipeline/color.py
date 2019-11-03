@@ -11,7 +11,7 @@ class Gray2RGB(Node):
         return gray2rgb(image)
 
 
-class RGB2Gray(SimpleNodeBase):
+class RGB2Gray(Node):
     def __init__(self, image):
         self.image = image
 
