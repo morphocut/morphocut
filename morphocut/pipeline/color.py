@@ -12,14 +12,11 @@ class Gray2RGB(Node):
 
 
 class RGB2Gray(SimpleNodeBase):
-    def process(self, facet):
-        image = facet["image"]
+    def __init__(self, image):
+        self.image = image
 
+    def transform(self, image):
         if len(image.shape) != 3:
             raise ValueError("image.shape != 3 in {!r}".format(self))
 
-        converted = rgb2gray(image)
-
-        return {
-            "image": converted
-        }
+        return rgb2gray(image)
