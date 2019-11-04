@@ -382,7 +382,7 @@ class Node:
         """Update obj using the values corresponding to the output ports."""
 
         if not self.outputs:
-            if any(values):
+            if any(v is not None for v in values):
                 raise ValueError(
                     "No output port specified but transform returned a value."
                 )
@@ -567,7 +567,8 @@ class StreamObject(abc.MutableMapping):
     def copy(self) -> "StreamObject":
         return StreamObject(self.data.copy())
 
-    def _as_key(self, obj):
+    @staticmethod
+    def _as_key(obj):
         if isinstance(obj, Variable):
             return obj.hash
         return obj
