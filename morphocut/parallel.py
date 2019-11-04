@@ -120,13 +120,16 @@ class ParallelPipeline(Pipeline):
             pipeline.run()
     """
 
-    def __init__(self, num_workers=None, multiprocessing_context=None, parent=None):
+    def __init__(
+        self, num_workers=None, queue_size=0, multiprocessing_context=None, parent=None
+    ):
         super().__init__(parent=parent)
 
         if num_workers is None:
-            multiprocessing.cpu_count()
+            num_workers = multiprocessing.cpu_count()
 
         self.num_workers = num_workers
+        self.queue_size = queue_size
 
         if multiprocessing_context is None:
             multiprocessing_context = multiprocessing
@@ -140,7 +143,7 @@ class ParallelPipeline(Pipeline):
         workers_running = []  # type: List[bool]
         stop_event = self.multiprocessing_context.Event()
         for i in range(self.num_workers):
-            iqu = self.multiprocessing_context.Queue()
+            iqu = self.multiprocessing_context.Queue(self.queue_size)
             oqu = self.multiprocessing_context.Queue()
 
             w = self.multiprocessing_context.Process(
@@ -197,7 +200,7 @@ class ParallelPipeline(Pipeline):
                         yield output_object
         except (SystemExit, KeyboardInterrupt, GeneratorExit, Exception) as exc:
             # Anything, but most importantly GeneratorExit
-            print(exc)
+            print("Stopping workers...")
             stop_event.set()
             raise
         finally:
