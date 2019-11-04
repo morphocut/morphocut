@@ -8,8 +8,15 @@ from queue import Queue
 from threading import Thread
 from typing import Iterable, Optional, Tuple
 
-from morphocut import Node, Output, RawOrVariable, ReturnOutputs, Variable
 from morphocut._optional import import_optional_dependency
+from morphocut.core import (
+    Node,
+    Output,
+    RawOrVariable,
+    ReturnOutputs,
+    StreamObject,
+    Variable,
+)
 
 __all__ = ["TQDM", "Slice"]
 
@@ -37,22 +44,27 @@ class TQDM(Node):
 
     """
 
-    def __init__(self, description: Optional[RawOrVariable[str]] = None):
+    def __init__(
+        self, description: Optional[RawOrVariable[str]] = None, monitor_interval=None
+    ):
         super().__init__()
         self._tqdm = import_optional_dependency("tqdm")
         self.description = description
+        self.monitor_interval = monitor_interval
 
     def transform_stream(self, stream):
-        progress = self._tqdm.tqdm(stream)
-        for obj in progress:
+        with self._tqdm.tqdm(stream) as progress:
+            if self.monitor_interval is not None:
+                progress.monitor_interval = self.monitor_interval
 
-            description = self.prepare_input(obj, "description")
+            for obj in progress:
 
-            if description:
-                progress.set_description(description)
+                description = self.prepare_input(obj, "description")
 
-            yield obj
-        progress.close()
+                if description:
+                    progress.set_description(description)
+
+                yield obj
 
 
 @ReturnOutputs
@@ -144,3 +156,36 @@ class FromIterable(Node):
 
             for value in iterable:
                 yield self.prepare_output(obj.copy(), value)
+
+
+@ReturnOutputs
+class Filter(Node):
+    def __init__(self, function):
+        super().__init__()
+        self.function = function
+
+    def transform_stream(self, stream):
+        for obj in stream:
+            if not self.function(obj):
+                continue
+
+            yield obj
+
+
+class FilterVariables(Node):
+    """
+    Only keep the specified Variables in the stream.
+
+    This might speed up processing.
+    """
+
+    def __init__(self, *variables):
+        super().__init__()
+        self.keys = {
+            StreamObject._as_key(v)  # pylint: disable=protected-access
+            for v in variables
+        }
+
+    def transform_stream(self, stream):
+        for obj in stream:
+            yield StreamObject({k: v for k, v in obj.items() if k in self.keys})

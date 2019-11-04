@@ -26,61 +26,74 @@ class EcotaxaWriter(Node):
     """Zip the image and its meta data."""
 
     def __init__(
-        self, archive_fn: str, image_fn: MaybeTuple[str], image: MaybeTuple[RawOrVariable], meta: RawOrVariable[Mapping], meta_fn: str = "ecotaxa_export.tsv"
+        self,
+        archive_fn: str,
+        image: MaybeTuple[RawOrVariable],
+        image_name: MaybeTuple[RawOrVariable[str]],
+        meta: RawOrVariable[Mapping],
+        image_ext: MaybeTuple[str] = ".jpg",
+        meta_fn: str = "ecotaxa_export.tsv",
     ):
         super().__init__()
         self.archive_fn = archive_fn
 
-        if not isinstance(image_fn, tuple):
-            image_fn = (image_fn, )
-
         if not isinstance(image, tuple):
-            image = (image, )
+            image = (image,)
 
-        if len(image) != len(image_fn):
-            raise ValueError("Length of `image` and `image_fn` do not match")
+        if not isinstance(image_name, tuple):
+            image_name = (image_name,)
 
-        self.image_fn = image_fn
+        if len(image) != len(image_name):
+            raise ValueError("Length of `image` and `image_name` do not match")
+
+        if not isinstance(image_ext, tuple):
+            image_ext = (image_ext,) * len(image)
+
         self.image = image
+        self.image_name = image_name
+        self.image_ext = image_ext
+
         self.meta = meta
 
         self.meta_fn = meta_fn
-        self.image_ext = tuple(os.path.splitext(fn)[1] for fn in self.image_fn)
 
         self._pd = import_optional_dependency("pandas")
 
     def transform_stream(self, stream):
         pil_extensions = PIL.Image.registered_extensions()
 
-        with zipfile.ZipFile(self.archive_fn, mode="w") as zf:
+        with zipfile.ZipFile(self.archive_fn, mode="w") as zip_file:
             dataframe = []
+            i = 0
             for obj in stream:
-                image, meta = self.prepare_input(obj, ("image", "meta"))
+                image, image_name, meta = self.prepare_input(
+                    obj, ("image", "image_name", "meta")
+                )
 
-                for img, img_fn, img_ext in zip(
-                    image,
-                    self.image_fn,
-                    self.image_ext,
-                ):
+                for img, img_name, img_ext in zip(image, image_name, self.image_ext):
                     pil_format = pil_extensions[img_ext]
 
                     img = PIL.Image.fromarray(img)
                     img_fp = io.BytesIO()
                     img.save(img_fp, format=pil_format)
 
-                    arcname = img_fn.format(**meta)
+                    arcname = img_name + img_ext
 
-                    zf.writestr(arcname, img_fp.getvalue())
+                    zip_file.writestr(arcname, img_fp.getvalue())
 
                     dataframe.append({**meta, "img_file_name": arcname})
 
                 yield obj
 
+                i += 1
+
             dataframe = self._pd.DataFrame(dataframe)
-            zf.writestr(
-                self.meta_fn,
-                dataframe.to_csv(sep='\t', encoding='utf-8', index=False)
+            zip_file.writestr(
+                self.meta_fn, dataframe.to_csv(sep="\t", encoding="utf-8", index=False)
             )
+
+            print("Wrote {:,d} objects to {}.".format(i, self.archive_fn))
+
 
 @ReturnOutputs
 class EcotaxaReader(Node):
