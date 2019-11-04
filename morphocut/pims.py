@@ -40,10 +40,11 @@ class VideoReader(Node):
             #   frame.metadata (dict): Frame metadata.
     """
 
-    def __init__(self, path: RawOrVariable[str]):
+    def __init__(self, path: RawOrVariable[str], **kwargs):
         super().__init__()
 
         self.path = path
+        self.kwargs = kwargs
 
         import_optional_dependency("av")
         self._pims = import_optional_dependency("pims")
@@ -94,7 +95,13 @@ class BioformatsReader(Node):
 
     """
 
-    def __init__(self, path: RawOrVariable[str], meta: RawOrVariable[bool], series: Optional[RawOrVariable[int]] = None, **kwargs):
+    def __init__(
+        self,
+        path: RawOrVariable[str],
+        meta: RawOrVariable[bool],
+        series: Optional[RawOrVariable[int]] = None,
+        **kwargs,
+    ):
         super().__init__()
 
         self.path = path
@@ -112,10 +119,7 @@ class BioformatsReader(Node):
             )
 
             reader = self._pims.bioformats.BioformatsReader(
-                path,
-                meta=meta,
-                series=series,
-                **kwargs,
+                path, meta=meta, series=series, **kwargs
             )
 
             if series is None:
