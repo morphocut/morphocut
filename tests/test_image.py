@@ -53,7 +53,6 @@ def test_ImageWriter(tmp_path):
     stream = pipeline.transform_stream()
     pipeline.run()
 
-@pytest.mark.xfail(strict=True)
 def test_ImageReader(data_path):
     d = data_path / "images/test_image_3.png"
     with Pipeline() as pipeline:
