@@ -2,8 +2,6 @@
 
 import inspect
 import operator
-import typing
-import warnings
 from abc import ABC, abstractmethod
 from collections import abc
 from functools import wraps
@@ -19,7 +17,6 @@ from typing import (
     TypeVar,
     Union,
 )
-
 
 class StreamTransformer(ABC):
     """ABC for stream transformers like Pipeline and Node."""
@@ -625,7 +622,7 @@ class Pipeline(StreamTransformer):
             pipeline.run()
     """
 
-    def __init__(self, parent: Optional['Pipeline'] = None):
+    def __init__(self, parent: Optional["Pipeline"] = None):
         self.children = []  # type: List[StreamTransformer]
 
         if parent is not None:

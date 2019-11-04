@@ -9,6 +9,8 @@ import scipy.ndimage as ndi
 import skimage.exposure
 import skimage.io
 import skimage.measure
+from skimage.color import gray2rgb, rgb2gray
+from skimage.filters import threshold_otsu
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 
@@ -41,7 +43,9 @@ class Rescale(Node):
     """Rescale the image
     """
 
-    def __init__(self, image: RawOrVariable, in_range="image", dtype=None):
+    def __init__(
+        self, image: RawOrVariable, in_range: RawOrVariable = "image", dtype=None
+    ):
         super().__init__()
 
         self.image = image
@@ -53,9 +57,9 @@ class Rescale(Node):
         else:
             self.out_range = "dtype"
 
-    def transform(self, image):
+    def transform(self, image, in_range):
         image = skimage.exposure.rescale_intensity(
-            image, in_range=self.in_range, out_range=self.out_range
+            image, in_range=in_range, out_range=self.out_range
         )
         if self.dtype is not None:
             image = image.astype(self.dtype, copy=False)
@@ -121,7 +125,7 @@ class FindRegions(Node):
                     sl = self._enlarge_slice(sl, self.padding)
 
                 props = skimage.measure._regionprops._RegionProperties(
-                    sl, i + 1, labels, image, True, "rc"
+                    sl, i + 1, labels, image, True
                 )
 
                 if self.min_area is not None and props.area < self.min_area:
@@ -203,9 +207,55 @@ class ImageWriter(Node):
         for obj in stream:
             fp, image = self.prepare_input(obj, ("fp", "image"))
 
-            print(fp)
-
             img = PIL.Image.fromarray(image)
             img.save(fp)
 
             yield obj
+
+
+@ReturnOutputs
+@Output("image")
+class Gray2RGB(Node):
+    def __init__(self, image):
+        super().__init__()
+        self.image = image
+
+    def transform(self, image):
+        return gray2rgb(image)
+
+
+@ReturnOutputs
+@Output("image")
+class RGB2Gray(Node):
+    """
+    Compute luminance of an RGB image using :py:func:`skimage.color.rgb2gray`.
+
+    Returns:
+        Variable[numpy.ndarray]: The luminance image:
+            An array which is the same size as the input array,
+            but with the channel dimension removed and dtype=float.
+    """
+
+    def __init__(self, image):
+        super().__init__()
+        self.image = image
+
+    def transform(self, image):
+        if len(image.shape) != 3:
+            raise ValueError("image.shape != 3 in {!r}".format(self))
+
+        return rgb2gray(image)
+
+
+@ReturnOutputs
+@Output("image")
+class ThresholdOtsu(Node):
+    def __init__(self, image):
+        super().__init__()
+        self.image = image
+
+    def transform(self, image):
+        thresh = threshold_otsu(image)
+        mask = image < thresh
+
+        return mask
