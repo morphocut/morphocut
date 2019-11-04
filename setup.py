@@ -24,6 +24,7 @@ setup(
             # Pytest
             "pytest",
             "pytest-cov",
+            "timer-cm",
             # Optional dependencies
             "parse",
         ],
@@ -31,7 +32,7 @@ setup(
             "sphinx >= 1.4",
             "sphinx_rtd_theme",
             "sphinxcontrib-programoutput",
-            "sphinx-autodoc-typehints",
+            "sphinx-autodoc-typehints>=1.10.0",
         ],
     },
     entry_points={},

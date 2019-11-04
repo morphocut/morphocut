@@ -108,7 +108,7 @@ If the Node has to change the stream in some way,
 .. autoclass:: Node
     :members:
 
-.. autodecorator:: Output(name, type, doc)
+.. autodecorator:: Output
 
 .. autodecorator:: ReturnOutputs
 
