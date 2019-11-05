@@ -1,7 +1,4 @@
-import itertools
-import operator
-import os
-from typing import Any, List, Mapping
+from typing import Any, List, Union
 
 import numpy as np
 import PIL
@@ -9,6 +6,7 @@ import scipy.ndimage as ndi
 import skimage.exposure
 import skimage.io
 import skimage.measure
+import skimage.morphology
 from skimage.color import gray2rgb, rgb2gray
 from skimage.filters import threshold_otsu
 
@@ -257,3 +255,33 @@ class ThresholdOtsu(Node):
         mask = image < thresh
 
         return mask
+
+
+@ReturnOutputs
+@Output("image")
+class BinaryClosing(Node):
+    """
+    Fast binary morphological closing of an image.
+
+    Args:
+        image (np.ndarray): Binary input image.
+        selem (int or np.ndarray, optional):
+            The neighborhood expressed as a 2-D array of 1's and 0's.
+            If None, use a cross-shaped structuring element (connectivity=1).
+            If int, use a disk of this radius.
+
+    For further details, see :py:func:`skimage.morphology.binary_closing`.
+    """
+
+    def __init__(self, image, selem: Union[None, int, np.ndarray] = None):
+        super().__init__()
+
+        self.image = image
+
+        if isinstance(selem, int):
+            selem = skimage.morphology.disk(selem)
+
+        self.selem = selem
+
+    def transform(self, image):
+        return skimage.morphology.binary_closing(image, self.selem)

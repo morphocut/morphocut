@@ -21,7 +21,14 @@ from morphocut import (
 )
 from morphocut.ecotaxa import EcotaxaWriter
 from morphocut.file import Glob
-from morphocut.image import FindRegions, ImageWriter, Rescale, RGB2Gray, ThresholdOtsu
+from morphocut.image import (
+    BinaryClosing,
+    FindRegions,
+    ImageWriter,
+    Rescale,
+    RGB2Gray,
+    ThresholdOtsu,
+)
 from morphocut.numpy import AsType
 from morphocut.parallel import ParallelPipeline
 from morphocut.pims import VideoReader
@@ -347,6 +354,9 @@ with Pipeline() as pipeline:
 
         # Calculate a mask of objects
         mask = frame < thresh
+
+        # Remove small dark spots
+        mask = BinaryClosing(mask, 2)
 
         # Find regions in the frame and put them into the stream
         region = FindRegions(mask, frame, min_area=100)
