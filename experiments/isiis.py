@@ -1,3 +1,4 @@
+import contextlib
 import itertools
 import os.path
 
@@ -215,7 +216,7 @@ class FindRegions(Node):
                     True,
                 )
 
-                print("Overlapping object:", last_label)
+                # print("Overlapping object:", last_label)
 
                 yield props
 
@@ -269,8 +270,10 @@ class FindRegions(Node):
                 yield self.prepare_output(last_obj.copy(), prop)
 
 
-WRITE_HISTOGRAMS = True
-WRITE_FRAMES = True
+WRITE_HISTOGRAMS = False
+WRITE_FRAMES = False
+PARALLEL = False
+
 
 with Pipeline() as pipeline:
     # Find files
@@ -284,7 +287,11 @@ with Pipeline() as pipeline:
     # Parallelize the processing of individual video files
     # The parallelization has to take place at this coarse level
     # to treat adjacent frames right (wrt. smoothing and overlapping objects).
-    with ParallelPipeline(parent=pipeline):
+    if PARALLEL:
+        parallel_context = ParallelPipeline(parent=pipeline)
+    else:
+        parallel_context = contextlib.nullcontext()
+    with parallel_context:
 
         frame = VideoReader(video_fn)
         frame_no = frame.frame_no
