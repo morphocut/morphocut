@@ -14,6 +14,7 @@ def regionprop2zooprocess(prop):
         - date/time specify the time of the sampling, not of the processing.
     """
     return {
+        "label": prop.label,
         # width of the smallest rectangle enclosing the object
         "width": prop.bbox[3] - prop.bbox[1],
         # height of the smallest rectangle enclosing the object
@@ -86,8 +87,7 @@ def regionprop2zooprocess(prop):
 @ReturnOutputs
 @Output("meta")
 class CalculateZooProcessFeatures(Node):
-    """Calculate descriptive features using skimage.measure.regionprops.
-    """
+    """Calculate descriptive features using :py:func:`skimage.measure.regionprops`."""
 
     def __init__(
         self,
