@@ -655,8 +655,17 @@ class Pipeline(StreamTransformer):
         if stream is None:
             stream = [StreamObject()]
 
-        for child in self.children:  # type: StreamTransformer
-            stream = child.transform_stream(stream)
+        streams = []
+
+        try:
+            for child in self.children:  # type: StreamTransformer
+                streams.append(stream)
+                stream = child.transform_stream(stream)
+        except:
+            for s in reversed(streams):
+                if hasattr(s, "close"):
+                    s.close()
+            raise
 
         return stream
 
