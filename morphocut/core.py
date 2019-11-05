@@ -569,7 +569,17 @@ class LambdaNode(Node):
         return clbl(*args, **kwargs)
 
     def __str__(self):
-        return "{}({})".format(self.__class__.__name__, self.clbl.__name__)
+        args = [self.clbl.__name__]
+        args.extend(str(a) for a in self.args)
+        args.extend("{}={}".format(k, v) for k, v in self.kwargs.items())
+        return "{}({})".format(self.__class__.__name__, ", ".join(args))
+
+
+class StreamObjectKeyError(KeyError):
+    def __str__(self):
+        return "{}\nYou probably removed this key from the stream.".format(
+            super().__str__()
+        )
 
 
 class StreamObject(abc.MutableMapping):
@@ -596,7 +606,10 @@ class StreamObject(abc.MutableMapping):
         del self.data[self._as_key(key)]
 
     def __getitem__(self, key):
-        return self.data[self._as_key(key)]
+        try:
+            return self.data[self._as_key(key)]
+        except KeyError:
+            raise StreamObjectKeyError(key) from None
 
     def __iter__(self):
         return iter(self.data)
