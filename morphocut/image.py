@@ -9,6 +9,7 @@ import scipy.ndimage as ndi
 import skimage.exposure
 import skimage.io
 import skimage.measure
+from skimage.color import gray2rgb, rgb2gray
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 
@@ -210,3 +211,22 @@ class ImageWriter(Node):
             img.save(fp)
 
             yield obj
+
+
+class Gray2RGB(Node):
+    def __init__(self, image):
+        self.image = image
+
+    def transform(self, image):
+        return gray2rgb(image)
+
+
+class RGB2Gray(Node):
+    def __init__(self, image):
+        self.image = image
+
+    def transform(self, image):
+        if len(image.shape) != 3:
+            raise ValueError("image.shape != 3 in {!r}".format(self))
+
+        return rgb2gray(image)

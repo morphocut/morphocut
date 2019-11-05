@@ -4,7 +4,7 @@ import skimage.io
 
 from morphocut import Pipeline
 from morphocut.file import Glob
-from morphocut.image import FindRegions, Rescale, ThresholdConst, ImageWriter, ImageReader, ExtractROI
+from morphocut.image import FindRegions, Rescale, ThresholdConst, ImageWriter, ImageReader, ExtractROI, Gray2RGB, RGB2Gray
 
 
 def test_ThresholdConst():
@@ -57,6 +57,22 @@ def test_ImageReader(data_path):
     d = data_path / "images/test_image_3.png"
     with Pipeline() as pipeline:
         image = ImageReader(d)
+
+    stream = pipeline.transform_stream()
+    pipeline.run()
+
+def test_Gray2RGB():
+    image = skimage.data.camera()
+    with Pipeline() as pipeline:
+        result = Gray2RGB(image)
+
+    stream = pipeline.transform_stream()
+    pipeline.run()
+
+def test_RGB2Gray():
+    image = skimage.data.camera()
+    with Pipeline() as pipeline:
+        result = RGB2Gray(image)
 
     stream = pipeline.transform_stream()
     pipeline.run()
