@@ -105,8 +105,6 @@ class FindRegions(Node):
         return tuple(slice(max(0, s.start - padding), s.stop + padding) for s in slices)
 
     def transform_stream(self, stream):
-        """Slice the image stream
-        """
         for obj in stream:
             mask, image = self.prepare_input(obj, ("mask", "image"))
 
