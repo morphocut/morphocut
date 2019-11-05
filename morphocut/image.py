@@ -121,7 +121,7 @@ class FindRegions(Node):
                     sl = self._enlarge_slice(sl, self.padding)
 
                 props = skimage.measure._regionprops._RegionProperties(
-                    sl, i + 1, labels, image, True, "rc"
+                    sl, i + 1, labels, image, True
                 )
 
                 if self.min_area is not None and props.area < self.min_area:
@@ -178,6 +178,7 @@ class ImageStats(Node):
 
 
 @ReturnOutputs
+@Output("image")
 class ImageReader(Node):
     def __init__(self, fp: RawOrVariable):
         super().__init__()
