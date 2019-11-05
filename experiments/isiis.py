@@ -274,9 +274,10 @@ WRITE_HISTOGRAMS = False
 WRITE_FRAMES = False
 PARALLEL = False
 
-
+# The processing pipeline is defined as follows:
+# (It is not executed yet.)
 with Pipeline() as pipeline:
-    # Find files
+    # Find files and put them into the stream
     video_fn = Glob("/home/moi/Work/apeep_test/in/*.avi")
     video_basename = LambdaNode(
         lambda x: os.path.basename(os.path.splitext(x)[0]), video_fn
@@ -292,15 +293,16 @@ with Pipeline() as pipeline:
     else:
         parallel_context = contextlib.nullcontext()
     with parallel_context:
-
+        # Put all the frames from each video_fn into the stream
         frame = VideoReader(video_fn)
         frame_no = frame.frame_no
 
         TQDM(Format("Reading frames ({})...", frame_no))
 
+        # Convert frame to grayscale
         frame = RGB2Gray(frame)
 
-        ## Remove line background
+        ## Remove stripe artifacts
         col_median = LambdaNode(np.median, frame, axis=0)
         # Average over multiple frames
         col_median = ExponentialSmoothing(col_median, 0.5)
@@ -308,18 +310,18 @@ with Pipeline() as pipeline:
 
         ## Compute dynamic range of frames
         # Subsample frame for histogram computation
+        # This should be much faster than skimage.transform.rescale.
         frame_sml = frame[::4, ::4]
         range_ = LambdaNode(np.percentile, frame_sml, (0, 85))
         # Average over multiple frames
         range_ = ExponentialSmoothing(range_, 0.5)
 
-        # Filter variables that need to be sent to worker processes
-        FilterVariables(frame, range_, video_basename, frame_no)
-
+        # Convert range_ to tuple
         range_ = LambdaNode(tuple, range_)
         frame = Rescale(frame, in_range=range_, dtype="uint8")
 
         if WRITE_FRAMES:
+            # Save pre-processed frames
             frame_fn = Format(
                 "/tmp/apeep/{video_basename}-{frame_no}.jpg",
                 video_basename=video_basename,
@@ -327,13 +329,14 @@ with Pipeline() as pipeline:
             )
             ImageWriter(frame_fn, frame)
 
+        # A fixed threshold worked best so far
         thresh = 200  # LambdaNode(threshold_otsu, frame)
-        mask = frame < thresh
-
-        hist = LambdaNode(lambda x: skimage.exposure.histogram(x)[0], frame)
-        x = LambdaNode(lambda hist: np.arange(len(hist)), hist)
 
         if WRITE_HISTOGRAMS:
+            # Save gray value histograms
+            hist = LambdaNode(lambda x: skimage.exposure.histogram(x)[0], frame)
+            x = LambdaNode(lambda hist: np.arange(len(hist)), hist)
+
             hist_img = Bar(x, hist, vline=thresh)
             hist_fn = Format(
                 "/tmp/apeep/{video_basename}-{frame_no}-hist.png",
@@ -342,14 +345,18 @@ with Pipeline() as pipeline:
             )
             ImageWriter(hist_fn, hist_img)
 
-        region = FindRegions(mask, frame)
+        # Calculate a mask of objects
+        mask = frame < thresh
 
-        Filter(lambda obj: obj[region].area > 100)
+        # Find regions in the frame and put them into the stream
+        region = FindRegions(mask, frame, min_area=100)
 
+        # Extract some properties from a region
         object_mask = region.image
         object_image = region.intensity_image_unmasked
         object_no = region.label
 
+        # Calculate filenames
         object_image_name = Format(
             "{video_basename}-{frame_no}-{object_no}",
             video_basename=video_basename,
@@ -364,14 +371,17 @@ with Pipeline() as pipeline:
             object_no=object_no,
         )
 
+        # Calculate (somewhat) ZooProcess-compatible features
         meta = CalculateZooProcessFeatures(region, prefix="object_")
 
-        # Filter variables that need to be gathered from worker processes
+        # Filter variables that need to be sent to the main thread
         FilterVariables(
             object_mask, object_image, object_image_name, object_mask_name, meta
         )
 
     TQDM("Writing objects...")
+
+    # Write objects and measurements into an EcoTaxa-compatible archive
     EcotaxaWriter(
         "/tmp/apeep_test.zip",
         (object_image, object_mask),
@@ -379,6 +389,6 @@ with Pipeline() as pipeline:
         meta,
     )
 
-
+# Execute the pipeline
 with Timer("Total time"):
     pipeline.run()
