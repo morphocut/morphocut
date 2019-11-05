@@ -178,6 +178,7 @@ class ImageStats(Node):
 
 
 @ReturnOutputs
+@Output("image")
 class ImageReader(Node):
     def __init__(self, fp: RawOrVariable):
         super().__init__()
