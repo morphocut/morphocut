@@ -8,10 +8,10 @@ Read and write EcoTaxa archives.
 .. _EcoTaxa: https://ecotaxa.obs-vlfr.fr/
 """
 import io
-import os
 import zipfile
 from typing import Mapping, Tuple, TypeVar, Union
 
+import numpy as np
 import PIL
 
 from morphocut import Node, RawOrVariable, ReturnOutputs
@@ -19,6 +19,17 @@ from morphocut._optional import import_optional_dependency
 
 T = TypeVar("T")
 MaybeTuple = Union[T, Tuple[T]]
+
+
+def dtype_to_ecotaxa(dtype):
+    try:
+        if np.issubdtype(dtype, np.number):
+            return "[f]"
+    except TypeError:
+        print(type(dtype))
+        raise
+
+    return "[t]"
 
 
 @ReturnOutputs
@@ -88,6 +99,13 @@ class EcotaxaWriter(Node):
                 i += 1
 
             dataframe = self._pd.DataFrame(dataframe)
+
+            # Insert types into header
+            type_header = [dtype_to_ecotaxa(dt) for dt in dataframe.dtypes]
+            dataframe.columns = self._pd.MultiIndex.from_tuples(
+                list(zip(dataframe.columns, type_header))
+            )
+
             zip_file.writestr(
                 self.meta_fn, dataframe.to_csv(sep="\t", encoding="utf-8", index=False)
             )
