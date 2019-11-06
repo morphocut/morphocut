@@ -136,6 +136,9 @@ class Variable(Generic[T]):
     def __str__(self):
         return "<Variable {}.{}>".format(self.node, self.name)
 
+    def __repr__(self):
+        return self.__str__()
+
     # Attribute access
     def __getattr__(self, name):
         return LambdaNode(getattr, self, name)
@@ -610,6 +613,10 @@ class Pipeline:
     When the pipeline is executed, stream objects are passed
     from one node to the next in the same order.
 
+    Args:
+        parent (Pipeline, optional): A parent pipeline to attach to.
+            If None and nested in an existing Pipeline, attach to this one.
+
     Example:
         .. code-block:: python
 
@@ -619,8 +626,17 @@ class Pipeline:
             pipeline.run()
     """
 
-    def __init__(self):
+    def __init__(self, parent: Optional["Pipeline"] = None):
         self.nodes = []  # type: List[Node]
+
+        if parent is None:
+            try:
+                parent = _pipeline_stack[-1]
+            except IndexError:
+                pass
+
+        if parent is not None:
+            parent.add_child(self)
 
     def __enter__(self):
         # Push self to pipeline stack
