@@ -16,7 +16,14 @@ from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 @ReturnOutputs
 @Output("mask")
 class ThresholdConst(Node):
-    """Set the mask of image
+    """
+    Set the mask of image
+
+    Args:
+        image (RawOrVariable or Variable[RawOrVariable]): An image file for which the mask is to be set.
+        threshold (RawOrVariable or Variable[RawOrVariable]): A threshold for the image. Mask will be
+            set for the image if the image is less than or equal to threshold
+
     """
 
     def __init__(self, image: RawOrVariable, threshold: RawOrVariable):
@@ -38,7 +45,17 @@ class ThresholdConst(Node):
 @ReturnOutputs
 @Output("rescaled")
 class Rescale(Node):
-    """Rescale the image
+    """
+    Rescale the image
+
+    Args:
+        image (RawOrVariable or Variable[RawOrVariable]): An image file to be rescaled.
+        in_range (str or Variable[str]): min/max as the intensity range.
+        dtype (str or Variable[str]): min/max of the image's dtype as the intensity range.
+
+    Returns:
+        Variable[RawOrVariable]: Rescaled image.
+
     """
 
     def __init__(self, image: RawOrVariable, in_range="image", dtype=None):
@@ -69,10 +86,11 @@ class FindRegions(Node):
     """
     Find regions in a mask and calculate properties.
 
-    TODO: Include reference to skimage.measure.regionsprops
-
     .. note::
-        This Node creates multiple objects per incoming object.
+        This Node creates multiple objects per incoming object. Use `skimage.measure.regionsprops`_ to 
+        find regions in image.
+
+    .. _skimage.measure.regionsprops: https://scikit-image.org/docs/dev/api/skimage.measure.html
 
     Example:
         .. code-block:: python
@@ -134,7 +152,13 @@ class FindRegions(Node):
 @ReturnOutputs
 @Output("extracted_image")
 class ExtractROI(Node):
-    """Return the extracted region/image
+    """
+    Return the extracted region/image
+
+    Args:
+        image (RawOrVariable or Variable[RawOrVariable]): An image file from which regions are to be extracted.
+        regionprops (RawOrVariable or Variable[RawOrVariable]): Regions to be extracted from the image.
+        
     """
 
     def __init__(self, image: RawOrVariable, regionprops: RawOrVariable):
