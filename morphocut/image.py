@@ -76,6 +76,7 @@ class FindRegions(Node):
 
     Example:
         .. code-block:: python
+
             mask = ...
             regionsprops = FindRegions(mask)
 
@@ -111,15 +112,15 @@ class FindRegions(Node):
             labels, nlabels = skimage.measure.label(mask, return_num=True)
 
             objects = ndi.find_objects(labels, nlabels)
-            for i, sl in enumerate(objects):
-                if sl is None:
+            for i, slices in enumerate(objects):
+                if slices is None:
                     continue
 
                 if self.padding:
-                    sl = self._enlarge_slice(sl, self.padding)
+                    slices = self._enlarge_slice(slices, self.padding)
 
-                props = skimage.measure._regionprops._RegionProperties(
-                    sl, i + 1, labels, image, True
+                props = skimage.measure._regionprops.RegionProperties(  # pylint: disable=protected-access
+                    slices, i + 1, labels, image, True
                 )
 
                 if self.min_area is not None and props.area < self.min_area:
