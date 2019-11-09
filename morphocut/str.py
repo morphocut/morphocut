@@ -1,5 +1,7 @@
+"""This module contains operations commonly used in image processing."""
+
 import warnings
-from typing import Mapping, Optional, Tuple
+from typing import Mapping, Optional, Sequence
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, Variable
 from morphocut._optional import import_optional_dependency
@@ -9,14 +11,16 @@ from morphocut._optional import import_optional_dependency
 @Output("string")
 class Format(Node):
     """
-    Format strings like :py:meth:`str.format` using the the :ref:`Python Format String Syntax <python:formatstrings>`.
-    
+    Format strings using :py:meth:`str.format`.
+
+    For more information see the :ref:`Python Format String Syntax <python:formatstrings>`.
+
     Args:
-        fmt (str): A format in which we want our string to be.
-        *args: Arguments to be replaced with placeholders in fmt
-        _args: Arguments to be appended after *args
-        _kwargs: Key value paired arguments
-        **kwargs: Key value paired arguments to be appended after _kwargs
+        fmt (str or Variable[str]): A format in which we want our string to be.
+        *args (Any or Variable[Any]): Positional arguments for positional fields in fmt.
+        _args (Sequence or Variable[Sequence]): Additional positional arguments for positional fields in fmt.
+        _kwargs (Mapping or Variable[Mapping]): Keyword arguments for named fields in fmt.
+        **kwargs (Any or Variable[Any]): Additional keyword arguments for named fields in fmt.
 
     As positional arguments, :py:meth:`str.format` receives ``args`` then ``_args``.
     As keyword arguments, :py:meth:`str.format` receives ``_kwargs`` then ``kwargs``.
@@ -24,7 +28,7 @@ class Format(Node):
 
     Example:
         .. code-block:: python
-            
+
             fmt = "{},{},{},{},{},{},{a},{b},{c},{d}"
             args = (1, 2, 3)
             _args = (4, 5, 6)
@@ -33,12 +37,19 @@ class Format(Node):
 
             with Pipeline() as pipeline:
                 result = Format(fmt, *args, _args=_args, _kwargs=_kwargs, **kwargs)
-    
+
         Result: `obj[result]` == `"1,2,3,4,5,6,7,8,9,10"` for a stream object `obj`.
 
     """
 
-    def __init__(self, fmt: RawOrVariable[str], *args: Tuple[RawOrVariable], _args: Optional[RawOrVariable[Tuple]] = None, _kwargs: RawOrVariable[Mapping] = None, **kwargs: Mapping[str, RawOrVariable]):
+    def __init__(
+        self,
+        fmt: RawOrVariable[str],
+        *args: RawOrVariable,
+        _args: Optional[RawOrVariable[Sequence]] = None,
+        _kwargs: RawOrVariable[Mapping] = None,
+        **kwargs: RawOrVariable
+    ):
         super().__init__()
         self.fmt = fmt
         self._args = _args or ()
@@ -81,7 +92,7 @@ class Parse(Node):
             fmt = "This is a {named}"
             string = "This is a TEST"
             case_sensitive = True
-            
+
             with Pipeline() as pipeline:
                 result = Parse(fmt, string, case_sensitive)
 
@@ -89,7 +100,12 @@ class Parse(Node):
 
     """
 
-    def __init__(self, fmt: RawOrVariable[str], string: RawOrVariable, case_sensitive: bool = False):
+    def __init__(
+        self,
+        fmt: RawOrVariable[str],
+        string: RawOrVariable,
+        case_sensitive: bool = False,
+    ):
         super().__init__()
 
         self.fmt = fmt
@@ -111,9 +127,7 @@ class Parse(Node):
 
     def _compile(self, fmt):
         parser = self._parse.compile(
-            fmt,
-            extra_types=self._extra_types,
-            case_sensitive=self.case_sensitive
+            fmt, extra_types=self._extra_types, case_sensitive=self.case_sensitive
         )
         if not parser._named_fields:
             warnings.warn(
