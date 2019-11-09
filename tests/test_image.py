@@ -62,7 +62,7 @@ def test_ImageReader(data_path):
     pipeline.run()
 
 def test_Gray2RGB():
-    image = skimage.data.astronaut()
+    image = skimage.data.camera()
     with Pipeline() as pipeline:
         result = Gray2RGB(image)
 
