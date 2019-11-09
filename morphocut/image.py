@@ -17,12 +17,14 @@ from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 @Output("mask")
 class ThresholdConst(Node):
     """
-    Set the mask of image
+    Calculate a mask by applying a constant threshold.
+
+    The result will be `image <= threshold`.
 
     Args:
-        image (RawOrVariable or Variable[RawOrVariable]): An image file for which the mask is to be set.
-        threshold (RawOrVariable or Variable[RawOrVariable]): A threshold for the image. Mask will be
-            set for the image if the image is less than or equal to threshold
+        image (np.ndarray or Variable[np.ndarray]): Image for which the mask is to be calculated.
+        threshold (Number or Variable[Number]): Threshold. Image intensities less than this will be `True` in the 
+            result.
 
     """
 
@@ -46,15 +48,18 @@ class ThresholdConst(Node):
 @Output("rescaled")
 class Rescale(Node):
     """
-    Rescale the image
+    Rescale the intensities of the image.
+
+    .. note::
+        Uses the skimage library :py:func:`skimage.exposure.rescale_intensity`.
 
     Args:
-        image (RawOrVariable or Variable[RawOrVariable]): An image file to be rescaled.
-        in_range (str or Variable[str]): min/max as the intensity range.
+        image (np.ndarray or Variable[np.ndarray]): An image file to be rescaled.
+        in_range ((str or 2-tuple) or (Variable[str or 2-tuple])): min/max as the intensity range.
         dtype (str or Variable[str]): min/max of the image's dtype as the intensity range.
 
     Returns:
-        Variable[RawOrVariable]: Rescaled image.
+        Variable[np.ndarray]: Image with intensities rescaled.
 
     """
 
@@ -86,6 +91,8 @@ class FindRegions(Node):
     """
     Find regions in a mask and calculate properties.
 
+    For more information see :py:func:`skimage.measure.regionsprops`.
+
     .. note::
         This Node creates multiple objects per incoming object. Use `skimage.measure.regionsprops`_ to 
         find regions in image.
@@ -94,6 +101,7 @@ class FindRegions(Node):
 
     Example:
         .. code-block:: python
+        
             mask = ...
             regionsprops = FindRegions(mask)
 
@@ -153,11 +161,13 @@ class FindRegions(Node):
 @Output("extracted_image")
 class ExtractROI(Node):
     """
-    Return the extracted region/image
+    Extract part of an image using a :py:class:`RegionProperties <skimage.measure._regionprops.RegionProperties>` instance.
+
+    To be used in conjunction with :py:class:`FindRegions`.
 
     Args:
-        image (RawOrVariable or Variable[RawOrVariable]): An image file from which regions are to be extracted.
-        regionprops (RawOrVariable or Variable[RawOrVariable]): Regions to be extracted from the image.
+        image (np.ndarray or Variable[np.ndarray]): Image from which regions are to be extracted.
+        regionprops (RegionProperties or Variable[RegionProperties]): :py:class:`RegionProperties <skimage.measure._regionprops.RegionProperties>` instance returned by :py:class:`FindRegions`.
         
     """
 
@@ -202,6 +212,17 @@ class ImageStats(Node):
 @ReturnOutputs
 @Output("image")
 class ImageReader(Node):
+    """
+    Read and open the image from a given path.
+
+    Use Python Imaging Library `PIL`_ to open the file from a given path.
+
+    .. _PIL: https://pillow.readthedocs.io/en/stable/
+
+    Args:
+        fp (RawOrVariable or Variable[RawOrVariable]): File path from where we want to open our image.
+
+    """
     def __init__(self, fp: RawOrVariable):
         super().__init__()
         self.fp = fp
@@ -217,6 +238,18 @@ class ImageReader(Node):
 
 @ReturnOutputs
 class ImageWriter(Node):
+    """
+    Write the image into the given directory path.
+
+    Use Python Imaging Library `PIL`_ to save the image in a given path.
+
+    .. _PIL: https://pillow.readthedocs.io/en/stable/
+
+    Args:
+        fp (RawOrVariable or Variable[RawOrVariable]): Path where we want to save our image.
+        image (np.ndarray or Variable[np.ndarray]): Image which we want to save to a directory.
+
+    """
     def __init__(self, fp: RawOrVariable, image: RawOrVariable):
         super().__init__()
         self.fp = fp

@@ -30,6 +30,7 @@ User Guide
    str
    file
    stream
+   image
    api
    contributing
    authors
