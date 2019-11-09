@@ -1,0 +1,12 @@
+.label {
+    -webkit-border-radius: 3px;
+    -moz-border-radius: 3px;
+    border-radius: 3px;
+    display: inline-block;
+    padding: 2px 4px;
+    font-weight: bold;
+    color: #ffffff;
+    white-space: nowrap;
+    vertical-align: baseline;
+    background-color: #2980B9;
+}
