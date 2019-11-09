@@ -27,6 +27,7 @@ User Guide
    installation
    quickstart
    formats
+   image
    str
    file
    stream
