@@ -99,11 +99,11 @@ class ParallelPipeline(Pipeline):
     Args:
         num_workers (int, optional): Number of worker processes.
             Default: Number of CPUs in the system.
-        parent (:py:class:`Pipeline <morphocut.Pipeline>`):
+        parent (:py:class:`~morphocut.core.Pipeline`):
             The parent pipeline.
 
     Note:
-        :py:class:`ParallelPipeline <morphocut.parallel.ParallelPipeline>` creates
+        :py:class:`~morphocut.parallel.ParallelPipeline` creates
         distinct copies of its nodes in each worker thread that are not accessible
         from the main thread.
 
@@ -113,7 +113,7 @@ class ParallelPipeline(Pipeline):
             with Pipeline() as pipeline:
                 # Regular sequential processing
                 ...
-                with ParallelPipeline(parent=pipeline) as pp:
+                with ParallelPipeline():
                     # Parallelized processing in this block,
                     # work is distributed between all cores.
                     ...
