@@ -1,7 +1,4 @@
-import itertools
-import operator
-import os
-from typing import Any, List, Mapping
+from typing import Any, List
 
 import numpy as np
 import PIL
@@ -11,7 +8,7 @@ import skimage.io
 import skimage.measure
 from skimage.color import gray2rgb, rgb2gray
 
-from morphocut import Node, Output, RawOrVariable, ReturnOutputs
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
 
 
 @ReturnOutputs
@@ -35,8 +32,6 @@ class ThresholdConst(Node):
         self.threshold = threshold
 
     def transform(self, image):
-        """Check if the image is 2 dimensional
-        """
         if image.ndim != 2:
             raise ValueError("image.ndim needs to be exactly 2.")
 
@@ -132,30 +127,31 @@ class FindRegions(Node):
         return tuple(slice(max(0, s.start - padding), s.stop + padding) for s in slices)
 
     def transform_stream(self, stream):
-        for obj in stream:
-            mask, image = self.prepare_input(obj, ("mask", "image"))
+        with closing_if_closable(stream):
+            for obj in stream:
+                mask, image = self.prepare_input(obj, ("mask", "image"))
 
-            labels, nlabels = skimage.measure.label(mask, return_num=True)
+                labels, nlabels = skimage.measure.label(mask, return_num=True)
 
-            objects = ndi.find_objects(labels, nlabels)
-            for i, slices in enumerate(objects):
-                if slices is None:
-                    continue
+                objects = ndi.find_objects(labels, nlabels)
+                for i, slices in enumerate(objects):
+                    if slices is None:
+                        continue
 
-                if self.padding:
-                    slices = self._enlarge_slice(slices, self.padding)
+                    if self.padding:
+                        slices = self._enlarge_slice(slices, self.padding)
 
-                props = skimage.measure._regionprops.RegionProperties(  # pylint: disable=protected-access
-                    slices, i + 1, labels, image, True
-                )
+                    props = skimage.measure._regionprops.RegionProperties(  # pylint: disable=protected-access
+                        slices, i + 1, labels, image, True
+                    )
 
-                if self.min_area is not None and props.area < self.min_area:
-                    continue
+                    if self.min_area is not None and props.area < self.min_area:
+                        continue
 
-                if self.max_area is not None and props.area > self.max_area:
-                    continue
+                    if self.max_area is not None and props.area > self.max_area:
+                        continue
 
-                yield self.prepare_output(obj.copy(), props)
+                    yield self.prepare_output(obj.copy(), props)
 
 
 @ReturnOutputs
@@ -230,12 +226,13 @@ class ImageReader(Node):
         self.fp = fp
 
     def transform_stream(self, stream):
-        for obj in stream:
-            fp = self.prepare_input(obj, "fp")
+        with closing_if_closable(stream):
+            for obj in stream:
+                fp = self.prepare_input(obj, "fp")
 
-            image = np.array(PIL.Image.open(fp))
+                image = np.array(PIL.Image.open(fp))
 
-            yield self.prepare_output(obj, image)
+                yield self.prepare_output(obj, image)
 
 
 @ReturnOutputs
@@ -259,15 +256,17 @@ class ImageWriter(Node):
         self.image = image
 
     def transform_stream(self, stream):
-        for obj in stream:
-            fp, image = self.prepare_input(obj, ("fp", "image"))
+        with closing_if_closable(stream):
+            for obj in stream:
+                fp, image = self.prepare_input(obj, ("fp", "image"))
 
-            print(fp)
+                print(fp)
 
-            img = PIL.Image.fromarray(image)
-            img.save(fp)
+                img = PIL.Image.fromarray(image)
+                img.save(fp)
 
-            yield obj
+                yield obj
+
 
 @ReturnOutputs
 @Output("image")
@@ -278,6 +277,7 @@ class Gray2RGB(Node):
 
     def transform(self, image):
         return gray2rgb(image)
+
 
 @ReturnOutputs
 @Output("image")
