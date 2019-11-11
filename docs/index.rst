@@ -24,8 +24,8 @@ User Guide
 .. toctree::
    :maxdepth: 2
 
+   introduction
    installation
-   quickstart
    formats
    image
    str
@@ -33,7 +33,7 @@ User Guide
    stream
    parallel
    image
-   api
+   core
    contributing
    authors
 
