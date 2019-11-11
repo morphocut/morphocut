@@ -159,17 +159,21 @@ class ParallelPipeline(Pipeline):
 
         # Fill input queues in a thread
         def _queue_filler():
-            for i, obj in enumerate(stream):
-                if stop_event.is_set():
-                    break
+            try:
+                for i, obj in enumerate(stream):
+                    if stop_event.is_set():
+                        break
 
-                # Send objects to workers in a round-robin fashion
-                worker_idx = i % self.num_workers
-                input_queues[worker_idx].put(obj)
-
-            # Tell all workers to stop working
-            for iqu in input_queues:
-                iqu.put(_Signal.END)
+                    # Send objects to workers in a round-robin fashion
+                    worker_idx = i % self.num_workers
+                    input_queues[worker_idx].put(obj)
+            except:
+                stop_event.set()
+                raise
+            finally:
+                # Tell all workers to stop working
+                for iqu in input_queues:
+                    iqu.put(_Signal.END)
 
         qf = threading.Thread(target=_queue_filler)
         qf.start()
