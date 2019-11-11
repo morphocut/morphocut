@@ -6,7 +6,7 @@ import sys
 import threading
 import traceback
 
-from morphocut.core import Pipeline
+from morphocut.core import Pipeline, closing_if_closable
 
 
 class _Signal(enum.Enum):
@@ -66,8 +66,9 @@ def _worker_loop(
                 break
 
             if stop_event.is_set():
-                # If stop event is set, continue until _Signal.END to empty the queue
-                continue
+                # If stop event is set, continue until _Signal.END to empty the input queue
+                output_queue.put(_Signal.END)
+                break
 
             try:
                 # Transform object
@@ -83,9 +84,9 @@ def _worker_loop(
                     ExceptionWrapper("worker process PID {}".format(os.getpid()))
                 )
                 break
-
-            # Signalize the collector to switch to the next worker
-            output_queue.put(_Signal.YIELD)
+            finally:
+                # Signalize the collector to switch to the next worker
+                output_queue.put(_Signal.YIELD)
 
     except KeyboardInterrupt:
         pass
@@ -142,6 +143,7 @@ class ParallelPipeline(Pipeline):
         workers = []  # type: List[multiprocessing.Process]
         workers_running = []  # type: List[bool]
         stop_event = self.multiprocessing_context.Event()
+        upstream_exception = []  # type: List[Exception]
         for i in range(self.num_workers):
             iqu = self.multiprocessing_context.Queue(self.queue_size)
             oqu = self.multiprocessing_context.Queue()
@@ -160,16 +162,17 @@ class ParallelPipeline(Pipeline):
         # Fill input queues in a thread
         def _queue_filler():
             try:
-                for i, obj in enumerate(stream):
-                    if stop_event.is_set():
-                        break
+                with closing_if_closable(stream):
+                    for i, obj in enumerate(stream):
+                        if stop_event.is_set():
+                            break
 
-                    # Send objects to workers in a round-robin fashion
-                    worker_idx = i % self.num_workers
-                    input_queues[worker_idx].put(obj)
-            except:
+                        # Send objects to workers in a round-robin fashion
+                        worker_idx = i % self.num_workers
+                        input_queues[worker_idx].put(obj)
+            except Exception as exc:
                 stop_event.set()
-                raise
+                upstream_exception.append(ExceptionWrapper(exc))
             finally:
                 # Tell all workers to stop working
                 for iqu in input_queues:
@@ -209,6 +212,9 @@ class ParallelPipeline(Pipeline):
             raise
         finally:
             qf.join()
+
+            if upstream_exception:
+                upstream_exception[0].reraise()
 
             for w in workers:
                 w.join()
