@@ -5,24 +5,28 @@ Operations for annotating images.
 import numpy as np
 from skimage import img_as_ubyte, img_as_float
 from skimage.morphology import binary_dilation, disk
+import skimage.exposure
+import skimage.io
+import skimage.measure
 
 import cv2 as cv
-from morphocut.pipeline.base import NodeBase
+from morphocut import Node
 
 
-class DrawContours(NodeBase):
+class DrawContours(Node):
 
-    def __init__(self, image_facet, mask_facet, output_facet, dilate_rel=0, dilate_abs=0):
-        self.image_facet = image_facet
-        self.mask_facet = mask_facet
-        self.output_facet = output_facet
+    def __init__(self, image, mask, output, dilate_rel=0, dilate_abs=0):
+        self.image = image
+        self.mask = mask
+        self.output = output
         self.dilate_rel = dilate_rel
         self.dilate_abs = dilate_abs
 
-    def __call__(self, input=None):
-        for obj in input:
-            img = obj["facets"][self.image_facet]["image"]
-            mask = obj["facets"][self.mask_facet]["image"]
+    def transform_stream(self, stream):
+        for obj in stream:
+            #img = obj["facets"][self.image_facet]["image"]
+            #mask = obj["facets"][self.mask_facet]["image"]
+            mask, image = self.prepare_input(obj, ("mask", "image"))
 
             # Calculate radius of the dilation
             area = np.sum(mask)
@@ -34,43 +38,51 @@ class DrawContours(NodeBase):
                 disk(radius))
 
             # Draw contours
-            _, contours, _ = cv.findContours(img_as_ubyte(dilated_mask), 1, 2)
+            #_, contours, _ = cv.findContours(img_as_ubyte(dilated_mask), 1, 2)
+            boundary_mask = skimage.segmentation.find_boundaries(dilated_mask, mode="outer")
 
-            contour_image = img_as_ubyte(img, True)
+            contour_image = img_as_ubyte(image, True)
             color = (0, 255, 0)
 
-            cv.drawContours(contour_image, contours, -1, color, 1)
+            #cv.drawContours(contour_image, contours, -1, color, 1)
+            contour_image[boundary_mask] = color
 
-            obj["facets"][self.output_facet] = {
-                "image": contour_image
-            }
+            #obj["facets"][self.output_facet] = {
+            #    "image": contour_image
+            #}
 
-            yield obj
+            yield self.prepare_output(obj, contour_image)
 
 
-class DrawContoursOnParent(NodeBase):
+class DrawContoursOnParent(Node):
 
-    def __init__(self, image_facet, mask_facet, output_facet, dilate_rel=0, dilate_abs=0):
-        self.image_facet = image_facet
-        self.mask_facet = mask_facet
-        self.output_facet = output_facet
+    def __init__(self, image, mask, output, dilate_rel=0, dilate_abs=0):
+        self.image = image
+        self.mask = mask
+        self.output = output
         self.dilate_rel = dilate_rel
         self.dilate_abs = dilate_abs
 
-    def __call__(self, input=None):
-        for obj in input:
-            parent, parent_slice = obj["parent"], obj["parent_slice"]
+    def transform_stream(self, stream):
+        for obj in stream:
+            parent, parent_slice = self.prepare_input(obj, ("parent", "parent_slice"))
+            #parent, parent_slice = obj["parent"], obj["parent_slice"]
 
             try:
-                parent_img = parent["facets"][self.output_facet]["image"]
+                parent_img = self.prepare_input(parent, ("output"))
+                #parent_img = parent["facets"][self.output_facet]["image"]
             except KeyError:
                 parent_img = img_as_ubyte(
-                    parent["facets"][self.image_facet]["image"], force_copy=True)
-                parent["facets"][self.output_facet] = {
-                    "image": parent_img
-                }
+                    self.prepare_input(parent, ("image")), force_copy=True)
+                #parent_img = img_as_ubyte(
+                #    parent["facets"][self.image_facet]["image"], force_copy=True)
+                self.prepare_output(parent, parent_img)
+                #parent["facets"][self.output_facet] = {
+                #    "image": parent_img
+                #}
 
-            mask = obj["facets"][self.mask_facet]["image"]
+            mask = self.prepare_input(obj, ("mask"))
+            #mask = obj["facets"][self.mask_facet]["image"]
 
             # Calculate radius of the dilation
             area = np.sum(mask)
@@ -82,16 +94,18 @@ class DrawContoursOnParent(NodeBase):
                 disk(radius))
 
             # Draw contours
-            _, contours, _ = cv.findContours(img_as_ubyte(dilated_mask), 1, 2)
+            #_, contours, _ = cv.findContours(img_as_ubyte(dilated_mask), 1, 2)
+            boundary_mask = skimage.segmentation.find_boundaries(dilated_mask, mode="outer")
 
             color = (0, 255, 0)
 
-            cv.drawContours(parent_img[parent_slice], contours, -1, color, 1)
+            #cv.drawContours(parent_img[parent_slice], contours, -1, color, 1)
+            parent_img[boundary_mask] = color
 
-            yield obj
+            yield self.prepare_output(obj)
 
 
-class FadeBackground(NodeBase):
+class FadeBackground(Node):
     """
     Fade the background around an object using its mask.
 
