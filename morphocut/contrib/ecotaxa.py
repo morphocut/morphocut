@@ -14,7 +14,7 @@ from typing import Mapping, Tuple, TypeVar, Union
 import numpy as np
 import PIL
 
-from morphocut import Node, RawOrVariable, ReturnOutputs
+from morphocut import Node, RawOrVariable, ReturnOutputs, closing_if_closable
 from morphocut._optional import import_optional_dependency
 
 T = TypeVar("T")
@@ -73,7 +73,9 @@ class EcotaxaWriter(Node):
     def transform_stream(self, stream):
         pil_extensions = PIL.Image.registered_extensions()
 
-        with zipfile.ZipFile(self.archive_fn, mode="w") as zip_file:
+        with closing_if_closable(stream), zipfile.ZipFile(
+            self.archive_fn, mode="w"
+        ) as zip_file:
             dataframe = []
             i = 0
             for obj in stream:

@@ -1,7 +1,4 @@
-import itertools
-import operator
-import os
-from typing import Any, List, Mapping
+from typing import Any, List
 
 import numpy as np
 import PIL
@@ -9,14 +6,24 @@ import scipy.ndimage as ndi
 import skimage.exposure
 import skimage.io
 import skimage.measure
+from skimage.color import gray2rgb, rgb2gray
 
-from morphocut import Node, Output, RawOrVariable, ReturnOutputs
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
 
 
 @ReturnOutputs
 @Output("mask")
 class ThresholdConst(Node):
-    """Set the mask of image
+    """
+    Calculate a mask by applying a constant threshold.
+
+    The result will be `image <= threshold`.
+
+    Args:
+        image (np.ndarray or Variable[np.ndarray]): Image for which the mask is to be calculated.
+        threshold (Number or Variable[Number]): Threshold. Image intensities less than this will be `True` in the 
+            result.
+
     """
 
     def __init__(self, image: RawOrVariable, threshold: RawOrVariable):
@@ -25,8 +32,6 @@ class ThresholdConst(Node):
         self.threshold = threshold
 
     def transform(self, image):
-        """Check if the image is 2 dimensional
-        """
         if image.ndim != 2:
             raise ValueError("image.ndim needs to be exactly 2.")
 
@@ -38,7 +43,20 @@ class ThresholdConst(Node):
 @ReturnOutputs
 @Output("rescaled")
 class Rescale(Node):
-    """Rescale the image
+    """
+    Rescale the intensities of the image.
+
+    .. note::
+        Uses the skimage library :py:func:`skimage.exposure.rescale_intensity`.
+
+    Args:
+        image (np.ndarray or Variable[np.ndarray]): An image file to be rescaled.
+        in_range ((str or 2-tuple) or (Variable[str or 2-tuple])): min/max as the intensity range.
+        dtype (str or Variable[str]): min/max of the image's dtype as the intensity range.
+
+    Returns:
+        Variable[np.ndarray]: Image with intensities rescaled.
+
     """
 
     def __init__(self, image: RawOrVariable, in_range="image", dtype=None):
@@ -69,13 +87,17 @@ class FindRegions(Node):
     """
     Find regions in a mask and calculate properties.
 
-    TODO: Include reference to skimage.measure.regionsprops
+    For more information see :py:func:`skimage.measure.regionsprops`.
 
     .. note::
-        This Node creates multiple objects per incoming object.
+        This Node creates multiple objects per incoming object. Use `skimage.measure.regionsprops`_ to 
+        find regions in image.
+
+    .. _skimage.measure.regionsprops: https://scikit-image.org/docs/dev/api/skimage.measure.html
 
     Example:
         .. code-block:: python
+
             mask = ...
             regionsprops = FindRegions(mask)
 
@@ -105,36 +127,45 @@ class FindRegions(Node):
         return tuple(slice(max(0, s.start - padding), s.stop + padding) for s in slices)
 
     def transform_stream(self, stream):
-        for obj in stream:
-            mask, image = self.prepare_input(obj, ("mask", "image"))
+        with closing_if_closable(stream):
+            for obj in stream:
+                mask, image = self.prepare_input(obj, ("mask", "image"))
 
-            labels, nlabels = skimage.measure.label(mask, return_num=True)
+                labels, nlabels = skimage.measure.label(mask, return_num=True)
 
-            objects = ndi.find_objects(labels, nlabels)
-            for i, sl in enumerate(objects):
-                if sl is None:
-                    continue
+                objects = ndi.find_objects(labels, nlabels)
+                for i, slices in enumerate(objects):
+                    if slices is None:
+                        continue
 
-                if self.padding:
-                    sl = self._enlarge_slice(sl, self.padding)
+                    if self.padding:
+                        slices = self._enlarge_slice(slices, self.padding)
 
-                props = skimage.measure._regionprops._RegionProperties(
-                    sl, i + 1, labels, image, True
-                )
+                    props = skimage.measure._regionprops.RegionProperties(  # pylint: disable=protected-access
+                        slices, i + 1, labels, image, True
+                    )
 
-                if self.min_area is not None and props.area < self.min_area:
-                    continue
+                    if self.min_area is not None and props.area < self.min_area:
+                        continue
 
-                if self.max_area is not None and props.area > self.max_area:
-                    continue
+                    if self.max_area is not None and props.area > self.max_area:
+                        continue
 
-                yield self.prepare_output(obj.copy(), props)
+                    yield self.prepare_output(obj.copy(), props)
 
 
 @ReturnOutputs
 @Output("extracted_image")
 class ExtractROI(Node):
-    """Return the extracted region/image
+    """
+    Extract part of an image using a :py:class:`RegionProperties <skimage.measure._regionprops.RegionProperties>` instance.
+
+    To be used in conjunction with :py:class:`FindRegions`.
+
+    Args:
+        image (np.ndarray or Variable[np.ndarray]): Image from which regions are to be extracted.
+        regionprops (RegionProperties or Variable[RegionProperties]): :py:class:`RegionProperties <skimage.measure._regionprops.RegionProperties>` instance returned by :py:class:`FindRegions`.
+        
     """
 
     def __init__(self, image: RawOrVariable, regionprops: RawOrVariable):
@@ -178,33 +209,85 @@ class ImageStats(Node):
 @ReturnOutputs
 @Output("image")
 class ImageReader(Node):
+    """
+    Read and open the image from a given path.
+
+    Use Python Imaging Library `PIL`_ to open the file from a given path.
+
+    .. _PIL: https://pillow.readthedocs.io/en/stable/
+
+    Args:
+        fp (RawOrVariable or Variable[RawOrVariable]): File path from where we want to open our image.
+
+    """
+
     def __init__(self, fp: RawOrVariable):
         super().__init__()
         self.fp = fp
 
     def transform_stream(self, stream):
-        for obj in stream:
-            fp = self.prepare_input(obj, "fp")
+        with closing_if_closable(stream):
+            for obj in stream:
+                fp = self.prepare_input(obj, "fp")
 
-            image = np.array(PIL.Image.open(fp))
+                image = np.array(PIL.Image.open(fp))
 
-            yield self.prepare_output(obj, image)
+                yield self.prepare_output(obj, image)
 
 
 @ReturnOutputs
 class ImageWriter(Node):
+    """
+    Write the image into the given directory path.
+
+    Use Python Imaging Library `PIL`_ to save the image in a given path.
+
+    .. _PIL: https://pillow.readthedocs.io/en/stable/
+
+    Args:
+        fp (RawOrVariable or Variable[RawOrVariable]): Path where we want to save our image.
+        image (np.ndarray or Variable[np.ndarray]): Image which we want to save to a directory.
+
+    """
+
     def __init__(self, fp: RawOrVariable, image: RawOrVariable):
         super().__init__()
         self.fp = fp
         self.image = image
 
     def transform_stream(self, stream):
-        for obj in stream:
-            fp, image = self.prepare_input(obj, ("fp", "image"))
+        with closing_if_closable(stream):
+            for obj in stream:
+                fp, image = self.prepare_input(obj, ("fp", "image"))
 
-            print(fp)
+                print(fp)
 
-            img = PIL.Image.fromarray(image)
-            img.save(fp)
+                img = PIL.Image.fromarray(image)
+                img.save(fp)
 
-            yield obj
+                yield obj
+
+
+@ReturnOutputs
+@Output("image")
+class Gray2RGB(Node):
+    def __init__(self, image):
+        super().__init__()
+        self.image = image
+
+    def transform(self, image):
+        return gray2rgb(image)
+
+
+@ReturnOutputs
+@Output("image")
+class RGB2Gray(Node):
+    def __init__(self, image):
+        super().__init__()
+        self.image = image
+
+    def transform(self, image):
+        if len(image.shape) != 3:
+            raise ValueError("image.shape != 3 in {!r}".format(self))
+
+        return rgb2gray(image)
