@@ -7,14 +7,16 @@ Read and write EcoTaxa archives.
 
 .. _EcoTaxa: https://ecotaxa.obs-vlfr.fr/
 """
+import fnmatch
 import io
+import os.path
 import zipfile
 from typing import Mapping, Tuple, TypeVar, Union
 
 import numpy as np
 import PIL
 
-from morphocut import Node, RawOrVariable, ReturnOutputs, closing_if_closable
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
 from morphocut._optional import import_optional_dependency
 
 T = TypeVar("T")
@@ -34,7 +36,28 @@ def dtype_to_ecotaxa(dtype):
 
 @ReturnOutputs
 class EcotaxaWriter(Node):
-    """Zip the image and its meta data."""
+    """
+    Create an archive of images and metadata that is importable to EcoTaxa.
+
+    Args:
+        archive_fn (str): Location of the output file.
+        image (np.array, Variable, or a tuple thereof): One or more images.
+        image_name (str, Variable, or a tuple thereof): One or more image names.
+        meta (Mapping or Variable): Metadata to store in the TSV file.
+        image_ext (str, optional): Image extension, will be appended to ``image_name``.
+            Has to be one of ``".jpg"``, ``".png"`` or ``".gif"``.
+        meta_fn (str, optional): TSV file. Must start with ``ecotaxa``.
+
+    If multiple images are provided, ``image`` and
+    ``image_name`` must be tuples of the same length.
+
+    The TSV file will have the following columns by default:
+
+    - ``img_file_name``: Name of the image file (including extension)
+    - ``img_rank``: Rank of image to be displayed. Starts at 1.
+
+    Other columns are read from ``meta``.
+    """
 
     def __init__(
         self,
@@ -83,7 +106,9 @@ class EcotaxaWriter(Node):
                     obj, ("image", "image_name", "meta")
                 )
 
-                for img, img_name, img_ext in zip(image, image_name, self.image_ext):
+                for img_rank, img, img_name, img_ext in enumerate(
+                    zip(image, image_name, self.image_ext), start=1
+                ):
                     pil_format = pil_extensions[img_ext]
 
                     img = PIL.Image.fromarray(img)
@@ -94,7 +119,9 @@ class EcotaxaWriter(Node):
 
                     zip_file.writestr(arcname, img_fp.getvalue())
 
-                    dataframe.append({**meta, "img_file_name": arcname})
+                    dataframe.append(
+                        {**meta, "img_file_name": arcname, "img_rank": img_rank}
+                    )
 
                 yield obj
 
@@ -116,5 +143,54 @@ class EcotaxaWriter(Node):
 
 
 @ReturnOutputs
+@Output("image")
+@Output("meta")
 class EcotaxaReader(Node):
-    ...
+    """
+    Read an archive of images and metadata that is importable to EcoTaxa.
+
+    Args:
+        archive_fn (str): Location of the archive file.
+        img_rank (int, Variable, or a tuple thereof): One or more image ranks.
+
+    Returns:
+        (image, meta): A tuple of image(s) and metadata.
+
+    To read multiple image ranks, provide a tuple of ints as ``img_rank``.
+    The first output will then be a tuple of images.
+
+    The TSV file needs at least an ``img_file_name``
+    column that provides the name of the image file.
+
+    Other columns are read from ``meta``.
+    """
+
+    def __init__(self, archive_fn: str, img_rank: MaybeTuple[int]):
+        super().__init__()
+        self.archive_fn = archive_fn
+        self.img_rank = img_rank
+        self._pd = import_optional_dependency("pandas")
+
+    def transform_stream(self, stream):
+        with closing_if_closable(stream):
+            for obj in stream:
+                archive_fn, img_rank = self.prepare_input(
+                    obj, ("archive_fn", "img_rank")
+                )
+
+                with zipfile.ZipFile(archive_fn, mode="r") as zip_file:
+                    index_names = fnmatch.filter(zip_file.namelist(), "ecotaxa_*")
+
+                    for index_name in index_names:
+                        index_base = os.path.dirname(index_name)
+                        with zip_file.open(index_name) as index_fp:
+                            dataframe = self._pd.read_csv(index_fp)
+                            for row in dataframe.iterrows():
+                                image_fn = index_base + "/" + row["img_file_name"]
+
+                                with zip_file.open(image_fn) as image_fp:
+                                    image = np.array(PIL.Image.open(image_fp))
+
+                                yield self.prepare_output(
+                                    obj.copy(), image, row.to_dict()
+                                )
