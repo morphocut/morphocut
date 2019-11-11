@@ -5,6 +5,8 @@ from typing import Iterable, Set, Union
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 
+__all__ = ["Find", "Glob"]
+
 
 @ReturnOutputs
 @Output("abs_path")

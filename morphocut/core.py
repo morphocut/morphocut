@@ -154,6 +154,9 @@ class Variable(Generic[T]):
     def __str__(self):
         return "<Variable {}.{}>".format(self.node, self.name)
 
+    def __repr__(self):
+        return self.__str__()
+
     # Attribute access
     def __getattr__(self, name):
         return LambdaNode(getattr, self, name)
@@ -401,7 +404,7 @@ class Node(StreamTransformer):
         """Update obj using the values corresponding to the output ports."""
 
         if not self.outputs:
-            if any(values):
+            if any(v is not None for v in values):
                 raise ValueError(
                     "No output port specified but transform returned a value."
                 )
@@ -572,7 +575,17 @@ class LambdaNode(Node):
         return clbl(*args, **kwargs)
 
     def __str__(self):
-        return "{}({})".format(self.__class__.__name__, self.clbl.__name__)
+        args = [self.clbl.__name__]
+        args.extend(str(a) for a in self.args)
+        args.extend("{}={}".format(k, v) for k, v in self.kwargs.items())
+        return "{}({})".format(self.__class__.__name__, ", ".join(args))
+
+
+class StreamObjectKeyError(KeyError):
+    def __str__(self):
+        return "{}\nYou probably removed this key from the stream.".format(
+            super().__str__()
+        )
 
 
 class StreamObject(abc.MutableMapping):
@@ -586,7 +599,8 @@ class StreamObject(abc.MutableMapping):
     def copy(self) -> "StreamObject":
         return StreamObject(self.data.copy())
 
-    def _as_key(self, obj):
+    @staticmethod
+    def _as_key(obj):
         if isinstance(obj, Variable):
             return obj.hash
         return obj
@@ -598,7 +612,10 @@ class StreamObject(abc.MutableMapping):
         del self.data[self._as_key(key)]
 
     def __getitem__(self, key):
-        return self.data[self._as_key(key)]
+        try:
+            return self.data[self._as_key(key)]
+        except KeyError:
+            raise StreamObjectKeyError(key) from None
 
     def __iter__(self):
         return iter(self.data)
@@ -615,6 +632,10 @@ class Pipeline(StreamTransformer):
     When the pipeline is executed, stream objects are passed
     from one node to the next in the same order.
 
+    Args:
+        parent (Pipeline, optional): A parent pipeline to attach to.
+            If None and nested in an existing Pipeline, attach to this one.
+
     Example:
         .. code-block:: python
 
@@ -624,8 +645,17 @@ class Pipeline(StreamTransformer):
             pipeline.run()
     """
 
-    def __init__(self, parent: Optional['Pipeline'] = None):
+    def __init__(self, parent: Optional["Pipeline"] = None):
         self.children = []  # type: List[StreamTransformer]
+
+        if parent is not None:
+            parent.add_child(self)
+
+        if parent is None:
+            try:
+                parent = _pipeline_stack[-1]
+            except IndexError:
+                pass
 
         if parent is not None:
             parent.add_child(self)
