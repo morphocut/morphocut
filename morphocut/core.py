@@ -2,8 +2,6 @@
 
 import inspect
 import operator
-import typing
-import warnings
 from abc import ABC, abstractmethod
 from collections import abc
 from functools import wraps
@@ -19,6 +17,8 @@ from typing import (
     TypeVar,
     Union,
 )
+
+_pipeline_stack = []  # type: List[Pipeline] # pylint: disable=invalid-name
 
 
 class StreamTransformer(ABC):
@@ -37,7 +37,18 @@ class StreamTransformer(ABC):
         return NotImplemented
 
 
-_pipeline_stack = []  # type: List[Pipeline] # pylint: disable=invalid-name
+from contextlib import contextmanager
+
+
+@contextmanager
+def closing_if_closable(stream):
+    try:
+        yield stream
+    finally:
+        try:
+            stream.close()
+        except:
+            pass
 
 
 def _resolve_variable(obj, variable_or_value):
@@ -462,14 +473,15 @@ class Node(StreamTransformer):
 
         names = self._get_parameter_names()
 
-        for obj in stream:
-            parameters = self.prepare_input(obj, names)
+        with closing_if_closable(stream):
+            for obj in stream:
+                parameters = self.prepare_input(obj, names)
 
-            result = self.transform(*parameters)  # pylint: disable=no-member
+                result = self.transform(*parameters)  # pylint: disable=no-member
 
-            self.prepare_output(obj, result)
+                self.prepare_output(obj, result)
 
-            yield obj
+                yield obj
 
         self.after_stream()
 
@@ -687,17 +699,10 @@ class Pipeline(StreamTransformer):
         if stream is None:
             stream = [StreamObject()]
 
-        streams = []
-
-        try:
-            for child in self.children:  # type: StreamTransformer
-                streams.append(stream)
-                stream = child.transform_stream(stream)
-        except:
-            for s in reversed(streams):
-                if hasattr(s, "close"):
-                    s.close()
-            raise
+        # Here, the stream is not automatically closed,
+        # as this would happen instantaneously.
+        for child in self.children:  # type: StreamTransformer
+            stream = child.transform_stream(stream)
 
         return stream
 
