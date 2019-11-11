@@ -96,7 +96,7 @@ class Parse(Node):
             with Pipeline() as pipeline:
                 result = Parse(fmt, string, case_sensitive)
 
-        Result: `obj[result]` == `{'named': 'TEST'}` for a stream object `obj`.
+        Result: ``obj[result] == {'named': 'TEST'}`` for a stream object `obj`.
 
     """
 

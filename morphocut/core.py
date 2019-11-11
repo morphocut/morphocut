@@ -2,8 +2,7 @@
 
 import inspect
 import operator
-import typing
-import warnings
+from abc import ABC, abstractmethod
 from collections import abc
 from functools import wraps
 from typing import (
@@ -20,6 +19,36 @@ from typing import (
 )
 
 _pipeline_stack = []  # type: List[Pipeline] # pylint: disable=invalid-name
+
+
+class StreamTransformer(ABC):
+    """ABC for stream transformers like Pipeline and Node."""
+
+    @abstractmethod
+    def transform_stream(self, stream):
+        while False:
+            yield
+
+    @classmethod
+    def __subclasshook__(cls, C):
+        if cls is StreamTransformer:
+            if any("transform_stream" in B.__dict__ for B in C.__mro__):
+                return True
+        return NotImplemented
+
+
+from contextlib import contextmanager
+
+
+@contextmanager
+def closing_if_closable(stream):
+    try:
+        yield stream
+    finally:
+        try:
+            stream.close()
+        except:
+            pass
 
 
 def _resolve_variable(obj, variable_or_value):
@@ -325,7 +354,7 @@ Stream = Iterable["StreamObject"]
 r"""A stream is an Iterable of :py:class:`StreamObject`\ s."""
 
 
-class Node:
+class Node(StreamTransformer):
     """Base class for all nodes."""
 
     def __init__(self):
@@ -337,14 +366,15 @@ class Node:
 
         # Register with pipeline
         try:
-            # pylint: disable=protected-access
-            _pipeline_stack[-1]._add_node(self)
+            pipeline_top = _pipeline_stack[-1]
         except IndexError:
             raise RuntimeError(
                 "Empty pipeline stack. {} has to be called in a pipeline context.".format(
                     self.__class__.__name__
                 )
             ) from None
+        else:
+            pipeline_top.add_child(self)
 
     def __bind_output(self, port: "Output"):
         """Bind self to port and return a variable."""
@@ -445,14 +475,15 @@ class Node:
 
         names = self._get_parameter_names()
 
-        for obj in stream:
-            parameters = self.prepare_input(obj, names)
+        with closing_if_closable(stream):
+            for obj in stream:
+                parameters = self.prepare_input(obj, names)
 
-            result = self.transform(*parameters)  # pylint: disable=no-member
+                result = self.transform(*parameters)  # pylint: disable=no-member
 
-            self.prepare_output(obj, result)
+                self.prepare_output(obj, result)
 
-            yield obj
+                yield obj
 
         self.after_stream()
 
@@ -616,7 +647,7 @@ class StreamObject(abc.MutableMapping):
         return len(self.data)
 
 
-class Pipeline:
+class Pipeline(StreamTransformer):
     """
     A Pipeline manages the execution of nodes.
 
@@ -638,7 +669,10 @@ class Pipeline:
     """
 
     def __init__(self, parent: Optional["Pipeline"] = None):
-        self.nodes = []  # type: List[Node]
+        self.children = []  # type: List[StreamTransformer]
+
+        if parent is not None:
+            parent.add_child(self)
 
         if parent is None:
             try:
@@ -676,8 +710,10 @@ class Pipeline:
         if stream is None:
             stream = [StreamObject()]
 
-        for node in self.nodes:  # type: Node
-            stream = node.transform_stream(stream)
+        # Here, the stream is not automatically closed,
+        # as this would happen instantaneously.
+        for child in self.children:  # type: StreamTransformer
+            stream = child.transform_stream(stream)
 
         return stream
 
@@ -695,8 +731,8 @@ class Pipeline:
         for _ in self.transform_stream():
             pass
 
-    def _add_node(self, node: Node):
-        self.nodes.append(node)
+    def add_child(self, child: StreamTransformer):
+        self.children.append(child)
 
     def __str__(self):
-        return "Pipeline([{}])".format(", ".join(str(n) for n in self.nodes))
+        return "Pipeline([{}])".format(", ".join(str(n) for n in self.children))

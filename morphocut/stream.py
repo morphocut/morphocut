@@ -14,6 +14,7 @@ from morphocut.core import (
     ReturnOutputs,
     StreamObject,
     Variable,
+    closing_if_closable,
 )
 
 __all__ = [
@@ -60,7 +61,7 @@ class TQDM(Node):
         self.monitor_interval = monitor_interval
 
     def transform_stream(self, stream):
-        with self._tqdm.tqdm(stream) as progress:
+        with closing_if_closable(stream), self._tqdm.tqdm(stream) as progress:
             if self.monitor_interval is not None:
                 progress.monitor_interval = self.monitor_interval
 
@@ -92,8 +93,9 @@ class Slice(Node):
         self.args = args
 
     def transform_stream(self, stream):
-        for obj in itertools.islice(stream, *self.args):
-            yield obj
+        with closing_if_closable(stream):
+            for obj in itertools.islice(stream, *self.args):
+                yield obj
 
 
 @ReturnOutputs
@@ -115,15 +117,13 @@ class StreamBuffer(Node):
 
     def _fill_queue(self, stream):
         try:
-            for obj in stream:
-                self.queue.put(obj)
+            with closing_if_closable(stream):
+                for obj in stream:
+                    self.queue.put(obj)
         finally:
             self.queue.put(self._sentinel)
 
     def transform_stream(self, stream):
-        """Apply transform to every object in the stream.
-        """
-
         thread = Thread(target=self._fill_queue, args=(stream,), daemon=True)
         thread.start()
 
@@ -153,12 +153,13 @@ class PrintObjects(Node):
         self.args = args
 
     def transform_stream(self, stream):
-        for obj in stream:
-            print("Stream object at 0x{:x}".format(id(obj)))
-            for outp in self.args:
-                print("{}: ".format(outp.name), end="")
-                pprint.pprint(obj[outp])
-            yield obj
+        with closing_if_closable(stream):
+            for obj in stream:
+                print("Stream object at 0x{:x}".format(id(obj)))
+                for outp in self.args:
+                    print("{}: ".format(outp.name), end="")
+                    pprint.pprint(obj[outp])
+                yield obj
 
 
 @ReturnOutputs
@@ -179,8 +180,9 @@ class Enumerate(Node):
         self.start = start
 
     def transform_stream(self, stream):
-        for i, obj in enumerate(stream, start=self.start):
-            yield self.prepare_output(obj, i)
+        with closing_if_closable(stream):
+            for i, obj in enumerate(stream, start=self.start):
+                yield self.prepare_output(obj, i)
 
 
 @ReturnOutputs
@@ -202,11 +204,12 @@ class FromIterable(Node):
     def transform_stream(self, stream):
         """Transform a stream."""
 
-        for obj in stream:
-            iterable = self.prepare_input(obj, "iterable")
+        with closing_if_closable(stream):
+            for obj in stream:
+                iterable = self.prepare_input(obj, "iterable")
 
-            for value in iterable:
-                yield self.prepare_output(obj.copy(), value)
+                for value in iterable:
+                    yield self.prepare_output(obj.copy(), value)
 
 
 @ReturnOutputs
@@ -227,11 +230,12 @@ class Filter(Node):
         self.function = function
 
     def transform_stream(self, stream):
-        for obj in stream:
-            if not self.function(obj):
-                continue
+        with closing_if_closable(stream):
+            for obj in stream:
+                if not self.function(obj):
+                    continue
 
-            yield obj
+                yield obj
 
 
 @ReturnOutputs
@@ -251,5 +255,6 @@ class FilterVariables(Node):
         }
 
     def transform_stream(self, stream):
-        for obj in stream:
-            yield StreamObject({k: v for k, v in obj.items() if k in self.keys})
+        with closing_if_closable(stream):
+            for obj in stream:
+                yield StreamObject({k: v for k, v in obj.items() if k in self.keys})

@@ -4,20 +4,18 @@ from morphocut.stream import Slice, StreamBuffer, PrintObjects, TQDM, FromIterab
 
 import pytest
 
-# TODO: Remove once test passes
-@pytest.mark.xfail(strict=True)
+
 def test_TQDM():
     # Assert that the progress bar works with stream
-    items = range(5)
-
     with Pipeline() as pipeline:
+        item = FromIterable(range(10))
         result = TQDM("Description")
 
-    stream = pipeline.transform_stream(items)
-    obj = list(stream)
+    stream = pipeline.transform_stream()
+    result = [o[item] for o in stream]
 
-    assert obj == [0, 1, 2, 3, 4]
-    assert result.description == "Description"
+    assert result == list(range(10))
+
 
 def test_Slice():
     # Assert that the stream is sliced
@@ -40,24 +38,16 @@ def test_Slice():
 
     assert obj == ["C", "D"]
 
-# TODO: Remove once test passes
-@pytest.mark.xfail(strict=True)
+
 def test_StreamBuffer():
-    # Assert that the stream is buffered
-    maxsize = 5
-    items = "12345"
-
     with Pipeline() as pipeline:
-        result = StreamBuffer(maxsize)
+        item = FromIterable(range(10))
+        result = StreamBuffer(1)
 
-    stream = result.transform_stream(items)
-    obj = list(stream)
+    stream = pipeline.transform_stream()
+    result = [o[item] for o in stream]
 
-    assert obj[0] == "1"
-    assert obj[1] == "2"
-    assert obj[2] == "3"
-    assert obj[3] == "4"
-    assert obj[4] == "5"
+    assert result == list(range(10))
 
 
 def test_FromIterable():
@@ -83,12 +73,12 @@ def test_PrintObjects(capsys):
     # TODO: Capture output and compare
 
     # https://docs.pytest.org/en/latest/capture.html#accessing-captured-output-from-a-test-function
-    #pipeline.run()
+    # pipeline.run()
     stream = pipeline.transform_stream()
     result = [o[value] for o in stream]
 
     captured = capsys.readouterr()
     print(captured.out)
     assert result == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-    #captured = capsys.readouterr()
-    #assert captured.out == '9'
+    # captured = capsys.readouterr()
+    # assert captured.out == '9'
