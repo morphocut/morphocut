@@ -25,6 +25,7 @@ User Guide
    :maxdepth: 2
 
    introduction
+   auto_examples/index
    installation
    formats
    image

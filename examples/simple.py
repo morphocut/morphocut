@@ -1,3 +1,7 @@
+"""
+Simple example
+==============
+"""
 from morphocut import Pipeline
 from morphocut.io import ImageReader, ImageWriter
 from morphocut.file import Glob

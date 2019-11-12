@@ -40,6 +40,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx_autodoc_typehints",
     "sphinx.ext.coverage",
+    "sphinx_gallery.gen_gallery",
 ]
 
 napoleon_use_param = False
@@ -52,6 +53,13 @@ intersphinx_mapping = {
     # TODO: Always link to the latest stable
     "pims": ("https://soft-matter.github.io/pims/v0.4.1/", None),
     "skimage": ("https://scikit-image.org/docs/stable/", None),
+}
+
+sphinx_gallery_conf = {
+    "examples_dirs": "../examples",  # path to your example scripts
+    "gallery_dirs": "auto_examples",  # path to where to save gallery generated output
+    "reference_url": {"morphocut": None},
+    "plot_gallery": "False",
 }
 
 # Add any paths that contain templates here, relative to this directory.

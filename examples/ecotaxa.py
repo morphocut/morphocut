@@ -1,3 +1,7 @@
+"""
+EcoTaxa example
+===============
+"""
 from morphocut.ecotaxa import EcotaxaWriter
 from morphocut import Pipeline
 from morphocut.io import ImageReader
