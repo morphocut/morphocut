@@ -646,6 +646,10 @@ class StreamObject(abc.MutableMapping):
     def __len__(self):
         return len(self.data)
 
+    def to_dict(self, **kwargs):
+        """Turn the StreamObject into a regular dictionary."""
+        return {k: self[v] for k, v in kwargs.items()}
+
 
 class Pipeline(StreamTransformer):
     """
