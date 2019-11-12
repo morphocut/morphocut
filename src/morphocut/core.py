@@ -170,129 +170,129 @@ class Variable(Generic[T]):
 
     # Attribute access
     def __getattr__(self, name):
-        return LambdaNode(getattr, self, name)
+        return Call(getattr, self, name)
 
     # Item access
     def __getitem__(self, key):
-        return LambdaNode(operator.getitem, self, key)
+        return Call(operator.getitem, self, key)
 
     def __setitem__(self, key, value):
-        return LambdaNode(operator.setitem, self, key, value)
+        return Call(operator.setitem, self, key, value)
 
     def __delitem__(self, key):
-        return LambdaNode(operator.delitem, self, key)
+        return Call(operator.delitem, self, key)
 
     # Rich comparison methods
     def __lt__(self, other):
-        return LambdaNode(operator.lt, self, other)
+        return Call(operator.lt, self, other)
 
     def __le__(self, other):
-        return LambdaNode(operator.le, self, other)
+        return Call(operator.le, self, other)
 
     def __eq__(self, other):
-        return LambdaNode(operator.eq, self, other)
+        return Call(operator.eq, self, other)
 
     def __ne__(self, other):
-        return LambdaNode(operator.ne, self, other)
+        return Call(operator.ne, self, other)
 
     def __gt__(self, other):
-        return LambdaNode(operator.gt, self, other)
+        return Call(operator.gt, self, other)
 
     def __ge__(self, other):
-        return LambdaNode(operator.ge, self, other)
+        return Call(operator.ge, self, other)
 
     # Binary arithmetic operations
     def __add__(self, other):
-        return LambdaNode(operator.add, self, other)
+        return Call(operator.add, self, other)
 
     def __sub__(self, other):
-        return LambdaNode(operator.sub, self, other)
+        return Call(operator.sub, self, other)
 
     def __mul__(self, other):
-        return LambdaNode(operator.mul, self, other)
+        return Call(operator.mul, self, other)
 
     def __matmul__(self, other):
-        return LambdaNode(operator.matmul, self, other)
+        return Call(operator.matmul, self, other)
 
     def __truediv__(self, other):
-        return LambdaNode(operator.truediv, self, other)
+        return Call(operator.truediv, self, other)
 
     def __floordiv__(self, other):
-        return LambdaNode(operator.floordiv, self, other)
+        return Call(operator.floordiv, self, other)
 
     def __mod__(self, other):
-        return LambdaNode(operator.mod, self, other)
+        return Call(operator.mod, self, other)
 
     def __pow__(self, other):
-        return LambdaNode(operator.pow, self, other)
+        return Call(operator.pow, self, other)
 
     def __lshift__(self, other):
-        return LambdaNode(operator.lshift, self, other)
+        return Call(operator.lshift, self, other)
 
     def __rshift__(self, other):
-        return LambdaNode(operator.rshift, self, other)
+        return Call(operator.rshift, self, other)
 
     def __and__(self, other):
-        return LambdaNode(operator.and_, self, other)
+        return Call(operator.and_, self, other)
 
     def __xor__(self, other):
-        return LambdaNode(operator.xor, self, other)
+        return Call(operator.xor, self, other)
 
     def __or__(self, other):
-        return LambdaNode(operator.or_, self, other)
+        return Call(operator.or_, self, other)
 
     # Binary arithmetic operations with reflected (swapped) operands
     def __radd__(self, other):
-        return LambdaNode(operator.add, other, self)
+        return Call(operator.add, other, self)
 
     def __rsub__(self, other):
-        return LambdaNode(operator.sub, other, self)
+        return Call(operator.sub, other, self)
 
     def __rmul__(self, other):
-        return LambdaNode(operator.mul, other, self)
+        return Call(operator.mul, other, self)
 
     def __rmatmul__(self, other):
-        return LambdaNode(operator.matmul, other, self)
+        return Call(operator.matmul, other, self)
 
     def __rtruediv__(self, other):
-        return LambdaNode(operator.truediv, other, self)
+        return Call(operator.truediv, other, self)
 
     def __rfloordiv__(self, other):
-        return LambdaNode(operator.floordiv, other, self)
+        return Call(operator.floordiv, other, self)
 
     def __rmod__(self, other):
-        return LambdaNode(operator.mod, other, self)
+        return Call(operator.mod, other, self)
 
     def __rpow__(self, other):
-        return LambdaNode(operator.pow, other, self)
+        return Call(operator.pow, other, self)
 
     def __rlshift__(self, other):
-        return LambdaNode(operator.lshift, other, self)
+        return Call(operator.lshift, other, self)
 
     def __rrshift__(self, other):
-        return LambdaNode(operator.rshift, other, self)
+        return Call(operator.rshift, other, self)
 
     def __rand__(self, other):
-        return LambdaNode(operator.and_, other, self)
+        return Call(operator.and_, other, self)
 
     def __rxor__(self, other):
-        return LambdaNode(operator.xor, other, self)
+        return Call(operator.xor, other, self)
 
     def __ror__(self, other):
-        return LambdaNode(operator.or_, other, self)
+        return Call(operator.or_, other, self)
 
     # Unary arithmetic operations
     def __neg__(self):
-        return LambdaNode(operator.neg, self)
+        return Call(operator.neg, self)
 
     def __pos__(self):
-        return LambdaNode(operator.pos, self)
+        return Call(operator.pos, self)
 
     def __abs__(self):
-        return LambdaNode(operator.abs, self)
+        return Call(operator.abs, self)
 
     def __invert__(self):
-        return LambdaNode(operator.invert, self)
+        return Call(operator.invert, self)
 
     # Above operators without underscores
     getattr = __getattr__
@@ -323,27 +323,27 @@ class Variable(Generic[T]):
     # Special operators
     def not_(self):
         """Return the outcome of not obj."""
-        return LambdaNode(operator.not_, self)
+        return Call(operator.not_, self)
 
     def truth(self):
         """Return True if obj is true, and False otherwise."""
-        return LambdaNode(operator.truth, self)
+        return Call(operator.truth, self)
 
     def is_(self, other):
         """Return ``self is other``. Tests object identity."""
-        return LambdaNode(operator.is_, self, other)
+        return Call(operator.is_, self, other)
 
     def is_not(self, other):
         """Return ``self is not other``. Tests object identity."""
-        return LambdaNode(operator.is_not, self, other)
+        return Call(operator.is_not, self, other)
 
     def in_(self, other):
         """Return the outcome of the test  ``self in other``. Tests containment."""
-        return LambdaNode(operator.contains, other, self)
+        return Call(operator.contains, other, self)
 
     def contains(self, other):
         """Return the outcome of the test  ``other in self``. Tests containment."""
-        return LambdaNode(operator.contains, self, other)
+        return Call(operator.contains, self, other)
 
 
 # Types
@@ -553,7 +553,7 @@ def ReturnOutputs(node_cls):
 
 @ReturnOutputs
 @Output("result")
-class LambdaNode(Node):
+class Call(Node):
     """
     Apply a function to the supplied variables.
 
@@ -574,7 +574,7 @@ class LambdaNode(Node):
                 return bar
 
             baz = ... # baz is a stream variable.
-            result = LambdaNode(foo, baz)
+            result = Call(foo, baz)
 
     """
 

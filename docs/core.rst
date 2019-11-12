@@ -18,13 +18,13 @@ Nodes
 
 A Node applies creates, updates or deletes stream objects.
 
-LambdaNode
+Call
 ~~~~~~~~~~
 
 In simple cases, a regular function
-can be converted into a pipeline node using :py:class:`LambdaNode`.
+can be converted into a pipeline node using :py:class:`Call`.
 
-.. autoclass:: LambdaNode
+.. autoclass:: Call
     :members:
 
 Subclassing :py:class:`Node`

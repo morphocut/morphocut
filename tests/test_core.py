@@ -4,7 +4,7 @@ import operator
 import numpy as np
 import pytest
 
-from morphocut import LambdaNode, Node, Output, Pipeline, ReturnOutputs
+from morphocut import Call, Node, Output, Pipeline, ReturnOutputs
 from tests.helpers import Const
 
 
@@ -50,12 +50,12 @@ def test_Node():
     assert obj[c] == 3
 
 
-def test_LambdaNode():
+def test_Call():
     def foo(bar, baz):
         return bar, baz
 
     with Pipeline() as pipeline:
-        result = LambdaNode(foo, 1, 2)
+        result = Call(foo, 1, 2)
 
     obj, *_ = list(pipeline.transform_stream())
     assert obj[result] == (1, 2)
