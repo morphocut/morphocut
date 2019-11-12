@@ -164,7 +164,8 @@ class EcotaxaReader(Node):
     column that provides the name of the image file.
     Other columns are read from ``meta``.
 
-    The TSV file MAY contain a row of types after the header (``"[t]"`` or ``"[t]"``).
+    The TSV file MAY contain a row of types after the header
+    (``"[f]"`` for numeric columns, ``"[t]"`` else).
     """
 
     def __init__(
