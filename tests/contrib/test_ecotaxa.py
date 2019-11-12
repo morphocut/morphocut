@@ -1,9 +1,10 @@
-from morphocut import Pipeline, LambdaNode
-from morphocut.contrib.ecotaxa import EcotaxaReader, EcotaxaWriter
-from morphocut.stream import FromIterable
-from tests.helpers import BinaryBlobs, Const
-from morphocut.str import Format
 from numpy.testing import assert_equal
+
+from morphocut import Call, Pipeline
+from morphocut.contrib.ecotaxa import EcotaxaReader, EcotaxaWriter
+from morphocut.str import Format
+from morphocut.stream import FromIterable
+from tests.helpers import BinaryBlobs
 
 
 def test_ecotaxa(tmp_path):
@@ -14,7 +15,7 @@ def test_ecotaxa(tmp_path):
     with Pipeline() as p:
         i = FromIterable(range(10))
 
-        meta = LambdaNode(dict, i=i, foo="Sömé UTF-8 ſtríng…")
+        meta = Call(dict, i=i, foo="Sömé UTF-8 ſtríng…")
         image = BinaryBlobs()
         image_name = Format("image_{}", i)
 
