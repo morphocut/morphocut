@@ -42,7 +42,7 @@ class ThresholdConst(Node):
 
 @ReturnOutputs
 @Output("rescaled")
-class Rescale(Node):
+class RescaleIntensity(Node):
     """
     Rescale the intensities of the image.
 
