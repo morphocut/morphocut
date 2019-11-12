@@ -4,7 +4,8 @@ import operator
 import numpy as np
 import pytest
 
-from morphocut import LambdaNode, Node, Output, Pipeline, ReturnOutputs
+from morphocut import Call, Node, Output, Pipeline, ReturnOutputs
+from tests.helpers import Const
 
 
 @ReturnOutputs
@@ -49,26 +50,15 @@ def test_Node():
     assert obj[c] == 3
 
 
-def test_LambdaNode():
+def test_Call():
     def foo(bar, baz):
         return bar, baz
 
     with Pipeline() as pipeline:
-        result = LambdaNode(foo, 1, 2)
+        result = Call(foo, 1, 2)
 
     obj, *_ = list(pipeline.transform_stream())
     assert obj[result] == (1, 2)
-
-
-@ReturnOutputs
-@Output("value")
-class Const(Node):
-    def __init__(self, value):
-        super().__init__()
-        self.value = value
-
-    def transform(self, value):
-        return value
 
 
 class _MatMullable:
