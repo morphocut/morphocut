@@ -10,7 +10,7 @@ from morphocut._optional import import_optional_dependency
 class Format(Node):
     """
     Format strings like :py:meth:`str.format` using the the :ref:`Python Format String Syntax <python:formatstrings>`.
-    
+
     Args:
         fmt (str): A format in which we want our string to be.
         *args: Arguments to be replaced with placeholders in fmt
@@ -24,7 +24,7 @@ class Format(Node):
 
     Example:
         .. code-block:: python
-            
+
             fmt = "{},{},{},{},{},{},{a},{b},{c},{d}"
             args = (1, 2, 3)
             _args = (4, 5, 6)
@@ -33,7 +33,7 @@ class Format(Node):
 
             with Pipeline() as pipeline:
                 result = Format(fmt, *args, _args=_args, _kwargs=_kwargs, **kwargs)
-    
+
         Result: `obj[result]` == `"1,2,3,4,5,6,7,8,9,10"` for a stream object `obj`.
 
     """
@@ -88,7 +88,7 @@ class Parse(Node):
             fmt = "This is a {named}"
             string = "This is a TEST"
             case_sensitive = True
-            
+
             with Pipeline() as pipeline:
                 result = Parse(fmt, string, case_sensitive)
 

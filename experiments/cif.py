@@ -1,7 +1,7 @@
 from skimage.exposure import rescale_intensity
 from skimage.io import imsave
 
-from morphocut import LambdaNode, Node, Pipeline
+from morphocut import Call, Node, Pipeline
 from morphocut.io import ImageWriter
 from morphocut.pims import BioformatsReader
 from morphocut.str import Format
@@ -20,9 +20,9 @@ if __name__ == "__main__":
 
         output_fn = Format("/tmp/cif/{}.png", series)
 
-        frame = LambdaNode(rescale_intensity, frame)
+        frame = Call(rescale_intensity, frame)
 
-        LambdaNode(imsave, output_fn, frame)
+        Call(imsave, output_fn, frame)
 
         TQDM()
 
