@@ -260,8 +260,6 @@ class ImageWriter(Node):
             for obj in stream:
                 fp, image = self.prepare_input(obj, ("fp", "image"))
 
-                print(fp)
-
                 img = PIL.Image.fromarray(image)
                 img.save(fp)
 

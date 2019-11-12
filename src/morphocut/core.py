@@ -345,6 +345,10 @@ class Variable(Generic[T]):
         """Return the outcome of the test  ``other in self``. Tests containment."""
         return Call(operator.contains, self, other)
 
+    def unpack(self, size):
+        """Unpack the variable into a tuple of variables."""
+        return _Unpack(size, self)
+
 
 # Types
 RawOrVariable = Union[T, Variable[T]]
@@ -729,3 +733,14 @@ class Pipeline(StreamTransformer):
 
     def __str__(self):
         return "Pipeline([{}])".format(", ".join(str(n) for n in self.children))
+
+@ReturnOutputs
+class _Unpack(Node):
+    def __init__(self, size, value):
+        super().__init__()
+        self.size = size
+        self.value = value
+        self.outputs = [Variable(str(i), self) for i in range(self.size)]
+
+    def transform(self, value):
+        return value
