@@ -555,7 +555,7 @@ def ReturnOutputs(node_cls):
 @Output("result")
 class Call(Node):
     """
-    Apply a function to the supplied variables.
+    Call a function with the supplied parameters.
 
     For every object in the stream, apply ``clbl`` to the corresponding stream variables.
 
