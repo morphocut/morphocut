@@ -1,8 +1,15 @@
-Quickstart
-==========
+Introduction
+============
 
-**MorphoCut** can be used almost like you would process a single image.
-The operations are then automatically applied to a whole stream of images.
+**MorphoCut Library** can be used to process thousands of images
+almost like you would process a single image.
+
+It was created out of the need to process large collections of images,
+but is also able to treat other data types.
+
+First, a py:class:`~morphocluster.core.Pipeline` is defined that
+contains all operations.
+These operations are then automatically applied to a whole stream of images.
 
 Selling points
 --------------
