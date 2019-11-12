@@ -191,9 +191,7 @@ class EcotaxaReader(Node):
                         index_base = os.path.dirname(index_name)
                         with zip_file.open(index_name) as index_fp:
                             dataframe = self._pd.read_csv(index_fp, sep="\t")
-
-                            if self._check_type_header(dataframe):
-                                dataframe = dataframe.iloc[1:].infer_objects()
+                            dataframe = self._fix_types(dataframe)
 
                             for _, row in dataframe.iterrows():
                                 image_fn = os.path.join(
@@ -207,7 +205,24 @@ class EcotaxaReader(Node):
                                     obj.copy(), image, row.to_dict()
                                 )
 
-    @staticmethod
-    def _check_type_header(dataframe):
+    def _fix_types(self, dataframe):
         first_row = dataframe.iloc[0]
-        return all(v in ("[t]", "[f]") for v in first_row)
+
+        num_cols = []
+        for c, v in first_row.items():
+            if v == "[f]":
+                num_cols.append(c)
+            elif v == "[t]":
+                continue
+            else:
+                # If the first row contains other values than [f] or [t],
+                # it is not a type header and the dataframe doesn't need to be changed.
+                return dataframe
+
+        dataframe = dataframe.iloc[1:]
+
+        dataframe[num_cols] = dataframe[num_cols].apply(
+            self._pd.to_numeric, errors="coerce", axis=1
+        )
+
+        return dataframe

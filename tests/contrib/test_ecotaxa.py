@@ -3,6 +3,7 @@ from morphocut.contrib.ecotaxa import EcotaxaReader, EcotaxaWriter
 from morphocut.stream import FromIterable
 from tests.helpers import BinaryBlobs, Const
 from morphocut.str import Format
+from numpy.testing import assert_equal
 
 
 def test_ecotaxa(tmp_path):
@@ -17,14 +18,19 @@ def test_ecotaxa(tmp_path):
         image = BinaryBlobs()
         image_name = Format("image_{}", i)
 
-        EcotaxaWriter(archive_fn, image, image_name, meta)
+        EcotaxaWriter(archive_fn, image, image_name, meta, image_ext=".png")
 
-    result = [o.to_dict() for o in p.transform_stream()]
+    result = [o.to_dict(meta=meta, image=image) for o in p.transform_stream()]
 
     # Read the archive
     with Pipeline() as p:
-        EcotaxaReader(archive_fn)
+        image, meta = EcotaxaReader(archive_fn)
 
-    roundtrip_result = [o.to_dict() for o in p.transform_stream()]
+    roundtrip_result = [o.to_dict(meta=meta, image=image) for o in p.transform_stream()]
 
-    assert result == roundtrip_result
+    for meta_field in ("i", "foo"):
+        assert [o["meta"][meta_field] for o in result] == [
+            o["meta"][meta_field] for o in roundtrip_result
+        ]
+
+    assert_equal([o["image"] for o in result], [o["image"] for o in roundtrip_result])
