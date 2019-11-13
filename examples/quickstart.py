@@ -1,7 +1,3 @@
-"""
-Quickstart
-==========
-"""
 import os.path
 
 from morphocut import Call, Pipeline
@@ -11,6 +7,8 @@ from morphocut.parallel import ParallelPipeline
 from morphocut.str import Format
 from morphocut.stream import Enumerate, FromIterable
 
+# First, a Pipeline is defined that contains all operations
+# that should be carried out on the objects of the stream.
 with Pipeline() as p:
     base_path = FromIterable(["/path/a", "/path/b", "/path/c"])
     i = Enumerate()
@@ -30,4 +28,6 @@ with Pipeline() as p:
 
         ImageWriter(output_fn, roi_image)
 
+# In the end, the Pipeline is executed. A stream is created and transformed by the
+# operations defined in the Pipeline.
 p.run()
