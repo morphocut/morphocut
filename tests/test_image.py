@@ -4,7 +4,16 @@ import skimage.io
 
 from morphocut import Pipeline
 from morphocut.file import Glob
-from morphocut.image import FindRegions, Rescale, ThresholdConst, ImageWriter, ImageReader, ExtractROI, Gray2RGB, RGB2Gray
+from morphocut.image import (
+    FindRegions,
+    RescaleIntensity,
+    ThresholdConst,
+    ImageWriter,
+    ImageReader,
+    ExtractROI,
+    Gray2RGB,
+    RGB2Gray,
+)
 
 
 def test_ThresholdConst():
@@ -15,13 +24,15 @@ def test_ThresholdConst():
     stream = pipeline.transform_stream()
     pipeline.run()
 
-def test_Rescale():
+
+def test_RescaleIntensity():
     image = skimage.data.camera()
     with Pipeline() as pipeline:
-        result = Rescale(image, in_range=(0, 200), dtype=np.uint8)
+        result = RescaleIntensity(image, in_range=(0, 200), dtype=np.uint8)
 
     stream = pipeline.transform_stream()
     pipeline.run()
+
 
 def test_FindRegions():
     image = skimage.data.camera()
@@ -32,6 +43,7 @@ def test_FindRegions():
     stream = pipeline.transform_stream()
     pipeline.run()
 
+
 def test_ExtractROI():
     image = skimage.data.camera()
     with Pipeline() as pipeline:
@@ -41,6 +53,7 @@ def test_ExtractROI():
 
     stream = pipeline.transform_stream()
     pipeline.run()
+
 
 def test_ImageWriter(tmp_path):
     d = tmp_path / "sub"
@@ -53,6 +66,7 @@ def test_ImageWriter(tmp_path):
     stream = pipeline.transform_stream()
     pipeline.run()
 
+
 def test_ImageReader(data_path):
     d = data_path / "images/test_image_3.png"
     with Pipeline() as pipeline:
@@ -60,6 +74,7 @@ def test_ImageReader(data_path):
 
     stream = pipeline.transform_stream()
     pipeline.run()
+
 
 def test_Gray2RGB():
     image = skimage.data.camera()
@@ -71,6 +86,7 @@ def test_Gray2RGB():
 
     assert obj[result].ndim == 3
     assert obj[result].shape[-1] == 3
+
 
 def test_RGB2Gray():
     image = skimage.data.astronaut()

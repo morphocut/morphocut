@@ -11,3 +11,6 @@ exclude_lines =
 ignore_errors = True
 omit =
     tests/*
+    setup.py
+    versioneer.py
+    src/morphocut/_version.py
