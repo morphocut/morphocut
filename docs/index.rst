@@ -34,6 +34,7 @@ User Guide
    parallel
    image
    core
+   contrib
    contributing
    authors
 
