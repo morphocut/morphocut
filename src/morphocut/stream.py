@@ -21,11 +21,12 @@ __all__ = [
     "Enumerate",
     "Filter",
     "FilterVariables",
-    "FromIterable",
+    "Pack",
     "PrintObjects",
     "Slice",
     "StreamBuffer",
     "TQDM",
+    "Unpack",
 ]
 
 

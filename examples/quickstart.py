@@ -5,12 +5,12 @@ from morphocut.file import Glob
 from morphocut.image import FindRegions, ImageReader, ImageWriter
 from morphocut.parallel import ParallelPipeline
 from morphocut.str import Format
-from morphocut.stream import Enumerate, FromIterable
+from morphocut.stream import Enumerate, Unpack
 
 # First, a Pipeline is defined that contains all operations
 # that should be carried out on the objects of the stream.
 with Pipeline() as p:
-    base_path = FromIterable(["/path/a", "/path/b", "/path/c"])
+    base_path = Unpack(["/path/a", "/path/b", "/path/c"])
     i = Enumerate()
     pattern = Call(os.path.join, base_path, "subpath/to/input/files/*.jpg")
     path = Glob(pattern)
