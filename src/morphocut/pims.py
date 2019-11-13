@@ -123,7 +123,7 @@ class BioformatsReader(Node):
                 )
 
                 reader = self._pims.bioformats.BioformatsReader(
-                    path, meta=meta, series=series, **kwargs
+                    path, meta=meta, **kwargs
                 )
 
                 if series is None:
