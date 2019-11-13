@@ -95,6 +95,15 @@ class FindRegions(Node):
 
     .. _skimage.measure.regionsprops: https://scikit-image.org/docs/dev/api/skimage.measure.html
 
+    Args:
+        image (np.ndarray or Variable[np.ndarray]): An image whose mask we have to find region with.
+        mask (np.ndarray or Variable[np.ndarray]): mask of a given image.
+        min_area (int or Variable[int]): minimum area of the region. If the area of our prop/region is 
+            smaller than our min_area then it will discard it.
+        max_area (int or Variable[int]): maximum area of the region. If the area of our prop/region is 
+            bigger than our max_area then it will discard it.
+        padding (int or Variable[int]): size of the slices/regions of our image.
+
     Example:
         .. code-block:: python
 
@@ -271,6 +280,16 @@ class ImageWriter(Node):
 @ReturnOutputs
 @Output("image")
 class Gray2RGB(Node):
+    """
+    Converts the Grayscale image to RGB image.
+
+    .. note::
+        Uses the skimage module :py:class:`skimage.color` to convert from Grayscale to RGB.
+
+    Args:
+        image (np.ndarray or Variable[np.ndarray]): Image which we want to convert.
+
+    """
     def __init__(self, image):
         super().__init__()
         self.image = image
@@ -282,6 +301,16 @@ class Gray2RGB(Node):
 @ReturnOutputs
 @Output("image")
 class RGB2Gray(Node):
+    """
+    Converts the RGB image to Grayscale image.
+
+    .. note::
+        Uses the skimage module :py:class:`skimage.color` to convert from RGB to Grayscale.
+
+    Args:
+        image (np.ndarray or Variable[np.ndarray]): Image which we want to convert.
+
+    """
     def __init__(self, image):
         super().__init__()
         self.image = image
