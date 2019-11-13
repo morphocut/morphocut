@@ -18,13 +18,13 @@ Nodes
 
 A Node applies creates, updates or deletes stream objects.
 
-LambdaNode
+Call
 ~~~~~~~~~~
 
 In simple cases, a regular function
-can be converted into a pipeline node using :py:class:`LambdaNode`.
+can be converted into a pipeline node using :py:class:`Call`.
 
-.. autoclass:: LambdaNode
+.. autoclass:: Call
     :members:
 
 Subclassing :py:class:`Node`
@@ -86,18 +86,19 @@ If the Node has to change the stream in some way,
             self.spam = spam
 
         def transform_stream(self, stream):
-            for obj in stream:
-                # Retrieve raw values
-                ham, spam = self.prepare_input(obj, ("ham", "spam"))
+            with closing_if_closable(stream):
+                for obj in stream:
+                    # Retrieve raw values
+                    ham, spam = self.prepare_input(obj, ("ham", "spam"))
 
-                # Remove objects from stream based on some condition
-                if not ham:
-                    continue
+                    # Remove objects from stream based on some condition
+                    if not ham:
+                        continue
 
-                # Append new values to the stream object:
-                # bar = ham + spam
-                # baz = ham - spam
-                yield self.prepare_output(obj, ham + spam, ham - spam)
+                    # Append new values to the stream object:
+                    # bar = ham + spam
+                    # baz = ham - spam
+                    yield self.prepare_output(obj, ham + spam, ham - spam)
 
     with Pipeline() as pipeline:
         # ham and spam are stream variables here

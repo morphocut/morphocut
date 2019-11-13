@@ -10,7 +10,7 @@ from morphocut._optional import import_optional_dependency
 class Format(Node):
     """
     Format strings like :py:meth:`str.format` using the the :ref:`Python Format String Syntax <python:formatstrings>`.
-    
+
     Args:
         fmt (str): A format in which we want our string to be.
         *args: Arguments to be replaced with placeholders in fmt
@@ -24,7 +24,7 @@ class Format(Node):
 
     Example:
         .. code-block:: python
-            
+
             fmt = "{},{},{},{},{},{},{a},{b},{c},{d}"
             args = (1, 2, 3)
             _args = (4, 5, 6)
@@ -33,12 +33,19 @@ class Format(Node):
 
             with Pipeline() as pipeline:
                 result = Format(fmt, *args, _args=_args, _kwargs=_kwargs, **kwargs)
-    
+
         Result: `obj[result]` == `"1,2,3,4,5,6,7,8,9,10"` for a stream object `obj`.
 
     """
 
-    def __init__(self, fmt: RawOrVariable[str], *args: Tuple[RawOrVariable], _args: Optional[RawOrVariable[Tuple]] = None, _kwargs: RawOrVariable[Mapping] = None, **kwargs: Mapping[str, RawOrVariable]):
+    def __init__(
+        self,
+        fmt: RawOrVariable[str],
+        *args: Tuple[RawOrVariable],
+        _args: Optional[RawOrVariable[Tuple]] = None,
+        _kwargs: RawOrVariable[Mapping] = None,
+        **kwargs: Mapping[str, RawOrVariable]
+    ):
         super().__init__()
         self.fmt = fmt
         self._args = _args or ()
@@ -81,15 +88,20 @@ class Parse(Node):
             fmt = "This is a {named}"
             string = "This is a TEST"
             case_sensitive = True
-            
+
             with Pipeline() as pipeline:
                 result = Parse(fmt, string, case_sensitive)
 
-        Result: `obj[result]` == `{'named': 'TEST'}` for a stream object `obj`.
+        Result: ``obj[result] == {'named': 'TEST'}`` for a stream object `obj`.
 
     """
 
-    def __init__(self, fmt: RawOrVariable[str], string: RawOrVariable, case_sensitive: bool = False):
+    def __init__(
+        self,
+        fmt: RawOrVariable[str],
+        string: RawOrVariable,
+        case_sensitive: bool = False,
+    ):
         super().__init__()
 
         self.fmt = fmt
@@ -111,9 +123,7 @@ class Parse(Node):
 
     def _compile(self, fmt):
         parser = self._parse.compile(
-            fmt,
-            extra_types=self._extra_types,
-            case_sensitive=self.case_sensitive
+            fmt, extra_types=self._extra_types, case_sensitive=self.case_sensitive
         )
         if not parser._named_fields:
             warnings.warn(

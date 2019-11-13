@@ -1,3 +1,5 @@
+"""Test morphocut.parallel."""
+
 from time import sleep
 
 import pytest
@@ -10,13 +12,13 @@ from morphocut.stream import FromIterable
 
 class Sleep(Node):
     def transform(self):
-        sleep(0.01)
+        sleep(0.001)
 
 
-N_STEPS = 32
+N_STEPS = 31
 
 
-def test_ParallelPipeline():
+def test_speed():
 
     with Pipeline() as pipeline:
         level1 = FromIterable(range(N_STEPS))
@@ -32,7 +34,7 @@ def test_ParallelPipeline():
 
     with Pipeline() as pipeline:
         level1 = FromIterable(range(N_STEPS))
-        with ParallelPipeline(4, parent=pipeline) as pp:
+        with ParallelPipeline(4) as pp:
             level2 = FromIterable(range(N_STEPS))
             Sleep()
 
@@ -54,7 +56,7 @@ def test_exception_parent():
 
     with Pipeline() as pipeline:
         level1 = FromIterable(range(N_STEPS))
-        with ParallelPipeline(4, parent=pipeline) as pp:
+        with ParallelPipeline(4) as pp:
             level2 = FromIterable(range(N_STEPS))
             Sleep()
 
@@ -68,22 +70,47 @@ def test_exception_parent():
     finally:
         stream.close()
 
-    # TODO: Make sure that all processes are stopped
-
 
 class Raiser(Node):
     def transform(self):
-        raise SomeException()
+        raise SomeException("foo")
 
 
-def test_exception_child():
+def test_exception_worker():
 
     with Pipeline() as pipeline:
         level1 = FromIterable(range(N_STEPS))
-        with ParallelPipeline(4, parent=pipeline) as pp:
+        with ParallelPipeline(4) as pp:
+            Sleep()
             Raiser()
 
-    with pytest.raises(SomeException):
+    with pytest.raises(SomeException, match="foo"):
         pipeline.run()
 
     # TODO: Make sure that all processes are stopped
+
+
+class KeyErrorRaiser(Node):
+    def transform(self):
+        raise KeyError("foo")
+
+
+def test_KeyError():
+    with Pipeline() as pipeline:
+        with ParallelPipeline(4) as pp:
+            KeyErrorRaiser()
+
+    with pytest.raises(KeyError, match="foo"):
+        pipeline.run()
+
+
+def test_exception_upstream():
+
+    with Pipeline() as pipeline:
+        level1 = FromIterable(range(N_STEPS))
+        Raiser()
+        with ParallelPipeline(4) as pp:
+            level2 = FromIterable(range(N_STEPS))
+
+    with pytest.raises(SomeException, match="foo"):
+        pipeline.run()

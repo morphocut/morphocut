@@ -50,12 +50,13 @@ class VideoReader(Node):
         self._pims = import_optional_dependency("pims")
 
     def transform_stream(self, stream):
-        for obj in stream:
-            path = self.prepare_input(obj, "path")
-            reader = self._pims.PyAVReaderIndexed(path, **self.kwargs)
+        with closing_if_closable(stream):
+            for obj in stream:
+                path = self.prepare_input(obj, "path")
+                reader = self._pims.PyAVReaderIndexed(path, **self.kwargs)
 
-            for frame in reader:
-                yield self.prepare_output(obj.copy(), frame)
+                for frame in reader:
+                    yield self.prepare_output(obj.copy(), frame)
 
 
 @ReturnOutputs
@@ -113,21 +114,22 @@ class BioformatsReader(Node):
         self._pims = import_optional_dependency("pims")
 
     def transform_stream(self, stream):
-        for obj in stream:
-            path, meta, series, kwargs = self.prepare_input(
-                obj, ("path", "meta", "series", "kwargs")
-            )
+        with closing_if_closable(stream):
+            for obj in stream:
+                path, meta, series, kwargs = self.prepare_input(
+                    obj, ("path", "meta", "series", "kwargs")
+                )
 
-            reader = self._pims.bioformats.BioformatsReader(
-                path, meta=meta, series=series, **kwargs
-            )
+                reader = self._pims.bioformats.BioformatsReader(
+                    path, meta=meta, series=series, **kwargs
+                )
 
-            if series is None:
-                series = range(reader.size_series)
-            else:
-                series = [series]
+                if series is None:
+                    series = range(reader.size_series)
+                else:
+                    series = [series]
 
-            for s in series:
-                reader.series = s
-                for frame in reader:
-                    yield self.prepare_output(obj.copy(), frame, s)
+                for s in series:
+                    reader.series = s
+                    for frame in reader:
+                        yield self.prepare_output(obj.copy(), frame, s)
