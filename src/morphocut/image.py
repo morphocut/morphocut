@@ -59,7 +59,9 @@ class RescaleIntensity(Node):
 
     """
 
-    def __init__(self, image: RawOrVariable, in_range="image", dtype=None):
+    def __init__(
+        self, image: RawOrVariable, in_range: RawOrVariable = "image", dtype=None
+    ):
         super().__init__()
 
         self.image = image
@@ -71,9 +73,9 @@ class RescaleIntensity(Node):
         else:
             self.out_range = "dtype"
 
-    def transform(self, image):
+    def transform(self, image, in_range):
         image = skimage.exposure.rescale_intensity(
-            image, in_range=self.in_range, out_range=self.out_range
+            image, in_range=in_range, out_range=self.out_range
         )
         if self.dtype is not None:
             image = image.astype(self.dtype, copy=False)
@@ -257,7 +259,19 @@ class ImageWriter(Node):
 @ReturnOutputs
 @Output("image")
 class Gray2RGB(Node):
-    def __init__(self, image):
+    """
+    Create an RGB representation of a gray-level image.
+
+    Args:
+        image (numpy.ndarray or Variable): Gray-level input image.
+
+    Returns:
+        Variable[numpy.ndarray]: The RGB image:
+            An array which is the same size as the input array,
+            but with a channel dimension appended.
+    """
+
+    def __init__(self, image: RawOrVariable[np.ndarray]):
         super().__init__()
         self.image = image
 
@@ -268,7 +282,19 @@ class Gray2RGB(Node):
 @ReturnOutputs
 @Output("image")
 class RGB2Gray(Node):
-    def __init__(self, image):
+    """
+    Compute luminance of an RGB image using :py:func:`skimage.color.rgb2gray`.
+
+    Args:
+        image (numpy.ndarray or Variable): The image in RGB format.
+
+    Returns:
+        Variable[numpy.ndarray]: The luminance image:
+            An array which is the same size as the input array,
+            but with the channel dimension removed and dtype=float.
+    """
+
+    def __init__(self, image: RawOrVariable[np.ndarray]):
         super().__init__()
         self.image = image
 
