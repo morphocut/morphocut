@@ -8,6 +8,7 @@ from skimage.morphology import binary_dilation, disk
 import skimage.exposure
 import skimage.io
 import skimage.measure
+import skimage.segmentation
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 
@@ -15,10 +16,10 @@ from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 @Output("contour")
 class DrawContours(Node):
 
-    def __init__(self, image, mask, output, dilate_rel=0, dilate_abs=0):
+    def __init__(self, image, mask, dilate_rel=0, dilate_abs=0):
+        super().__init__()
         self.image = image
         self.mask = mask
-        self.output = output
         self.dilate_rel = dilate_rel
         self.dilate_abs = dilate_abs
 
@@ -47,6 +48,7 @@ class DrawContours(Node):
 class DrawContoursOnParent(Node):
 
     def __init__(self, image, mask, output, parent_slice, dilate_rel=0, dilate_abs=0):
+        super().__init__()
         self.image = image
         self.mask = mask
         self.output = output
