@@ -11,7 +11,7 @@ Through PIMS, MorphoCut supports reading Bioformats and Video.
 """
 from typing import Optional
 
-from morphocut import Node, Output, RawOrVariable, ReturnOutputs
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
 from morphocut._optional import import_optional_dependency
 
 
@@ -121,7 +121,7 @@ class BioformatsReader(Node):
                 )
 
                 reader = self._pims.bioformats.BioformatsReader(
-                    path, meta=meta, series=series, **kwargs
+                    path, meta=meta, **kwargs
                 )
 
                 if series is None:
