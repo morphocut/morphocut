@@ -225,14 +225,8 @@ class ImageReader(Node):
         super().__init__()
         self.fp = fp
 
-    def transform_stream(self, stream):
-        with closing_if_closable(stream):
-            for obj in stream:
-                fp = self.prepare_input(obj, "fp")
-
-                image = np.array(PIL.Image.open(fp))
-
-                yield self.prepare_output(obj, image)
+    def transform(self, fp):
+        return np.array(PIL.Image.open(fp))
 
 
 @ReturnOutputs
@@ -255,17 +249,9 @@ class ImageWriter(Node):
         self.fp = fp
         self.image = image
 
-    def transform_stream(self, stream):
-        with closing_if_closable(stream):
-            for obj in stream:
-                fp, image = self.prepare_input(obj, ("fp", "image"))
-
-                print(fp)
-
-                img = PIL.Image.fromarray(image)
-                img.save(fp)
-
-                yield obj
+    def transform(self, fp, image):
+        img = PIL.Image.fromarray(image)
+        img.save(fp)
 
 
 @ReturnOutputs
