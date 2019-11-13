@@ -3,6 +3,7 @@ from typing import Any, List
 import numpy as np
 import PIL
 import scipy.ndimage as ndi
+from skimage import img_as_float
 import skimage.exposure
 import skimage.io
 import skimage.measure
@@ -168,16 +169,26 @@ class ExtractROI(Node):
         
     """
 
-    def __init__(self, image: RawOrVariable, regionprops: RawOrVariable):
+    def __init__(self, image: RawOrVariable, mask: RawOrVariable, regionprops: RawOrVariable, alpha=0.5, bg_color=1.0):
         super().__init__()
 
         self.image = image
+        self.mask = mask
         self.regionprops = regionprops
+        self.alpha = alpha
+        self.bg_color = np.array(bg_color)
 
-    # TODO: Hide background using mask
+    def transform(self, image, mask, regionprops):
+        if not np.issubdtype(image.dtype, np.floating):
+            image = img_as_float(image)
 
-    def transform(self, image, regionprops):
-        return image[regionprops.slice]
+        # Combine background and foreground
+        result_img = self.alpha * self.bg_color + (1 - self.alpha) * image
+
+        # Paste foreground
+        result_img[mask] = image[mask]
+
+        return result_img[regionprops.slice]
 
 
 @ReturnOutputs

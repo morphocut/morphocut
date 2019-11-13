@@ -49,7 +49,7 @@ def test_ExtractROI():
     with Pipeline() as pipeline:
         mask = ThresholdConst(image, 255)
         regions = FindRegions(mask, image, 0, 100, padding=10)
-        result = ExtractROI(image, regions)
+        result = ExtractROI(image, mask, regions)
 
     stream = pipeline.transform_stream()
     pipeline.run()
