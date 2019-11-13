@@ -32,6 +32,7 @@ User Guide
    stream
    parallel
    image
+   contrib
    api
    contributing
    authors
