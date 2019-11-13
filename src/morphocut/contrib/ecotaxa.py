@@ -37,7 +37,7 @@ def dtype_to_ecotaxa(dtype):
 @ReturnOutputs
 class EcotaxaWriter(Node):
     """
-    Create an archive of images and metadata that is importable to EcoTaxa.
+    |stream| Create an archive of images and metadata that is importable to EcoTaxa.
 
     Args:
         archive_fn (str): Location of the output file.
@@ -148,7 +148,7 @@ class EcotaxaWriter(Node):
 @Output("meta")
 class EcotaxaReader(Node):
     """
-    Read an archive of images and metadata that is importable to EcoTaxa.
+    |stream| Read an archive of images and metadata that is importable to EcoTaxa.
 
     Args:
         archive_fn (str, Variable): Location of the archive file.

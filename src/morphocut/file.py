@@ -14,7 +14,7 @@ __all__ = ["Find", "Glob"]
 @Output("abs_path")
 class Find(Node):
     """
-    Find files under the specified directory.
+    |stream| Find files under the specified directory.
 
     Args:
         root (str or Path, raw or Variable): Root path where images should be found.

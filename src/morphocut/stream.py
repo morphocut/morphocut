@@ -78,7 +78,7 @@ class TQDM(Node):
 @ReturnOutputs
 class Slice(Node):
     """
-    Slice the :py:obj:`~morphocut.core.Stream`.
+    |stream| Slice the :py:obj:`~morphocut.core.Stream`.
 
     Filter objects in the :py:obj:`~morphocut.core.Stream` based on their index.
 
@@ -189,7 +189,7 @@ class Enumerate(Node):
 @Output("value")
 class FromIterable(Node):
     """
-    Insert values from the supplied iterator into the :py:obj:`~morphocut.core.Stream`.
+    |stream| Insert values from the supplied iterator into the :py:obj:`~morphocut.core.Stream`.
 
     The result is basically the cross-product of the stream with `iterable`.
     
@@ -215,7 +215,7 @@ class FromIterable(Node):
 @ReturnOutputs
 class Filter(Node):
     """
-    Filter objects in the :py:obj:`~morphocut.core.Stream`.
+    |stream| Filter objects in the :py:obj:`~morphocut.core.Stream`.
 
     After this node, the stream will only contain objects for
     which `function` evaluates to `True`.
