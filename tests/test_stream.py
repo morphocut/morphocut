@@ -8,17 +8,18 @@ from morphocut.stream import (
     Enumerate,
     Filter,
     FilterVariables,
-    FromIterable,
+    Pack,
     PrintObjects,
     Slice,
     StreamBuffer,
+    Unpack,
 )
 
 
 def test_TQDM():
     # Assert that the progress bar works with stream
     with Pipeline() as pipeline:
-        item = FromIterable(range(10))
+        item = Unpack(range(10))
         result = TQDM("Description")
 
     stream = pipeline.transform_stream()
@@ -51,7 +52,7 @@ def test_Slice():
 
 def test_StreamBuffer():
     with Pipeline() as pipeline:
-        item = FromIterable(range(10))
+        item = Unpack(range(10))
         result = StreamBuffer(1)
 
     stream = pipeline.transform_stream()
@@ -60,11 +61,11 @@ def test_StreamBuffer():
     assert result == list(range(10))
 
 
-def test_FromIterable():
+def test_Unpack():
     values = list(range(10))
 
     with Pipeline() as pipeline:
-        value = FromIterable(values)
+        value = Unpack(values)
 
     stream = pipeline.transform_stream()
 
@@ -73,11 +74,25 @@ def test_FromIterable():
     assert values == result
 
 
+def test_Pack():
+    values = list(range(10))
+
+    with Pipeline() as pipeline:
+        value = Unpack(values)
+        values_packed = Pack(2, value)
+
+    stream = pipeline.transform_stream()
+
+    result = [o[values_packed] for o in stream]
+
+    assert [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9)] == result
+
+
 def test_PrintObjects(capsys):
     values = list(range(10))
 
     with Pipeline() as pipeline:
-        value = FromIterable(values)
+        value = Unpack(values)
         PrintObjects(value)
 
     # TODO: Capture output and compare
@@ -98,7 +113,7 @@ def test_Filter():
     values = list(range(10))
 
     with Pipeline() as pipeline:
-        value = FromIterable(values)
+        value = Unpack(values)
         Filter(lambda obj: obj[value] % 2 == 0)
 
     stream = pipeline.transform_stream()
@@ -112,8 +127,8 @@ def test_FilterVariables():
     values = list(range(10))
 
     with Pipeline() as pipeline:
-        a = FromIterable(values)
-        b = FromIterable(values)
+        a = Unpack(values)
+        b = Unpack(values)
         FilterVariables(b)
 
     stream = list(pipeline.transform_stream())
@@ -125,7 +140,7 @@ def test_FilterVariables():
 
 def test_Enumerate():
     with Pipeline() as pipeline:
-        a = FromIterable(range(10))
+        a = Unpack(range(10))
         i = Enumerate()
 
     stream = pipeline.transform_stream()

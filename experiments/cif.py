@@ -1,28 +1,33 @@
-from skimage.exposure import rescale_intensity
-from skimage.io import imsave
+from itertools import repeat, islice
 
-from morphocut import Call, Node, Pipeline
-from morphocut.io import ImageWriter
+import numpy as np
+
+from morphocut import Call, Node, Pipeline, ReturnOutputs, Variable
+from morphocut.image import ImageWriter, RescaleIntensity
 from morphocut.pims import BioformatsReader
 from morphocut.str import Format
-from morphocut.stream import TQDM, Slice
+from morphocut.stream import TQDM, Slice, Pack
+
 
 if __name__ == "__main__":
     with Pipeline() as p:
-        input_fn = "/home/moi/Work/Datasets/06_CD20_brightfield_6.cif"
+        input_fn = "/home/moi/Work/0-Datasets/06_CD20_brightfield_6.cif"
 
         frame, series = BioformatsReader(input_fn, meta=False)
 
         # Every second frame is in fact a mask
         # TODO: Batch consecutive objects in the stream
 
-        Slice(None, None, 2)
+        frame, mask = Pack(2, frame).unpack(2)
 
-        output_fn = Format("/tmp/cif/{}.png", series)
+        image_fn = Format("/tmp/cif/{}-img.png", series)
+        mask_fn = Format("/tmp/cif/{}-mask.png", series)
 
-        frame = Call(rescale_intensity, frame)
+        frame = RescaleIntensity(frame, dtype=np.uint8)
+        mask = RescaleIntensity(mask, dtype=np.uint8)
 
-        Call(imsave, output_fn, frame)
+        ImageWriter(image_fn, frame)
+        ImageWriter(mask_fn, mask)
 
         TQDM()
 

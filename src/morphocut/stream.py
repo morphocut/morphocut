@@ -141,8 +141,32 @@ class Enumerate(Node):
 
 @ReturnOutputs
 @Output("value")
-class FromIterable(Node):
-    """Insert values from the supplied iterator into the stream."""
+class Unpack(Node):
+    """
+    Unpack values from an iterable into the stream.
+
+    Args:
+        iterable (Iterable or Variable): An iterable to unpack.
+
+    Returns:
+       Variable: One value from the iterable.
+
+    Example:
+        .. code-block:: python
+
+            with Pipeline() as p:
+                a = Unpack([1,2,3])
+                # The stream now consists of three objects:
+                # {a: 1}, {a: 2}, {a: 3}
+                b = Unpack([1,2,3])
+                # The stream now consists of nine objects:
+                # {a: 1, b: 1}, {a: 1, b: 2}, {a: 1, b: 3},
+                # {a: 2, b: 1}, {a: 2, b: 2}, {a: 2, b: 3},
+                # {a: 3, b: 1}, {a: 3, b: 2}, {a: 3, b: 3}
+
+    See Also:
+        :py:class:`~morphocut.stream.Pack`
+    """
 
     def __init__(self, iterable: RawOrVariable[Iterable]):
         super().__init__()
@@ -157,6 +181,52 @@ class FromIterable(Node):
 
                 for value in iterable:
                     yield self.prepare_output(obj.copy(), value)
+
+
+@ReturnOutputs
+class Pack(Node):
+    """
+    Pack values of subsequent objects in the stream into one tuple.
+
+    Args:
+        size (int or Variable): Number of objects to aggregate.
+        *variables (Variable): Variables to pack.
+
+    Returns:
+       One or more Variable: One output Variable per input Variable.
+
+    Example:
+        .. code-block:: python
+
+            with Pipeline() as p:
+                a = Unpack([1,2,3])
+                # The stream now consists of three objects:
+                # {a: 1}, {a: 2}, {a: 3}
+                a123 = Pack(3, a)
+                # The stream now consists one object:
+                # {a: 1, a123: (1,2,3)}
+
+    See Also:
+        :py:class:`~morphocut.stream.Unpack`
+    """
+
+    def __init__(self, size, *variables):
+        super().__init__()
+        self.size = size
+        self.variables = variables
+        # Mess with self.outputs
+        self.outputs = [Variable(v.name, self) for v in self.variables]
+
+    def transform_stream(self, stream):
+        while True:
+            packed = list(itertools.islice(stream, self.size))
+
+            if not packed:
+                break
+
+            packed_values = tuple(tuple(o[v] for o in packed) for v in self.variables)
+
+            yield self.prepare_output(packed[0], *packed_values)
 
 
 @ReturnOutputs
