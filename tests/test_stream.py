@@ -8,7 +8,6 @@ from morphocut.stream import (
     Enumerate,
     Filter,
     FilterVariables,
-    FromIterable,
     Pack,
     PrintObjects,
     Slice,
@@ -114,7 +113,7 @@ def test_Filter():
     values = list(range(10))
 
     with Pipeline() as pipeline:
-        value = FromIterable(values)
+        value = Unpack(values)
         Filter(lambda obj: obj[value] % 2 == 0)
 
     stream = pipeline.transform_stream()
@@ -128,8 +127,8 @@ def test_FilterVariables():
     values = list(range(10))
 
     with Pipeline() as pipeline:
-        a = FromIterable(values)
-        b = FromIterable(values)
+        a = Unpack(values)
+        b = Unpack(values)
         FilterVariables(b)
 
     stream = list(pipeline.transform_stream())
@@ -141,7 +140,7 @@ def test_FilterVariables():
 
 def test_Enumerate():
     with Pipeline() as pipeline:
-        a = FromIterable(range(10))
+        a = Unpack(range(10))
         i = Enumerate()
 
     stream = pipeline.transform_stream()
