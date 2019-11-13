@@ -24,15 +24,17 @@ User Guide
 .. toctree::
    :maxdepth: 2
 
+   introduction
+   auto_examples/index
    installation
-   quickstart
    formats
+   image
    str
    file
    stream
    parallel
    image
-   api
+   core
    contributing
    authors
 

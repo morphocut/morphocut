@@ -53,7 +53,7 @@ class Find(Node):
 @Output("path")
 class Glob(Node):
     """
-    Find files matching ``pathname``.
+    |stream| Find files matching ``pathname``.
 
     For more information see :py:mod:`glob`.
 

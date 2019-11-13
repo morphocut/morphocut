@@ -40,6 +40,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx_autodoc_typehints",
     "sphinx.ext.coverage",
+    "sphinx_gallery.gen_gallery",
 ]
 
 napoleon_use_param = False
@@ -51,6 +52,14 @@ intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
     # TODO: Always link to the latest stable
     "pims": ("https://soft-matter.github.io/pims/v0.4.1/", None),
+    "skimage": ("https://scikit-image.org/docs/stable/", None),
+}
+
+sphinx_gallery_conf = {
+    "examples_dirs": "../examples",  # path to your example scripts
+    "gallery_dirs": "auto_examples",  # path to where to save gallery generated output
+    "reference_url": {"morphocut": None},
+    "plot_gallery": "False",
 }
 
 # Add any paths that contain templates here, relative to this directory.
@@ -73,3 +82,11 @@ html_theme = "sphinx_rtd_theme"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+
+rst_prolog = """
+.. |stream| raw:: html
+
+   <span class="label">Stream</span>
+"""
+
+html_css_files = ["custom.css"]

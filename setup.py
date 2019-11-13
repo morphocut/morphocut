@@ -34,6 +34,7 @@ setup(
             "sphinx_rtd_theme",
             "sphinxcontrib-programoutput",
             "sphinx-autodoc-typehints>=1.10.0",
+            "sphinx-gallery",
         ],
     },
     entry_points={},

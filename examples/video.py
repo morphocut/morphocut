@@ -1,3 +1,7 @@
+"""
+Video example
+=============
+"""
 from morphocut import Pipeline
 from morphocut.io import ImageWriter
 from morphocut.pims import VideoReader
