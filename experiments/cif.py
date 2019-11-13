@@ -6,35 +6,7 @@ from morphocut import Call, Node, Pipeline, ReturnOutputs, Variable
 from morphocut.image import ImageWriter, RescaleIntensity
 from morphocut.pims import BioformatsReader
 from morphocut.str import Format
-from morphocut.stream import TQDM, Slice
-
-
-@ReturnOutputs
-class Pack(Node):
-    """
-    Pack values of subsequent objects of the stream into one Iterable.
-
-    See Also:
-        :py:class:`morphocut.stream.Unpack`
-    """
-
-    def __init__(self, size, *variables):
-        super().__init__()
-        self.size = size
-        self.variables = variables
-        # Mess with self.outputs
-        self.outputs = [Variable(v.name, self) for v in self.variables]
-
-    def transform_stream(self, stream):
-        while True:
-            packed = list(islice(stream, self.size))
-
-            if not packed:
-                break
-
-            packed_values = tuple(tuple(o[v] for o in packed) for v in self.variables)
-
-            yield self.prepare_output(packed[0], *packed_values)
+from morphocut.stream import TQDM, Slice, Pack
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ from timer_cm import Timer
 
 from morphocut import Node, Pipeline
 from morphocut.parallel import ParallelPipeline
-from morphocut.stream import FromIterable
+from morphocut.stream import Unpack
 
 
 class Sleep(Node):
@@ -21,8 +21,8 @@ N_STEPS = 31
 def test_speed():
 
     with Pipeline() as pipeline:
-        level1 = FromIterable(range(N_STEPS))
-        level2 = FromIterable(range(N_STEPS))
+        level1 = Unpack(range(N_STEPS))
+        level2 = Unpack(range(N_STEPS))
         Sleep()
 
     with Timer("sequential") as t:
@@ -33,9 +33,9 @@ def test_speed():
     elapsed_sequential = t.elapsed
 
     with Pipeline() as pipeline:
-        level1 = FromIterable(range(N_STEPS))
+        level1 = Unpack(range(N_STEPS))
         with ParallelPipeline(4) as pp:
-            level2 = FromIterable(range(N_STEPS))
+            level2 = Unpack(range(N_STEPS))
             Sleep()
 
     with Timer("parallel") as t:
@@ -55,9 +55,9 @@ class SomeException(Exception):
 def test_exception_parent():
 
     with Pipeline() as pipeline:
-        level1 = FromIterable(range(N_STEPS))
+        level1 = Unpack(range(N_STEPS))
         with ParallelPipeline(4) as pp:
-            level2 = FromIterable(range(N_STEPS))
+            level2 = Unpack(range(N_STEPS))
             Sleep()
 
     stream = pipeline.transform_stream()
@@ -79,7 +79,7 @@ class Raiser(Node):
 def test_exception_worker():
 
     with Pipeline() as pipeline:
-        level1 = FromIterable(range(N_STEPS))
+        level1 = Unpack(range(N_STEPS))
         with ParallelPipeline(4) as pp:
             Sleep()
             Raiser()
@@ -107,10 +107,10 @@ def test_KeyError():
 def test_exception_upstream():
 
     with Pipeline() as pipeline:
-        level1 = FromIterable(range(N_STEPS))
+        level1 = Unpack(range(N_STEPS))
         Raiser()
         with ParallelPipeline(4) as pp:
-            level2 = FromIterable(range(N_STEPS))
+            level2 = Unpack(range(N_STEPS))
 
     with pytest.raises(SomeException, match="foo"):
         pipeline.run()
