@@ -3,7 +3,18 @@ from queue import Queue
 import pytest
 
 from morphocut import Pipeline
-from morphocut.stream import TQDM, Pack, PrintObjects, Slice, StreamBuffer, Unpack
+from morphocut.stream import (
+    TQDM,
+    Enumerate,
+    Filter,
+    FilterVariables,
+    FromIterable,
+    Pack,
+    PrintObjects,
+    Slice,
+    StreamBuffer,
+    Unpack,
+)
 
 
 def test_TQDM():
@@ -97,3 +108,43 @@ def test_PrintObjects(capsys):
     assert result == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     # captured = capsys.readouterr()
     # assert captured.out == '9'
+
+
+def test_Filter():
+    values = list(range(10))
+
+    with Pipeline() as pipeline:
+        value = FromIterable(values)
+        Filter(lambda obj: obj[value] % 2 == 0)
+
+    stream = pipeline.transform_stream()
+
+    result = [o[value] for o in stream]
+
+    assert [v for v in values if v % 2 == 0] == result
+
+
+def test_FilterVariables():
+    values = list(range(10))
+
+    with Pipeline() as pipeline:
+        a = FromIterable(values)
+        b = FromIterable(values)
+        FilterVariables(b)
+
+    stream = list(pipeline.transform_stream())
+
+    for o in stream:
+        assert a not in o
+        assert b in o
+
+
+def test_Enumerate():
+    with Pipeline() as pipeline:
+        a = FromIterable(range(10))
+        i = Enumerate()
+
+    stream = pipeline.transform_stream()
+
+    for obj in stream:
+        assert obj[a] == obj[i]

@@ -641,6 +641,9 @@ class StreamObject(abc.MutableMapping):
 
     def to_dict(self, **kwargs):
         """Turn the StreamObject into a regular dictionary."""
+        if not kwargs:
+            raise ValueError("No names were supplied")
+
         return {k: self[v] for k, v in kwargs.items()}
 
 
