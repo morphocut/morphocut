@@ -20,8 +20,8 @@ class ThresholdConst(Node):
     The result will be `image <= threshold`.
 
     Args:
-        image (np.ndarray or Variable[np.ndarray]): Image for which the mask is to be calculated.
-        threshold (Number or Variable[Number]): Threshold. Image intensities less than this will be `True` in the 
+        image (np.ndarray or Variable): Image for which the mask is to be calculated.
+        threshold (Number or Variable): Threshold. Image intensities less than this will be `True` in the 
             result.
 
     """
@@ -50,9 +50,9 @@ class RescaleIntensity(Node):
         Uses the skimage library :py:func:`skimage.exposure.rescale_intensity`.
 
     Args:
-        image (np.ndarray or Variable[np.ndarray]): An image file to be rescaled.
-        in_range ((str or 2-tuple) or (Variable[str or 2-tuple])): min/max as the intensity range.
-        dtype (str or Variable[str]): min/max of the image's dtype as the intensity range.
+        image (np.ndarray or Variable): An image file to be rescaled.
+        in_range ((str or 2-tuple) or Variable): min/max as the intensity range.
+        dtype (str or Variable): min/max of the image's dtype as the intensity range.
 
     Returns:
         Variable[np.ndarray]: Image with intensities rescaled.
@@ -98,13 +98,13 @@ class FindRegions(Node):
     .. _skimage.measure.regionsprops: https://scikit-image.org/docs/dev/api/skimage.measure.html
 
     Args:
-        image (np.ndarray or Variable[np.ndarray]): An image whose mask we have to find region with.
-        mask (np.ndarray or Variable[np.ndarray]): mask of a given image.
-        min_area (int or Variable[int]): minimum area of the region. If the area of our prop/region is 
+        image (np.ndarray or Variable): An image whose mask we have to find region with.
+        mask (np.ndarray or Variable): mask of a given image.
+        min_area (int or Variable): minimum area of the region. If the area of our prop/region is 
             smaller than our min_area then it will discard it.
-        max_area (int or Variable[int]): maximum area of the region. If the area of our prop/region is 
+        max_area (int or Variable): maximum area of the region. If the area of our prop/region is 
             bigger than our max_area then it will discard it.
-        padding (int or Variable[int]): size of the slices/regions of our image.
+        padding (int or Variable): size of the slices/regions of our image.
 
     Example:
         .. code-block:: python
@@ -174,8 +174,8 @@ class ExtractROI(Node):
     To be used in conjunction with :py:class:`FindRegions`.
 
     Args:
-        image (np.ndarray or Variable[np.ndarray]): Image from which regions are to be extracted.
-        regionprops (RegionProperties or Variable[RegionProperties]): :py:class:`RegionProperties <skimage.measure._regionprops.RegionProperties>` instance returned by :py:class:`FindRegions`.
+        image (np.ndarray or Variable): Image from which regions are to be extracted.
+        regionprops (RegionProperties or Variable): :py:class:`RegionProperties <skimage.measure._regionprops.RegionProperties>` instance returned by :py:class:`FindRegions`.
         
     """
 
@@ -228,7 +228,7 @@ class ImageReader(Node):
     .. _PIL: https://pillow.readthedocs.io/en/stable/
 
     Args:
-        fp (RawOrVariable or Variable[RawOrVariable]): File path from where we want to open our image.
+        fp (RawOrVariable or Variable): File path from where we want to open our image.
 
     """
 
@@ -250,8 +250,8 @@ class ImageWriter(Node):
     .. _PIL: https://pillow.readthedocs.io/en/stable/
 
     Args:
-        fp (RawOrVariable or Variable[RawOrVariable]): Path where we want to save our image.
-        image (np.ndarray or Variable[np.ndarray]): Image which we want to save to a directory.
+        fp (RawOrVariable or Variable): Path where we want to save our image.
+        image (np.ndarray or Variable): Image which we want to save to a directory.
 
     """
 
