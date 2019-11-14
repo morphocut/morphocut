@@ -99,6 +99,8 @@ class ParallelPipeline(Pipeline):
     Args:
         num_workers (int, optional): Number of worker processes.
             Default: Number of CPUs in the system.
+        queue_size (int, optional): Size of the input queue of each worker.
+        multiprocessing_context (optional): Result of :py:func:`multiprocessing.get_context`.
         parent (:py:class:`~morphocut.core.Pipeline`):
             The parent pipeline.
 
@@ -122,7 +124,7 @@ class ParallelPipeline(Pipeline):
     """
 
     def __init__(
-        self, num_workers=None, queue_size=0, multiprocessing_context=None, parent=None
+        self, num_workers=None, queue_size=2, multiprocessing_context=None, parent=None
     ):
         super().__init__(parent=parent)
 
