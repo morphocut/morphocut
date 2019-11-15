@@ -246,7 +246,8 @@ class ParallelPipeline(Pipeline):
                             output_object.reraise()
 
                         yield output_object
-        except:
+        except (SystemExit, KeyboardInterrupt, GeneratorExit, Exception) as exc:
+            print("Stopping workers due to exception...")
             stop_event.set()
             raise
         finally:

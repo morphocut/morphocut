@@ -52,7 +52,7 @@ class SomeException(Exception):
     pass
 
 
-def test_exception_parent():
+def test_exception_main_thread():
 
     with Pipeline() as pipeline:
         level1 = Unpack(range(N_STEPS))
