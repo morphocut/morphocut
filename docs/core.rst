@@ -5,6 +5,8 @@ Core API
 
 This chapter describes the core module of MorphoCut.
 
+.. _pipelines:
+
 Pipelines
 ---------
 
@@ -12,6 +14,8 @@ The Pipeline is the main entry point for a MorphoCut application.
 
 .. autoclass:: Pipeline
     :members:
+
+.. _nodes:
 
 Nodes
 -----
@@ -21,8 +25,8 @@ A Node applies creates, updates or deletes stream objects.
 Call
 ~~~~~~~~~~
 
-In simple cases, a regular function
-can be converted into a pipeline node using :py:class:`Call`.
+In simple cases, a call to a regular function
+can be recorded in a pipeline using :py:class:`Call`.
 
 .. autoclass:: Call
     :members:
@@ -37,13 +41,15 @@ The subclass has no or any number of :py:obj:`@Output <Output>` decorators.
 :py:obj:`@ReturnOutputs <ReturnOutputs>` is used to turn :py:class:`Node`
 subclasses into a functions returning stream variables.
 
-Overriding :py:meth:`transform <Node.transform>`
-''''''''''''''''''''''''''''''''''''''''''''''''
+Overriding :code:`transform(...)`
+'''''''''''''''''''''''''''''''''
 
 If the Node handles one object at a time,
-it is enough to implement :py:meth:`Node.transform`.
-:py:meth:`Node.transform_stream` will use introspection
-to call it with the right parameters.
+it is enough to implement a custom :code:`transform(...)`.
+
+The parameter names have to correspond to attributes of the Node.
+:py:meth:`Node.transform_stream` will then use introspection
+to call :code:`transform` with the right parameter values.
 
 .. code-block:: python
 
@@ -57,6 +63,9 @@ to call it with the right parameters.
             self.ham = ham
             self.spam = spam
 
+        # This is automatically called by Node.transform_stream,
+        # reading ham and spam from the stream
+        # and introducing the result back into the stream.
         def transform(self, ham, spam):
             # ham and spam are raw values here
             return ham + spam, ham - spam
@@ -112,6 +121,8 @@ If the Node has to change the stream in some way,
 .. autodecorator:: Output
 
 .. autodecorator:: ReturnOutputs
+
+.. _variables:
 
 Variables
 ---------

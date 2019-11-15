@@ -40,6 +40,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx_autodoc_typehints",
     "sphinx.ext.coverage",
+    "sphinx.ext.autosummary",
 ]
 
 napoleon_use_param = False

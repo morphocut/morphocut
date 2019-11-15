@@ -28,13 +28,12 @@ User Guide
 
    introduction
    installation
-   formats
    image
    str
    file
    stream
    parallel
-   image
+   formats
    core
    contrib
    contributing

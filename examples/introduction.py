@@ -1,8 +1,10 @@
 import os.path
 
 from morphocut import Call, Pipeline
+from morphocut.contrib.ecotaxa import EcotaxaWriter
+from morphocut.contrib.zooprocess import CalculateZooProcessFeatures
 from morphocut.file import Glob
-from morphocut.image import FindRegions, ImageReader, ImageWriter
+from morphocut.image import FindRegions, ImageReader
 from morphocut.parallel import ParallelPipeline
 from morphocut.str import Format
 from morphocut.stream import Enumerate, Unpack
@@ -14,7 +16,7 @@ with Pipeline() as p:
     base_path = Unpack(["/path/a", "/path/b", "/path/c"])
 
     # Number the objects in the stream
-    i = Enumerate()
+    running_number = Enumerate()
 
     # Call calls regular Python functions.
     # Here, a subpath is appended to base_path.
@@ -26,8 +28,10 @@ with Pipeline() as p:
     # Remove path and extension from the filename
     source_basename = Call(lambda x: os.path.splitext(os.path.basename(x))[0], path)
 
-    # Execute parallelly:
     with ParallelPipeline():
+        # The following operations are distributed among multiple
+        # worker processes to speed up the calculations.
+
         # Read the image
         image = ImageReader(path)
 
@@ -40,14 +44,20 @@ with Pipeline() as p:
         # Extract just the object
         roi_image = region.intensity_image
 
-        # Calculate an output filename for the ROI image
-        output_fn = Format(
-            "/path/to/output/{:d}-{}-{:d}.png", i, source_basename, region.label
-        )
+        # An object is identified by its label
+        roi_label = region.label
 
-        # Write the image
-        ImageWriter(output_fn, roi_image)
+        # Calculate a filename for the ROI image:
+        # "RUNNING_NUMBER-SOURCE_BASENAME-ROI_LABEL"
+        roi_name = Format("{:d}-{}-{:d}", running_number, source_basename, roi_label)
 
-# In the end, the Pipeline is executed. A stream is created and transformed by the
-# operations defined in the Pipeline.
+        meta = CalculateZooProcessFeatures(region, prefix="object_")
+        # End of parallel execution
+
+    # Store results
+    EcotaxaWriter("archive.zip", roi_image, roi_name, meta)
+
+# After the Pipeline was defined, it can be executed.
+# A stream is created and transformed by the operations
+# defined in the Pipeline.
 p.run()

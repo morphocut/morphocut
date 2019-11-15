@@ -359,7 +359,7 @@ r"""A stream is an Iterable of :py:class:`StreamObject`\ s."""
 
 
 class Node(StreamTransformer):
-    """Base class for all nodes."""
+    """Base class for all stream processing nodes."""
 
     def __init__(self):
         self.id = "{:x}".format(id(self))

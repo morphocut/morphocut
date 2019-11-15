@@ -19,7 +19,7 @@ These operations are then applied to a whole stream of images.
 MorphoCut allows concise defititions of heavily nested
 image processing pipelines:
 
-.. literalinclude:: ../examples/quickstart.py
+.. literalinclude:: ../examples/introduction.py
     :language: python
 
 While creating the pipeline, everything is just placeholders.
@@ -31,8 +31,33 @@ but identifiers for the values that will later flow through the stream.
 Concepts
 --------
 
-- :py:class:`~morphocut.core.Call`: Record the call to a regular function.
+An operation in the :ref:`Pipeline <pipelines>`
+is called a ":ref:`Node <nodes>`". It usually returns one (or multiple)
+:ref:`Variables <variables>`.
 
-Another
-    Foo bar.
-    blabl
+These are the Nodes used in this example:
+
+.. autosummary::
+    :nosignatures:
+
+    ~morphocut.stream.Unpack
+    ~morphocut.stream.Enumerate
+    ~morphocut.core.Call
+    ~morphocut.file.Glob
+    ~morphocut.parallel.ParallelPipeline
+    ~morphocut.image.ImageReader
+    ~morphocut.image.FindRegions
+    ~morphocut.str.Format
+    ~morphocut.contrib.zooprocess.CalculateZooProcessFeatures
+    ~morphocut.contrib.ecotaxa.EcotaxaWriter
+
+.. note::
+    Nodes that change the stream are labeled with "|stream|".
+
+    :py:class:`~morphocut.stream.Unpack`, :py:class:`~morphocut.file.Glob`
+    and :py:class:`~morphocut.image.FindRegions` all introduce new objects into the stream.
+    Traditionally, this would be written using nested for-loops.
+
+    MorphoCut, on the other hand, applies a sequence of processing steps
+    (Nodes) which allows for easy parallelization
+    and nicely decouples the individual steps in the pipeline.
