@@ -40,7 +40,6 @@ class TQDM(Node):
                 TQDM("Description")
 
         Output: Description|███████████████████████| [00:00, 2434.24it/s]
-
     """
 
     def __init__(

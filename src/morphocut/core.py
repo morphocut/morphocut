@@ -577,7 +577,6 @@ class Call(Node):
 
             baz = ... # baz is a stream variable.
             result = Call(foo, baz)
-
     """
 
     def __init__(self, clbl: Callable, *args, **kwargs):
@@ -705,7 +704,6 @@ class Pipeline(StreamTransformer):
 
         Returns:
             Stream: An iterable of stream objects.
-
         """
         if stream is None:
             stream = [StreamObject()]
@@ -736,6 +734,7 @@ class Pipeline(StreamTransformer):
 
     def __str__(self):
         return "Pipeline([{}])".format(", ".join(str(n) for n in self.children))
+
 
 @ReturnOutputs
 class _Unpack(Node):

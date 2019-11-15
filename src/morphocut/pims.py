@@ -93,7 +93,6 @@ class BioformatsReader(Node):
             #   frame.frame_no (int): Frame number.
             #   frame.metadata (dict): Frame metadata.
             # series (int): The series extracted from the file.
-
     """
 
     def __init__(

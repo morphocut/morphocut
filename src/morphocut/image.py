@@ -23,7 +23,6 @@ class ThresholdConst(Node):
         image (np.ndarray or Variable[np.ndarray]): Image for which the mask is to be calculated.
         threshold (Number or Variable[Number]): Threshold. Image intensities less than this will be `True` in the 
             result.
-
     """
 
     def __init__(self, image: RawOrVariable, threshold: RawOrVariable):
@@ -56,7 +55,6 @@ class RescaleIntensity(Node):
 
     Returns:
         Variable[np.ndarray]: Image with intensities rescaled.
-
     """
 
     def __init__(
@@ -104,7 +102,6 @@ class FindRegions(Node):
             regionsprops = FindRegions(mask)
 
             # regionsprops: A skimage.measure.regionsprops object.
-
     """
 
     def __init__(
@@ -167,7 +164,6 @@ class ExtractROI(Node):
     Args:
         image (np.ndarray or Variable[np.ndarray]): Image from which regions are to be extracted.
         regionprops (RegionProperties or Variable[RegionProperties]): :py:class:`RegionProperties <skimage.measure._regionprops.RegionProperties>` instance returned by :py:class:`FindRegions`.
-        
     """
 
     def __init__(self, image: RawOrVariable, regionprops: RawOrVariable):
@@ -220,7 +216,6 @@ class ImageReader(Node):
 
     Args:
         fp (RawOrVariable or Variable[RawOrVariable]): File path from where we want to open our image.
-
     """
 
     def __init__(self, fp: RawOrVariable):
@@ -243,7 +238,6 @@ class ImageWriter(Node):
     Args:
         fp (RawOrVariable or Variable[RawOrVariable]): Path where we want to save our image.
         image (np.ndarray or Variable[np.ndarray]): Image which we want to save to a directory.
-
     """
 
     def __init__(self, fp: RawOrVariable, image: RawOrVariable):
