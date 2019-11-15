@@ -23,7 +23,6 @@ class ThresholdConst(Node):
         image (np.ndarray or Variable): Image for which the mask is to be calculated.
         threshold (Number or Variable): Threshold. Image intensities less than this will be `True` in the 
             result.
-
     """
 
     def __init__(self, image: RawOrVariable, threshold: RawOrVariable):
@@ -56,7 +55,6 @@ class RescaleIntensity(Node):
 
     Returns:
         Variable[np.ndarray]: Image with intensities rescaled.
-
     """
 
     def __init__(
@@ -87,15 +85,12 @@ class RescaleIntensity(Node):
 @Output("regionprops")
 class FindRegions(Node):
     """
-    Find regions in a mask and calculate properties.
+    |stream| Find regions in a mask and calculate properties.
 
-    For more information see :py:func:`skimage.measure.regionsprops`.
+    For more information see :py:func:`skimage.measure.regionprops`.
 
     .. note::
-        This Node creates multiple objects per incoming object. Use `skimage.measure.regionsprops`_ to 
-        find regions in image.
-
-    .. _skimage.measure.regionsprops: https://scikit-image.org/docs/dev/api/skimage.measure.html
+        This Node creates multiple objects per incoming object.
 
     Args:
         image (np.ndarray or Variable): An image whose mask we have to find region with.
@@ -113,7 +108,6 @@ class FindRegions(Node):
             regionsprops = FindRegions(mask)
 
             # regionsprops: A skimage.measure.regionsprops object.
-
     """
 
     def __init__(
