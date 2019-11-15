@@ -1,8 +1,8 @@
 """
 Feature calculation like in ZooProcess.
 
-    "`Zooprocess`_ is a suite of routines in ImageJ macro language
-    [for Plankton image analysis]."
+    `Zooprocess`_ is a suite of routines in ImageJ macro language
+    for Plankton image analysis.
 
 .. _Zooprocess: https://sites.google.com/view/piqv/zooprocess
 """
@@ -103,6 +103,17 @@ class CalculateZooProcessFeatures(Node):
             instance returned by :py:class:`FindRegions`.
         meta (dict or Variable, optional): Meta-data dictionary to update.
         prefix (str or Variable, optional): Prefix for all keys.
+
+    Example:
+        .. code-block:: python
+
+            with Pipeline() as p:
+                image = ...
+                mask = ...
+
+                regionprops = FindRegions(mask, image)
+
+                features = CalculateZooProcessFeatures(regionprops)
     """
 
     def __init__(
