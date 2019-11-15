@@ -220,7 +220,7 @@ class EcotaxaReader(Node):
                 # it is not a type header and the dataframe doesn't need to be changed.
                 return dataframe
 
-        dataframe = dataframe.iloc[1:]
+        dataframe = dataframe.iloc[1:].copy()
 
         dataframe[num_cols] = dataframe[num_cols].apply(
             self._pd.to_numeric, errors="coerce", axis=1

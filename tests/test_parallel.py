@@ -52,7 +52,7 @@ class SomeException(Exception):
     pass
 
 
-def test_exception_parent():
+def test_exception_main_thread():
 
     with Pipeline() as pipeline:
         level1 = Unpack(range(N_STEPS))
@@ -114,3 +114,13 @@ def test_exception_upstream():
 
     with pytest.raises(SomeException, match="foo"):
         pipeline.run()
+
+
+@pytest.mark.parametrize("num_workers", [1, 2, 3, 4])
+def test_num_workers(num_workers):
+    with Pipeline() as pipeline:
+        level1 = Unpack(range(N_STEPS))
+        with ParallelPipeline(num_workers) as pp:
+            level2 = Unpack(range(N_STEPS))
+
+    pipeline.run()

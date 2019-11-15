@@ -13,6 +13,12 @@ EcoTaxa
 .. automodule:: morphocut.contrib.ecotaxa
     :members:
 
+ZooProcess
+----------
+
+.. automodule:: morphocut.contrib.zooprocess
+    :members:
+
 Example
 .......
 

@@ -39,7 +39,6 @@ class Format(Node):
                 result = Format(fmt, *args, _args=_args, _kwargs=_kwargs, **kwargs)
 
         Result: `obj[result]` == `"1,2,3,4,5,6,7,8,9,10"` for a stream object `obj`.
-
     """
 
     def __init__(
@@ -97,7 +96,6 @@ class Parse(Node):
                 result = Parse(fmt, string, case_sensitive)
 
         Result: ``obj[result] == {'named': 'TEST'}`` for a stream object `obj`.
-
     """
 
     def __init__(
