@@ -95,11 +95,11 @@ class FindRegions(Node):
     Args:
         image (np.ndarray or Variable): An image whose mask we have to find region with.
         mask (np.ndarray or Variable): mask of a given image.
-        min_area (int or Variable): minimum area of the region. If the area of our prop/region is 
+        min_area (int): minimum area of the region. If the area of our prop/region is 
             smaller than our min_area then it will discard it.
-        max_area (int or Variable): maximum area of the region. If the area of our prop/region is 
+        max_area (int): maximum area of the region. If the area of our prop/region is 
             bigger than our max_area then it will discard it.
-        padding (int or Variable): size of the slices/regions of our image.
+        padding (int): size of the slices/regions of our image.
 
     Example:
         .. code-block:: python
@@ -170,7 +170,6 @@ class ExtractROI(Node):
     Args:
         image (np.ndarray or Variable): Image from which regions are to be extracted.
         regionprops (RegionProperties or Variable): :py:class:`RegionProperties <skimage.measure._regionprops.RegionProperties>` instance returned by :py:class:`FindRegions`.
-        
     """
 
     def __init__(self, image: RawOrVariable, regionprops: RawOrVariable):
@@ -222,8 +221,7 @@ class ImageReader(Node):
     .. _PIL: https://pillow.readthedocs.io/en/stable/
 
     Args:
-        fp (RawOrVariable or Variable): File path from where we want to open our image.
-
+        fp (str or Variable): A filename (string), pathlib.Path object or file object.
     """
 
     def __init__(self, fp: RawOrVariable):
@@ -244,9 +242,8 @@ class ImageWriter(Node):
     .. _PIL: https://pillow.readthedocs.io/en/stable/
 
     Args:
-        fp (RawOrVariable or Variable): Path where we want to save our image.
-        image (np.ndarray or Variable): Image which we want to save to a directory.
-
+        fp (str or Variable): A filename (string), pathlib.Path object or file object.
+        image (np.ndarray or Variable): Image that is to be saved into a given directory.
     """
 
     def __init__(self, fp: RawOrVariable, image: RawOrVariable):
@@ -275,7 +272,6 @@ class Gray2RGB(Node):
         Variable[numpy.ndarray]: The RGB image:
             An array which is the same size as the input array,
             but with a channel dimension appended.
-
     """
 
     def __init__(self, image: RawOrVariable[np.ndarray]):
@@ -299,7 +295,6 @@ class RGB2Gray(Node):
         Variable[numpy.ndarray]: The luminance image:
             An array which is the same size as the input array,
             but with the channel dimension removed and dtype=float.
-
     """
 
     def __init__(self, image: RawOrVariable[np.ndarray]):
