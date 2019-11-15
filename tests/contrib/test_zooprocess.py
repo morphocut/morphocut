@@ -1,9 +1,10 @@
-from morphocut.image import FindRegions
-from morphocut import Call, Pipeline
-from morphocut.contrib.zooprocess import CalculateZooProcessFeatures
-from tests.helpers import BinaryBlobs, NoiseImage
 import numpy as np
+
+from morphocut import Pipeline
+from morphocut.contrib.zooprocess import CalculateZooProcessFeatures
+from morphocut.image import FindRegions
 from morphocut.stream import Unpack
+from tests.helpers import BinaryBlobs, NoiseImage
 
 
 def test_CalculateZooProcessFeatures():
