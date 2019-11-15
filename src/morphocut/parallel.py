@@ -48,6 +48,31 @@ class _Stop(Exception):
     """Raised by _get_until_stop."""
 
 
+def _put_until_stop(queue_, stop_event, obj):
+    while True:
+        if stop_event.is_set():
+            return False
+        try:
+            queue_.put(obj, True, QUEUE_POLL_INTERVAL)
+        except queue.Full:
+            continue
+        else:
+            break
+    return True
+
+
+def _get_until_stop(queue_, stop_event):
+    while True:
+        if stop_event.is_set():
+            raise _Stop()
+        try:
+            return queue_.get(True, QUEUE_POLL_INTERVAL)
+        except queue.Empty:
+            continue
+        else:
+            break
+
+
 def _worker_loop(
     input_queue: multiprocessing.Queue,
     output_queue: multiprocessing.Queue,
@@ -65,15 +90,10 @@ def _worker_loop(
     """
     try:
         while True:
-            input_obj = input_queue.get()
+            input_obj = _get_until_stop(input_queue, stop_event)
 
             if input_obj is _Signal.END:
                 # Nothing is left to be done
-                output_queue.put(_Signal.END)
-                break
-
-            if stop_event.is_set():
-                # If stop event is set, continue until _Signal.END to empty the input queue
                 output_queue.put(_Signal.END)
                 break
 
@@ -96,6 +116,8 @@ def _worker_loop(
                 output_queue.put(_Signal.YIELD)
 
     except KeyboardInterrupt:
+        pass
+    except _Stop:
         pass
 
 
@@ -172,18 +194,6 @@ class ParallelPipeline(Pipeline):
             workers.append(w)
             workers_running.append(True)
 
-        def _put_until_stop(iqu, obj):
-            while True:
-                if stop_event.is_set():
-                    return False
-                try:
-                    iqu.put(obj, True, QUEUE_POLL_INTERVAL)
-                except queue.Full:
-                    continue
-                else:
-                    break
-            return True
-
         # Fill input queues in a thread
         def _queue_filler():
             try:
@@ -192,12 +202,14 @@ class ParallelPipeline(Pipeline):
                         # Send objects to workers in a round-robin fashion
                         worker_idx = i % self.num_workers
 
-                        if not _put_until_stop(input_queues[worker_idx], obj):
+                        if not _put_until_stop(
+                            input_queues[worker_idx], stop_event, obj
+                        ):
                             return
 
                 # Tell all workers to stop working
                 for iqu in input_queues:
-                    if not _put_until_stop(iqu, _Signal.END):
+                    if not _put_until_stop(iqu, stop_event, _Signal.END):
                         return
 
             except Exception as exc:
@@ -211,17 +223,6 @@ class ParallelPipeline(Pipeline):
         )
         qf.start()
 
-        def _get_until_stop(oqu):
-            while True:
-                if stop_event.is_set():
-                    raise _Stop()
-                try:
-                    return oqu.get(True, QUEUE_POLL_INTERVAL)
-                except queue.Empty:
-                    continue
-                else:
-                    break
-
         # Read output queues in the main thread
         try:
             while any(workers_running):
@@ -230,7 +231,7 @@ class ParallelPipeline(Pipeline):
                         continue
 
                     while True:
-                        output_object = _get_until_stop(oqu)
+                        output_object = _get_until_stop(oqu, stop_event)
 
                         if output_object is _Signal.END:
                             workers_running[i] = False
@@ -247,14 +248,14 @@ class ParallelPipeline(Pipeline):
 
                         yield output_object
         except (SystemExit, KeyboardInterrupt, GeneratorExit, Exception) as exc:
-            print("Stopping workers due to exception...")
+            print("Stopping workers due to {}...".format(type(exc).__name__))
             stop_event.set()
             raise
         finally:
             qf.join()
 
-            if upstream_exception:
-                upstream_exception[0].reraise()
-
             for w in workers:
                 w.join()
+
+            if upstream_exception:
+                upstream_exception[0].reraise()
