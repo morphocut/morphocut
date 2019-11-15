@@ -94,12 +94,12 @@ class FindRegions(Node):
 
     Args:
         image (np.ndarray or Variable): An image whose mask we have to find region with.
-        mask (np.ndarray or Variable): mask of a given image.
-        min_area (int): minimum area of the region. If the area of our prop/region is 
+        mask (np.ndarray or Variable): Mask of a given image.
+        min_area (int): Minimum area of the region. If the area of our prop/region is 
             smaller than our min_area then it will discard it.
-        max_area (int): maximum area of the region. If the area of our prop/region is 
+        max_area (int): Maximum area of the region. If the area of our prop/region is 
             bigger than our max_area then it will discard it.
-        padding (int): size of the slices/regions of our image.
+        padding (int): Size of the slices/regions of our image.
 
     Example:
         .. code-block:: python
@@ -221,7 +221,7 @@ class ImageReader(Node):
     .. _PIL: https://pillow.readthedocs.io/en/stable/
 
     Args:
-        fp (str or Variable): A filename (string), pathlib.Path object or file object.
+        fp (file or Variable): A filename (string), pathlib.Path object or file object.
     """
 
     def __init__(self, fp: RawOrVariable):
@@ -242,7 +242,7 @@ class ImageWriter(Node):
     .. _PIL: https://pillow.readthedocs.io/en/stable/
 
     Args:
-        fp (str or Variable): A filename (string), pathlib.Path object or file object.
+        fp (file or Variable): A filename (string), pathlib.Path object or file object.
         image (np.ndarray or Variable): Image that is to be saved into a given directory.
     """
 
