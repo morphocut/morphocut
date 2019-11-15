@@ -18,7 +18,8 @@ from morphocut._optional import import_optional_dependency
 @ReturnOutputs
 @Output("frame")
 class VideoReader(Node):
-    """Read frames from video files.
+    """
+    |stream| Read frames from video files.
 
     .. note::
         `PyAV`_ is required to use this reader.
@@ -63,7 +64,8 @@ class VideoReader(Node):
 @Output("frame")
 @Output("series")
 class BioformatsReader(Node):
-    """Read frames from Bio-Formats files.
+    """
+    |stream| Read frames from Bio-Formats files.
 
     Bio-Formats is a software tool for reading and writing image data using standardized, open formats.
     It is able to read `over 150 file formats`_, including OME-TIFF and Amnis FlowSight (.cif).

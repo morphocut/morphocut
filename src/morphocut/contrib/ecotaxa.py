@@ -148,7 +148,7 @@ class EcotaxaWriter(Node):
 @Output("meta")
 class EcotaxaReader(Node):
     """
-    Read an archive of images and metadata that is importable to EcoTaxa.
+    |stream| Read an archive of images and metadata that is importable to EcoTaxa.
 
     Args:
         archive_fn (str, Variable): Location of the archive file.

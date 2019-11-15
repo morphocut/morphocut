@@ -353,11 +353,13 @@ class Variable(Generic[T]):
 # Types
 RawOrVariable = Union[T, Variable[T]]
 NodeCallReturnType = Union[None, Variable, Tuple[Variable]]
+
 Stream = Iterable["StreamObject"]
+r"""A stream is an Iterable of :py:class:`StreamObject`\ s."""
 
 
 class Node(StreamTransformer):
-    """Base class for all nodes."""
+    """Base class for all stream processing nodes."""
 
     def __init__(self):
         self.id = "{:x}".format(id(self))
@@ -380,7 +382,7 @@ class Node(StreamTransformer):
 
     def __bind_output(self, port: "Output"):
         """Bind self to port and return a variable."""
-        variable = port.create_variable(self)
+        variable = port._create_variable(self)  # pylint: disable=protected-access
 
         return variable
 
@@ -511,7 +513,7 @@ class Output:
         self.doc = doc
         self.node_cls = None
 
-    def create_variable(self, node: Node):
+    def _create_variable(self, node: Node):
         """Return a _Variable with a reference to the node."""
 
         return Variable(self.name, node)
@@ -557,7 +559,7 @@ def ReturnOutputs(node_cls):
 @Output("result")
 class Call(Node):
     """
-    Apply a function to the supplied variables.
+    Call a function with the supplied parameters.
 
     For every object in the stream, apply ``clbl`` to the corresponding stream variables.
 
@@ -597,6 +599,8 @@ class Call(Node):
 
 
 class StreamObjectKeyError(KeyError):
+    """Raised if a :py:class:`Variable` is not found in a :py:class:`StreamObject`."""
+
     def __str__(self):
         return "{}\nYou probably removed this key from the stream.".format(
             super().__str__()
@@ -604,6 +608,12 @@ class StreamObjectKeyError(KeyError):
 
 
 class StreamObject(abc.MutableMapping):
+    """
+    An object in the :py:obj:`Stream` that wraps all values.
+
+    A value can be retrieved by indexing: ``obj[var]``
+    """
+
     __slots__ = ["data"]
 
     def __init__(self, data: Dict = None):
@@ -612,6 +622,7 @@ class StreamObject(abc.MutableMapping):
         self.data = data
 
     def copy(self) -> "StreamObject":
+        """Create a shallow copy."""
         return StreamObject(self.data.copy())
 
     @staticmethod

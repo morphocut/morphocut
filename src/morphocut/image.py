@@ -85,15 +85,12 @@ class RescaleIntensity(Node):
 @Output("regionprops")
 class FindRegions(Node):
     """
-    Find regions in a mask and calculate properties.
+    |stream| Find regions in a mask and calculate properties.
 
-    For more information see :py:func:`skimage.measure.regionsprops`.
+    For more information see :py:func:`skimage.measure.regionprops`.
 
     .. note::
-        This Node creates multiple objects per incoming object. Use `skimage.measure.regionsprops`_ to 
-        find regions in image.
-
-    .. _skimage.measure.regionsprops: https://scikit-image.org/docs/dev/api/skimage.measure.html
+        This Node creates multiple objects per incoming object.
 
     Example:
         .. code-block:: python

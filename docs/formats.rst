@@ -1,5 +1,5 @@
-Input/Output formats
-====================
+Other formats
+=============
 
 PIMS
 ----
@@ -16,4 +16,8 @@ Example
 Contributed
 -----------
 
-See :ref:`contrib`.
+.. autosummary::
+    :nosignatures:
+
+    ~morphocut.contrib.ecotaxa.EcotaxaReader
+    ~morphocut.contrib.ecotaxa.EcotaxaWriter

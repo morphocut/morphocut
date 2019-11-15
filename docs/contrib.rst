@@ -18,9 +18,3 @@ ZooProcess
 
 .. automodule:: morphocut.contrib.zooprocess
     :members:
-
-Example
-.......
-
-.. literalinclude:: ../examples/ecotaxa.py
-    :language: python
