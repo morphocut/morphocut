@@ -23,8 +23,8 @@ def test_DrawContoursOnParent():
     with Pipeline() as pipeline:
         mask = ThresholdConst(image, 255)
         regions = FindRegions(mask, image, 0, 100, padding=10)
-        #extracted_images = ExtractROI(image, mask, regions)
-        result = DrawContoursOnParent(image, mask, regions, (0, 255, 0))
+        output_ref = image
+        result = DrawContoursOnParent(image, mask, output_ref, regions, (0, 255, 0))
 
     stream = pipeline.transform_stream()
     pipeline.run()
