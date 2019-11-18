@@ -12,13 +12,6 @@ def test_Find(data_path):
     pipeline.run()
 
 def test_Glob(data_path):
-    d = data_path / "images/test_image_3.png"
-    with Pipeline() as pipeline:
-        result = Glob(d, True)
-
-    stream = pipeline.transform_stream()
-    pipeline.run()
-
     d = data_path / "images/*.png"
     with Pipeline() as pipeline:
         result = Glob(d, True)
