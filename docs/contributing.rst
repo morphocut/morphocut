@@ -4,6 +4,15 @@ Contributing
 Open source software thrives on people's contributions.
 Thank you for considering contributing to the MorphoCut project!
 
+Bug Reports
+-----------
+
+Bug reports are very important!
+Have a look at the `GitHub issues`_ to confirm that the bug
+hasn't been reported before.
+
+.. _GitHub issues: https://github.com/morphocut/morphocut/issues
+
 Code Contributions
 ------------------
 
@@ -57,12 +66,3 @@ documentation. `napoleon`_ is used to interpret the docstrings.
 .. _reStructuredText: http://docutils.sourceforge.net/rst.html
 .. _Sphinx: http://sphinx-doc.org/index.html
 .. _napoleon: https://sphinxcontrib-napoleon.readthedocs.io/en/latest/
-
-Bug Reports
------------
-
-Bug reports are also very important!
-Have a look at the `GitHub issues`_ to confirm that the bug
-hasn't been reported before.
-
-.. _GitHub issues: https://github.com/morphocut/morphocut/issues

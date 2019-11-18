@@ -4,7 +4,7 @@ import itertools
 import pprint
 from queue import Queue
 from threading import Thread
-from typing import Iterable, Optional, Tuple
+from typing import Callable, Iterable, Optional, Tuple
 
 from morphocut._optional import import_optional_dependency
 from morphocut.core import (
@@ -17,7 +17,17 @@ from morphocut.core import (
     closing_if_closable,
 )
 
-__all__ = ["TQDM", "Slice"]
+__all__ = [
+    "Enumerate",
+    "Filter",
+    "FilterVariables",
+    "Pack",
+    "PrintObjects",
+    "Slice",
+    "StreamBuffer",
+    "TQDM",
+    "Unpack",
+]
 
 
 @ReturnOutputs
@@ -29,7 +39,7 @@ class TQDM(Node):
        The external dependency `tqdm`_ is required to use this Node.
 
     .. _tqdm: https://github.com/tqdm/tqdm
-    
+
     Args:
         description (str): Description of the progress bar.
 
@@ -40,7 +50,6 @@ class TQDM(Node):
                 TQDM("Description")
 
         Output: Description|███████████████████████| [00:00, 2434.24it/s]
-
     """
 
     def __init__(
@@ -68,6 +77,17 @@ class TQDM(Node):
 
 @ReturnOutputs
 class Slice(Node):
+    """
+    |stream| Slice the :py:obj:`~morphocut.core.Stream`.
+
+    Filter objects in the :py:obj:`~morphocut.core.Stream` based on their index.
+
+    Args:
+        start (int, optional): Skip this many objects upfront.
+        stop (int, optional): Stop at this index.
+        step (int, optional): Skip this many objects in every step.
+    """
+
     def __init__(self, *args: Optional[int]):
         super().__init__()
         self.args = args
@@ -83,7 +103,10 @@ class StreamBuffer(Node):
     """
     Buffer the stream.
 
-    This allows proceessing while I/O bound Nodes wait for data.
+    Args:
+        maxsize (int): Maximum size of the buffer.
+
+    This allows continued processing while I/O bound Nodes wait for data.
     """
 
     _sentinel = object()
@@ -116,6 +139,15 @@ class StreamBuffer(Node):
 
 @ReturnOutputs
 class PrintObjects(Node):
+    r"""
+    Print the contents of :py:class:`~morphocut.core.StreamObject`\ s.
+
+    For debugging purposes only.
+
+    Args:
+       *args (Variable): Variables to display.
+    """
+
     def __init__(self, *args: Tuple[Variable]):
         super().__init__()
         self.args = args
@@ -133,16 +165,56 @@ class PrintObjects(Node):
 @ReturnOutputs
 @Output("index")
 class Enumerate(Node):
+    """
+    Enumerate objects in the :py:obj:`~morphocut.core.Stream`.
+
+    Args:
+        start (int, default 0): Start value of the counter.
+
+    Returns:
+        Variable[int]: Index (from start).
+    """
+
+    def __init__(self, start: int = 0):
+        super().__init__()
+        self.start = start
+
     def transform_stream(self, stream):
         with closing_if_closable(stream):
-            for i, obj in enumerate(stream):
+            for i, obj in enumerate(stream, start=self.start):
                 yield self.prepare_output(obj, i)
 
 
 @ReturnOutputs
 @Output("value")
-class FromIterable(Node):
-    """Insert values from the supplied iterator into the stream."""
+class Unpack(Node):
+    """
+    |stream| Unpack values from an iterable into the :py:obj:`~morphocut.core.Stream`.
+
+    The result is basically the cross-product of the stream with the iterable.
+
+    Args:
+        iterable (Iterable or Variable): An iterable to unpack.
+
+    Returns:
+       Variable: One value from the iterable.
+
+    Example:
+        .. code-block:: python
+
+            with Pipeline() as p:
+                a = Unpack([1,2,3])
+                # The stream now consists of three objects:
+                # {a: 1}, {a: 2}, {a: 3}
+                b = Unpack([1,2,3])
+                # The stream now consists of nine objects:
+                # {a: 1, b: 1}, {a: 1, b: 2}, {a: 1, b: 3},
+                # {a: 2, b: 1}, {a: 2, b: 2}, {a: 2, b: 3},
+                # {a: 3, b: 1}, {a: 3, b: 2}, {a: 3, b: 3}
+
+    See Also:
+        :py:class:`~morphocut.stream.Pack`
+    """
 
     def __init__(self, iterable: RawOrVariable[Iterable]):
         super().__init__()
@@ -160,8 +232,65 @@ class FromIterable(Node):
 
 
 @ReturnOutputs
+class Pack(Node):
+    """
+    Pack values of subsequent objects in the stream into one tuple.
+
+    Args:
+        size (int or Variable): Number of objects to aggregate.
+        *variables (Variable): Variables to pack.
+
+    Returns:
+       One or more Variable: One output Variable per input Variable.
+
+    Example:
+        .. code-block:: python
+
+            with Pipeline() as p:
+                a = Unpack([1,2,3])
+                # The stream now consists of three objects:
+                # {a: 1}, {a: 2}, {a: 3}
+                a123 = Pack(3, a)
+                # The stream now consists one object:
+                # {a: 1, a123: (1,2,3)}
+
+    See Also:
+        :py:class:`~morphocut.stream.Unpack`
+    """
+
+    def __init__(self, size, *variables):
+        super().__init__()
+        self.size = size
+        self.variables = variables
+        # Mess with self.outputs
+        self.outputs = [Variable(v.name, self) for v in self.variables]
+
+    def transform_stream(self, stream):
+        while True:
+            packed = list(itertools.islice(stream, self.size))
+
+            if not packed:
+                break
+
+            packed_values = tuple(tuple(o[v] for o in packed) for v in self.variables)
+
+            yield self.prepare_output(packed[0], *packed_values)
+
+
+@ReturnOutputs
 class Filter(Node):
-    def __init__(self, function):
+    """
+    |stream| Filter objects in the :py:obj:`~morphocut.core.Stream`.
+
+    After this node, the stream will only contain objects for
+    which `function` evaluates to `True`.
+
+    Args:
+        function (Callable): A callable recieving a
+            :py:class:`~morphocut.core.StreamObject` and returning a bool.
+    """
+
+    def __init__(self, function: Callable[[StreamObject], bool]):
         super().__init__()
         self.function = function
 
@@ -174,11 +303,13 @@ class Filter(Node):
                 yield obj
 
 
+@ReturnOutputs
 class FilterVariables(Node):
-    """
+    r"""
     Only keep the specified Variables in the stream.
 
-    This might speed up processing.
+    This might speed up processing, especially when
+    :py:class:`~morphocut.core.StreamObject`\ s have to be sent to other processes.
     """
 
     def __init__(self, *variables):
