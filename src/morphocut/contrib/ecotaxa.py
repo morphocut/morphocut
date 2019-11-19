@@ -58,6 +58,18 @@ class EcotaxaWriter(Node):
     - ``img_rank``: Rank of image to be displayed. Starts at 1.
 
     Other columns are read from ``meta``.
+
+    Example:
+        .. code-block:: python
+
+            archive_fn = file_path
+            image = ...
+            image_name = "MyImage"
+            meta = ...
+
+            with Pipeline() as pipeline:
+                result = EcotaxaWriter(archive_fn, image, image_name, meta, image_ext=".png")
+                pipeline.transform_stream()
     """
 
     def __init__(
@@ -166,6 +178,15 @@ class EcotaxaReader(Node):
 
     The TSV file MAY contain a row of types after the header
     (``"[f]"`` for numeric columns, ``"[t]"`` else).
+
+    Example:
+        .. code-block:: python
+
+            archive_fn = file_path
+
+            with Pipeline() as p:
+                image, meta = EcotaxaReader(archive_fn)
+                p.transform_stream()
     """
 
     def __init__(
