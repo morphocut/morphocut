@@ -17,9 +17,9 @@ def test_ecotaxa(tmp_path):
 
         meta = Call(dict, i=i, foo="Sömé UTF-8 ſtríng…")
         image = BinaryBlobs()
-        image_name = Format("image_{}", i)
+        image_name = Format("image_{}.png", i)
 
-        EcotaxaWriter(archive_fn, image, image_name, meta, image_ext=".png")
+        EcotaxaWriter(archive_fn, (image_name, image), meta)
 
     result = [o.to_dict(meta=meta, image=image) for o in p.transform_stream()]
 

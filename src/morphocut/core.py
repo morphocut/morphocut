@@ -58,6 +58,9 @@ def _resolve_variable(obj, variable_or_value):
     if isinstance(variable_or_value, tuple):
         return tuple(_resolve_variable(obj, v) for v in variable_or_value)
 
+    if isinstance(variable_or_value, list):
+        return list(_resolve_variable(obj, v) for v in variable_or_value)
+
     if isinstance(variable_or_value, dict):
         return {k: _resolve_variable(obj, v) for k, v in variable_or_value.items()}
 

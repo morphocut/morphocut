@@ -11,7 +11,7 @@ import fnmatch
 import io
 import os.path
 import zipfile
-from typing import Mapping, Tuple, TypeVar, Union
+from typing import Mapping, Tuple, TypeVar, Union, List
 
 import numpy as np
 import PIL.Image
@@ -21,6 +21,7 @@ from morphocut._optional import import_optional_dependency
 
 T = TypeVar("T")
 MaybeTuple = Union[T, Tuple[T]]
+MaybeList = Union[T, List[T]]
 
 
 def dtype_to_ecotaxa(dtype):
@@ -41,13 +42,15 @@ class EcotaxaWriter(Node):
 
     Args:
         archive_fn (str): Location of the output file.
-        image (np.array, Variable, or a tuple thereof): One or more images.
-        image_name (str, Variable, or a tuple thereof): One or more image names.
+        fnames_images (Tuple, Variable, or a list thereof):
+            Tuple of ``(filename, image)`` or a list of such tuples.
+            ``filename`` is the name in the archive. ``image`` is a NumPy array.
+            The file extension has to be one of ``".jpg"``, ``".png"`` or ``".gif"``
+            to meet the specifications of EcoTaxa.
         meta (Mapping or Variable): Metadata to store in the TSV file.
-        image_ext (str, optional): Image extension, will be appended to ``image_name``.
-            Has to be one of ``".jpg"``, ``".png"`` or ``".gif"``.
         meta_fn (str, optional): TSV file. Must start with ``ecotaxa``.
         store_types (bool, optional): Whether to add a row with types after the header.
+            Defaults to `True`, according to EcoTaxa's specifications.
 
     If multiple images are provided, ``image`` and
     ``image_name`` must be tuples of the same length.
@@ -62,44 +65,34 @@ class EcotaxaWriter(Node):
     Example:
         .. code-block:: python
 
-            archive_fn = file_path
-            image = ...
-            image_name = "MyImage"
-            meta = ...
-
             with Pipeline() as pipeline:
-                result = EcotaxaWriter(archive_fn, image, image_name, meta, image_ext=".png")
-                pipeline.transform_stream()
+                image_fn = ...
+                image = ImageReader(image_fn)
+                meta = ... # Calculate some meta-data
+                EcotaxaWriter("path/to/archive.zip", (image_fn, image), meta)
+            pipeline.transform_stream()
     """
 
     def __init__(
         self,
         archive_fn: str,
-        image: MaybeTuple[RawOrVariable],
-        image_name: MaybeTuple[RawOrVariable[str]],
+        fnames_images: MaybeList[RawOrVariable[Tuple[str, ...]]],
         meta: RawOrVariable[Mapping],
-        image_ext: MaybeTuple[str] = ".jpg",
         meta_fn: str = "ecotaxa_export.tsv",
         store_types: bool = True,
     ):
         super().__init__()
         self.archive_fn = archive_fn
 
-        if not isinstance(image, tuple):
-            image = (image,)
+        if isinstance(fnames_images, tuple):
+            fnames_images = [fnames_images]
 
-        if not isinstance(image_name, tuple):
-            image_name = (image_name,)
+        if not isinstance(fnames_images, list):
+            raise ValueError(
+                "Unexpected type for fnames_images: needs to be a tuple or a list of tuples"
+            )
 
-        if len(image) != len(image_name):
-            raise ValueError("Length of `image` and `image_name` do not match")
-
-        if not isinstance(image_ext, tuple):
-            image_ext = (image_ext,) * len(image)
-
-        self.image = image
-        self.image_name = image_name
-        self.image_ext = image_ext
+        self.fnames_images = fnames_images
         self.meta = meta
         self.meta_fn = meta_fn
         self.store_types = store_types
@@ -115,25 +108,20 @@ class EcotaxaWriter(Node):
             dataframe = []
             i = 0
             for obj in stream:
-                image, image_name, meta = self.prepare_input(
-                    obj, ("image", "image_name", "meta")
-                )
+                fnames_images, meta = self.prepare_input(obj, ("fnames_images", "meta"))
 
-                for img_rank, (img, img_name, img_ext) in enumerate(
-                    zip(image, image_name, self.image_ext), start=1
-                ):
+                for img_rank, (fname, img) in enumerate(fnames_images, start=1):
+                    img_ext = os.path.splitext(fname)[1]
                     pil_format = pil_extensions[img_ext]
 
                     img = PIL.Image.fromarray(img)
                     img_fp = io.BytesIO()
                     img.save(img_fp, format=pil_format)
 
-                    arcname = img_name + img_ext
-
-                    zip_file.writestr(arcname, img_fp.getvalue())
+                    zip_file.writestr(fname, img_fp.getvalue())
 
                     dataframe.append(
-                        {**meta, "img_file_name": arcname, "img_rank": img_rank}
+                        {**meta, "img_file_name": fname, "img_rank": img_rank}
                     )
 
                 yield obj
@@ -182,11 +170,9 @@ class EcotaxaReader(Node):
     Example:
         .. code-block:: python
 
-            archive_fn = file_path
-
             with Pipeline() as p:
-                image, meta = EcotaxaReader(archive_fn)
-                p.transform_stream()
+                image, meta = EcotaxaReader("path/to/archive.zip")
+            p.transform_stream()
     """
 
     def __init__(
