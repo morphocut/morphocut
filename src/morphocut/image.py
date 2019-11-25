@@ -1,12 +1,13 @@
-from typing import Any, List
+from typing import Any, List, Union
 
 import numpy as np
 import PIL
 import scipy.ndimage as ndi
-from skimage import img_as_float
 import skimage.exposure
 import skimage.io
 import skimage.measure
+import skimage.morphology
+from skimage import img_as_float
 from skimage.color import gray2rgb, rgb2gray
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
@@ -173,7 +174,14 @@ class ExtractROI(Node):
         regionprops (RegionProperties or Variable): :py:class:`RegionProperties <skimage.measure._regionprops.RegionProperties>` instance returned by :py:class:`FindRegions`.
     """
 
-    def __init__(self, image: RawOrVariable, mask: RawOrVariable, regionprops: RawOrVariable, alpha=0.5, bg_color=1.0):
+    def __init__(
+        self,
+        image: RawOrVariable,
+        mask: RawOrVariable,
+        regionprops: RawOrVariable,
+        alpha=0.5,
+        bg_color=1.0,
+    ):
         super().__init__()
 
         self.image = image
@@ -317,3 +325,47 @@ class RGB2Gray(Node):
             raise ValueError("image.shape != 3 in {!r}".format(self))
 
         return rgb2gray(image)
+
+
+@ReturnOutputs
+@Output("image")
+class ThresholdOtsu(Node):
+    def __init__(self, image):
+        super().__init__()
+        self.image = image
+
+    def transform(self, image):
+        thresh = threshold_otsu(image)
+        mask = image < thresh
+
+        return mask
+
+
+@ReturnOutputs
+@Output("image")
+class BinaryClosing(Node):
+    """
+    Fast binary morphological closing of an image.
+
+    Args:
+        image (np.ndarray): Binary input image.
+        selem (int or np.ndarray, optional):
+            The neighborhood expressed as a 2-D array of 1's and 0's.
+            If None, use a cross-shaped structuring element (connectivity=1).
+            If int, use a disk of this radius.
+
+    For further details, see :py:func:`skimage.morphology.binary_closing`.
+    """
+
+    def __init__(self, image, selem: Union[None, int, np.ndarray] = None):
+        super().__init__()
+
+        self.image = image
+
+        if isinstance(selem, int):
+            selem = skimage.morphology.disk(selem)
+
+        self.selem = selem
+
+    def transform(self, image):
+        return skimage.morphology.binary_closing(image, self.selem)
