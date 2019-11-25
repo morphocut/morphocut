@@ -49,13 +49,15 @@ with Pipeline() as p:
 
         # Calculate a filename for the ROI image:
         # "RUNNING_NUMBER-SOURCE_BASENAME-ROI_LABEL"
-        roi_name = Format("{:d}-{}-{:d}", running_number, source_basename, roi_label)
+        roi_name = Format(
+            "{:d}-{}-{:d}.jpg", running_number, source_basename, roi_label
+        )
 
         meta = CalculateZooProcessFeatures(region, prefix="object_")
         # End of parallel execution
 
     # Store results
-    EcotaxaWriter("archive.zip", roi_image, roi_name, meta)
+    EcotaxaWriter("archive.zip", (roi_name, roi_image), meta)
 
 # After the Pipeline was defined, it can be executed.
 # A stream is created and transformed by the operations
