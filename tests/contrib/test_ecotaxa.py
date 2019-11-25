@@ -3,7 +3,7 @@ from numpy.testing import assert_equal
 from morphocut import Call, Pipeline
 from morphocut.contrib.ecotaxa import EcotaxaReader, EcotaxaWriter
 from morphocut.str import Format
-from morphocut.stream import FromIterable
+from morphocut.stream import Unpack
 from tests.helpers import BinaryBlobs
 
 
@@ -13,13 +13,13 @@ def test_ecotaxa(tmp_path):
 
     # Create an archive
     with Pipeline() as p:
-        i = FromIterable(range(10))
+        i = Unpack(range(10))
 
         meta = Call(dict, i=i, foo="Sömé UTF-8 ſtríng…")
         image = BinaryBlobs()
-        image_name = Format("image_{}", i)
+        image_name = Format("image_{}.png", i)
 
-        EcotaxaWriter(archive_fn, image, image_name, meta, image_ext=".png")
+        EcotaxaWriter(archive_fn, (image_name, image), meta)
 
     result = [o.to_dict(meta=meta, image=image) for o in p.transform_stream()]
 
