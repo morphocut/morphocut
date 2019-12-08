@@ -173,7 +173,14 @@ class ExtractROI(Node):
         regionprops (RegionProperties or Variable): :py:class:`RegionProperties <skimage.measure._regionprops.RegionProperties>` instance returned by :py:class:`FindRegions`.
     """
 
-    def __init__(self, image: RawOrVariable, mask: RawOrVariable, regionprops: RawOrVariable, alpha=0.5, bg_color=1.0):
+    def __init__(
+        self,
+        image: RawOrVariable,
+        mask: RawOrVariable,
+        regionprops: RawOrVariable,
+        alpha=0.5,
+        bg_color=1.0,
+    ):
         super().__init__()
 
         self.image = image
@@ -183,16 +190,21 @@ class ExtractROI(Node):
         self.bg_color = np.array(bg_color)
 
     def transform(self, image, mask, regionprops):
-        if not np.issubdtype(image.dtype, np.floating):
-            image = img_as_float(image)
+        image = image[regionprops.slice]
+        mask = mask[regionprops.slice]
+
+        if self.alpha == 0:
+            return image
 
         # Combine background and foreground
-        result_img = self.alpha * self.bg_color + (1 - self.alpha) * image
+        result_img = (self.alpha * self.bg_color + (1 - self.alpha) * image).astype(
+            image.dtype
+        )
 
         # Paste foreground
         result_img[mask] = image[mask]
 
-        return result_img[regionprops.slice]
+        return result_img
 
 
 @ReturnOutputs
@@ -255,16 +267,18 @@ class ImageWriter(Node):
     Args:
         fp (file or Variable): A filename (string), pathlib.Path object or file object.
         image (np.ndarray or Variable): Image that is to be saved into a given directory.
+        **kwargs: Arguments for :py:method:`PIL.Image.save`.
     """
 
-    def __init__(self, fp: RawOrVariable, image: RawOrVariable):
+    def __init__(self, fp: RawOrVariable, image: RawOrVariable, **kwargs):
         super().__init__()
         self.fp = fp
         self.image = image
+        self.kwargs = kwargs
 
     def transform(self, fp, image):
         img = PIL.Image.fromarray(image)
-        img.save(fp)
+        img.save(fp, **self.kwargs)
 
 
 @ReturnOutputs
