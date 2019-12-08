@@ -371,7 +371,9 @@ class Node(StreamTransformer):
         outputs = getattr(self.__class__, "outputs", [])
         self.outputs = [self.__bind_output(o) for o in outputs]
 
-        # Register with pipeline
+        self.parent = self.__register_with_pipeline()
+
+    def __register_with_pipeline(self):
         try:
             pipeline_top = _pipeline_stack[-1]
         except IndexError:
@@ -382,6 +384,8 @@ class Node(StreamTransformer):
             ) from None
         else:
             pipeline_top.add_child(self)
+            return pipeline_top
+
 
     def __bind_output(self, port: "Output"):
         """Bind self to port and return a variable."""
