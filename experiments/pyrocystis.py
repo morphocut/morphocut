@@ -1,5 +1,6 @@
 """Experiment on processing KOSMOS data using MorphoCut."""
 import collections
+import itertools
 import os
 
 import numpy as np
@@ -14,22 +15,22 @@ from morphocut.core import (
     Output,
     Pipeline,
     ReturnOutputs,
-    closing_if_closable,
     Stream,
+    closing_if_closable,
 )
 from morphocut.file import Find
 from morphocut.image import ImageReader, ImageWriter, RescaleIntensity
-from morphocut.stream import TQDM
+from morphocut.stat import ExponentialSmoothing
+from morphocut.stream import TQDM, StreamBuffer
+from morphocut.str import Format
 
 import_path = "/home/moi/Work/0-Datasets/Pyrocystis_noctiluca/RAW"
 export_path = "/tmp/Pyrocystis_noctiluca"
 
-import itertools
-
 
 @ReturnOutputs
 @Output("agg_value")
-class WindowMedian(Node):
+class StreamWindowMedian(Node):
     """
     Calculate the median over stream objects using a sliding window.
 
@@ -79,20 +80,21 @@ if __name__ == "__main__":
         # e.g. generic_Peru_20170226_slow_M1_dnet/Peru_20170226_M1_dnet_1_8_a.tif
         abs_path = Find(import_path, [".jpg"])
 
-        basename = Call(os.path.basename, abs_path)
+        name = Call(lambda p: os.path.splitext(os.path.basename(p))[0], abs_path)
 
-        TQDM(basename)
+        TQDM(name)
 
         img = ImageReader(abs_path)
 
-        flat_field = WindowMedian(img, 20)
+        flat_field = StreamWindowMedian(img, 10)
 
         img = img / flat_field
 
         img = RescaleIntensity(img, dtype="uint8")
 
-        export_fn = Call(os.path.join, export_path, basename)
+        StreamBuffer(10)
 
+        export_fn = Call(os.path.join, export_path, Format("{}.png", name))
         ImageWriter(export_fn, img)
 
     p.run()
