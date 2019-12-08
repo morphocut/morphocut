@@ -76,8 +76,6 @@ if __name__ == "__main__":
     os.makedirs(export_path, exist_ok=True)
 
     with Pipeline() as p:
-        # Images are named <sampleid>/<anything>_<a|b>.tif
-        # e.g. generic_Peru_20170226_slow_M1_dnet/Peru_20170226_M1_dnet_1_8_a.tif
         abs_path = Find(import_path, [".jpg"])
 
         name = Call(lambda p: os.path.splitext(os.path.basename(p))[0], abs_path)
