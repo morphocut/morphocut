@@ -10,6 +10,7 @@ Feature calculation like in ZooProcess.
 from typing import Optional
 
 import numpy as np
+import skimage.io
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 
@@ -76,11 +77,11 @@ def regionprop2zooprocess(prop):
         # # Y coordinate of the top left point of the image
         # 'ystart': data_object['raw_img']['meta']['ystart'],
         # Maximum feret diameter, i.e. the longest distance between any two points along the object boundary
-        # 'feret': data_object['raw_img']['meta']['feret'],
+         'feret': skimage.segmentation.find_boundaries(prop.image, mode="inner"),
         # feret/area_exc
-        # 'feretareaexc': data_object['raw_img']['meta']['feret'] / property.area,
+         'feretareaexc': prop.image / prop.area,
         # perim/feret
-        # 'perimferet': property.perimeter / data_object['raw_img']['meta']['feret'],
+         'perimferet': prop.perimeter / prop.image,
         "bounding_box_area": prop.bbox_area,
         "eccentricity": prop.eccentricity,
         "equivalent_diameter": prop.equivalent_diameter,
