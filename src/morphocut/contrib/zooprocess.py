@@ -11,6 +11,9 @@ from typing import Optional
 
 import numpy as np
 import skimage.io
+import scipy
+import scipy.spatial
+from scipy.spatial import ConvexHull
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 
@@ -77,11 +80,11 @@ def regionprop2zooprocess(prop):
         # # Y coordinate of the top left point of the image
         # 'ystart': data_object['raw_img']['meta']['ystart'],
         # Maximum feret diameter, i.e. the longest distance between any two points along the object boundary
-         'feret': skimage.segmentation.find_boundaries(prop.image, mode="inner"),
+         'feret': calculateFeret(prop.image),
         # feret/area_exc
-         'feretareaexc': prop.image / prop.area,
+        #'feretareaexc': prop.image / prop.area,
         # perim/feret
-         'perimferet': prop.perimeter / prop.image,
+        #'perimferet': prop.perimeter / prop.image,
         "bounding_box_area": prop.bbox_area,
         "eccentricity": prop.eccentricity,
         "equivalent_diameter": prop.equivalent_diameter,
@@ -92,6 +95,40 @@ def regionprop2zooprocess(prop):
         "solidity": prop.solidity,
     }
 
+def calculateFeret(image):
+    boundaries = skimage.segmentation.find_boundaries(image, mode="inner") #find the boundary
+    border_coordinates = np.nonzero(boundaries) #find the boundary coordinates
+    min_diam, max_diam = calculate_diameter(border_coordinates)
+
+    return min_diam, max_diam
+
+def calculateConvexHulls(border_coordinates):
+    hulls = ConvexHull(border_coordinates)
+    u, l = (hulls.points)
+    i = 0
+    j = len(l) - 1
+    while i < len(u) - 1 or j > 0:
+        yield u[i], l[j]
+        
+        # if all the way through one side of hull, advance the other side
+        if i == len(u) - 1: j -= 1
+        elif j == 0: i += 1
+        
+        # still points left on both lists, compare slopes of next hull edges
+        elif (u[i+1][1]-u[i][1])*(l[j][0]-l[j-1][0]) > \
+                (l[j][1]-l[j-1][1])*(u[i+1][0]-u[i][0]):
+            i += 1
+        else: j -= 1
+
+def calculate_diameter(border_coordinates):
+    #Calculate the maximum feret diameter
+    max_diam,pair = max([((p[0]-q[0])**2 + (p[1]-q[1])**2, (p,q))
+                     for p,q in calculateConvexHulls(border_coordinates)])
+    
+    #Calculate the minimum feret diameter
+    min_diam,pair = min([((p[0]-q[0])**2 + (p[1]-q[1])**2, (p,q))
+                     for p,q in calculateConvexHulls(border_coordinates)])
+    return min_diam, max_diam
 
 @ReturnOutputs
 @Output("meta")
