@@ -199,7 +199,7 @@ class ExtractROI(Node):
         )
 
         # Paste foreground
-        result_img[mask] = image[regionprops.image]
+        result_img[regionprops.image] = image[regionprops.image]
 
         return result_img
 
