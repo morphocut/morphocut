@@ -5,15 +5,16 @@ import skimage.io
 from morphocut import Pipeline
 from morphocut.file import Glob
 from morphocut.image import (
-    FindRegions,
-    RescaleIntensity,
-    ThresholdConst,
-    ImageWriter,
-    ImageReader,
     ExtractROI,
+    FindRegions,
     Gray2RGB,
+    ImageReader,
+    ImageWriter,
+    RescaleIntensity,
     RGB2Gray,
+    ThresholdConst,
 )
+from morphocut.stream import Unpack
 
 
 def test_ThresholdConst():
@@ -45,11 +46,12 @@ def test_FindRegions():
 
 
 def test_ExtractROI():
-    image = skimage.data.camera()
     with Pipeline() as pipeline:
+        image = Unpack([skimage.data.camera()])
         mask = ThresholdConst(image, 255)
         regions = FindRegions(mask, image, 0, 100, padding=10)
-        result = ExtractROI(image, mask, regions)
+        ExtractROI(image, regions)
+        ExtractROI(image, regions, 0.5)
 
     stream = pipeline.transform_stream()
     pipeline.run()
