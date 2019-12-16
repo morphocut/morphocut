@@ -1,12 +1,12 @@
-from typing import Any, List
+from typing import Any, List, Optional
 
 import numpy as np
 import PIL
 import scipy.ndimage as ndi
-from skimage import img_as_float
 import skimage.exposure
 import skimage.io
 import skimage.measure
+from skimage import img_as_float
 from skimage.color import gray2rgb, rgb2gray
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
@@ -170,28 +170,25 @@ class ExtractROI(Node):
 
     Args:
         image (np.ndarray or Variable): Image from which regions are to be extracted.
-        regionprops (RegionProperties or Variable): :py:class:`RegionProperties <skimage.measure._regionprops.RegionProperties>` instance returned by :py:class:`FindRegions`.
+        regionprops (RegionProperties or Variable):
+            :py:class:`RegionProperties <skimage.measure._regionprops.RegionProperties>`
+            instance returned by :py:class:`FindRegions`.
+        alpha: 1=Background completely reset to bg_color; 0 = Background fully visible.
+        bg_color: Color for the background.
     """
 
     def __init__(
-        self,
-        image: RawOrVariable,
-        mask: RawOrVariable,
-        regionprops: RawOrVariable,
-        alpha=0.5,
-        bg_color=1.0,
+        self, image: RawOrVariable, regionprops: RawOrVariable, alpha=0, bg_color=0
     ):
         super().__init__()
 
         self.image = image
-        self.mask = mask
         self.regionprops = regionprops
         self.alpha = alpha
         self.bg_color = np.array(bg_color)
 
-    def transform(self, image, mask, regionprops):
+    def transform(self, image, regionprops):
         image = image[regionprops.slice]
-        mask = mask[regionprops.slice]
 
         if self.alpha == 0:
             return image
@@ -202,7 +199,7 @@ class ExtractROI(Node):
         )
 
         # Paste foreground
-        result_img[mask] = image[mask]
+        result_img[regionprops.image] = image[regionprops.image]
 
         return result_img
 
