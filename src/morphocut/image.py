@@ -1,3 +1,4 @@
+import warnings
 from typing import Any, List, Optional
 
 import numpy as np
@@ -101,6 +102,8 @@ class FindRegions(Node):
         max_area (int): Maximum area of the region. If the area of our prop/region is 
             bigger than our max_area then it will discard it.
         padding (int): Size of the slices/regions of our image.
+        warn_empty (bool or str or Variable): Warn for empty images (default false).
+            If a String is supplied, it is used as an identifier for the image.
 
     Example:
         .. code-block:: python
@@ -118,6 +121,7 @@ class FindRegions(Node):
         min_area=None,
         max_area=None,
         padding=0,
+        warn_empty=False
     ):
         super().__init__()
 
@@ -127,6 +131,7 @@ class FindRegions(Node):
         self.min_area = min_area
         self.max_area = max_area
         self.padding = padding
+        self.warn_empty = warn_empty
 
     @staticmethod
     def _enlarge_slice(slices, padding):
@@ -158,6 +163,13 @@ class FindRegions(Node):
                         continue
 
                     yield self.prepare_output(obj.copy(), props)
+                
+                if nlabels == 0:
+                    if self.warn_empty is not False:
+                        warn_empty = self.prepare_input(obj, "warn_empty")
+                        if not isinstance(warn_empty, str):
+                            warn_empty = "Image"
+                        warnings.warn(f"{warn_empty} did not contain any objects.")
 
 
 @ReturnOutputs
