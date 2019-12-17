@@ -8,6 +8,11 @@ class ExponentialSmoothing(Node):
     Smooth values with exponential decay.
 
     Formula: alpha * value + (1 - alpha) * last_value
+
+    Args:
+        value (Variable): Current value.
+        alpha (float): Alpha is the Smoothing factor, larger values of alpha actually reduce the level of 
+            smoothing. It should be (0 < alpha < 1)
     """
 
     def __init__(self, value: RawOrVariable, alpha: float):
