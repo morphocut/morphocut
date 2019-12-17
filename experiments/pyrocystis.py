@@ -21,9 +21,9 @@ from morphocut.stat import RunningMedian
 from morphocut.str import Format
 from morphocut.stream import TQDM, Enumerate
 
-import_path = "/home/moi/Work/0-Datasets/Pyrocystis_noctiluca/RAW"
+import_path = "/data-ssd/mschroeder/Datasets/Pyrocystis_noctiluca/RAW"
 export_path = "/tmp/Pyrocystis_noctiluca"
-
+archive_fn = os.path.join(export_path, "Pyrocystis_noctiluca_processed.zip")
 
 if __name__ == "__main__":
     print("Processing images under {}...".format(import_path))
@@ -35,10 +35,11 @@ if __name__ == "__main__":
     with Pipeline() as p:
         # Recursively find .jpg files in import_path.
         # Sort to get consective frames.
-        abs_path = Find(import_path, [".jpg"], sort=True)
+        abs_path = Find(import_path, [".jpg"], sort=True, verbose=True)
 
         # Extract name from abs_path
-        name = Call(lambda p: os.path.splitext(os.path.basename(p))[0], abs_path)
+        name = Call(lambda p: os.path.splitext(os.path.basename(p))[0],
+                    abs_path)
 
         # Read image
         img = ImageReader(abs_path)
@@ -53,14 +54,14 @@ if __name__ == "__main__":
         img = RescaleIntensity(img, in_range=(0, 1.1), dtype="uint8")
 
         # Show progress bar for frames
-        TQDM(name)
+        TQDM(Format("Frame {name}", name=name))
 
         # Convert image to uint8 gray
         img_gray = RGB2Gray(img)
         img_gray = Call(img_as_ubyte, img_gray)
 
         # Apply threshold find objects
-        threshold = 0.8  # Call(skimage.filters.threshold_otsu, img_gray)
+        threshold = 204  # Call(skimage.filters.threshold_otsu, img_gray)
         mask = img_gray < threshold
 
         # Write corrected frames
@@ -68,11 +69,15 @@ if __name__ == "__main__":
         ImageWriter(frame_fn, img)
 
         # Find objects
-        regionprops = FindRegions(mask, img_gray, min_area=100, padding=10)
+        regionprops = FindRegions(mask,
+                                  img_gray,
+                                  min_area=100,
+                                  padding=10,
+                                  warn_empty=name)
 
         # For an object, extract a vignette/ROI from the image
-        roi_orig = ExtractROI(img, mask, regionprops, bg_color=255)
-        roi_gray = ExtractROI(img_gray, mask, regionprops, bg_color=255)
+        roi_orig = ExtractROI(img, regionprops, bg_color=255)
+        roi_gray = ExtractROI(img_gray, regionprops, bg_color=255)
 
         # Generate an object identifier
         i = Enumerate()
@@ -88,13 +93,13 @@ if __name__ == "__main__":
 
         # Write objects to an EcoTaxa archive
         EcotaxaWriter(
-            os.path.join(export_path, "pyrocystis.zip"),
+            archive_fn,
             [(orig_fn, roi_orig), (gray_fn, roi_gray)],
             meta,
         )
 
         # Progress bar for objects
-        TQDM(object_id)
+        TQDM(Format("Object {object_id}", object_id=object_id))
 
     # Execute pipeline
     p.run()
