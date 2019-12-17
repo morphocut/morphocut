@@ -19,19 +19,22 @@ class Find(Node):
     Args:
         root (str or Path, raw or Variable): Root path where images should be found.
         extensions (list, raw): List of allowed extensions (including the leading dot).
+        sort (bool): Sort results alphabetically (default false).
+        verbose (bool): Print info about files (default false).
 
     Returns:
         Variable[str]: Path of the matching file.
     """
 
     def __init__(
-        self, root: RawOrVariable[Union[str, Path]], extensions: Iterable, sort=False
+        self, root: RawOrVariable[Union[str, Path]], extensions: Iterable, sort=False, verbose=False
     ):
         super().__init__()
 
         self.root = root
         self.extensions = set(extensions)  # type: Set[str]
         self.sort = sort
+        self.verbose = verbose
 
     def transform_stream(self, stream):
         with closing_if_closable(stream):
@@ -46,6 +49,8 @@ class Find(Node):
                         dirnames[:] = sorted(dirnames)
                         filenames = sorted(filenames)
 
+                    if self.verbose:
+                        print(f"Found {len(filenames):,d} files in {root}.")
                     for fn in filenames:
                         ext = os.path.splitext(fn)[1]
 
