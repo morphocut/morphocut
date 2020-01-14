@@ -1,18 +1,5 @@
-Input/Output formats
-====================
-
-EcoTaxa
--------
-
-.. automodule:: morphocut.ecotaxa
-    :members:
-
-Example
-.......
-
-.. literalinclude:: ../examples/ecotaxa.py
-    :language: python
-
+Other formats
+=============
 
 PIMS
 ----
@@ -25,3 +12,12 @@ Example
 
 .. literalinclude:: ../examples/video.py
     :language: python
+
+Contributed
+-----------
+
+.. autosummary::
+    :nosignatures:
+
+    ~morphocut.contrib.ecotaxa.EcotaxaReader
+    ~morphocut.contrib.ecotaxa.EcotaxaWriter

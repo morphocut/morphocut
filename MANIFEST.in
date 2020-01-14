@@ -1,2 +1,3 @@
+graft src
 include versioneer.py
-include morphocut/_version.py
+include src/morphocut/_version.py

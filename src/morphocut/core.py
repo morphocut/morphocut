@@ -18,6 +18,9 @@ from typing import (
     Union,
 )
 
+_pipeline_stack = []  # type: List[Pipeline] # pylint: disable=invalid-name
+
+
 class StreamTransformer(ABC):
     """ABC for stream transformers like Pipeline and Node."""
 
@@ -34,7 +37,18 @@ class StreamTransformer(ABC):
         return NotImplemented
 
 
-_pipeline_stack = []  # type: List[Pipeline] # pylint: disable=invalid-name
+from contextlib import contextmanager
+
+
+@contextmanager
+def closing_if_closable(stream):
+    try:
+        yield stream
+    finally:
+        try:
+            stream.close()
+        except:
+            pass
 
 
 def _resolve_variable(obj, variable_or_value):
@@ -43,6 +57,9 @@ def _resolve_variable(obj, variable_or_value):
 
     if isinstance(variable_or_value, tuple):
         return tuple(_resolve_variable(obj, v) for v in variable_or_value)
+
+    if isinstance(variable_or_value, list):
+        return list(_resolve_variable(obj, v) for v in variable_or_value)
 
     if isinstance(variable_or_value, dict):
         return {k: _resolve_variable(obj, v) for k, v in variable_or_value.items()}
@@ -151,131 +168,134 @@ class Variable(Generic[T]):
     def __str__(self):
         return "<Variable {}.{}>".format(self.node, self.name)
 
+    def __repr__(self):
+        return self.__str__()
+
     # Attribute access
     def __getattr__(self, name):
-        return LambdaNode(getattr, self, name)
+        return Call(getattr, self, name)
 
     # Item access
     def __getitem__(self, key):
-        return LambdaNode(operator.getitem, self, key)
+        return Call(operator.getitem, self, key)
 
     def __setitem__(self, key, value):
-        return LambdaNode(operator.setitem, self, key, value)
+        return Call(operator.setitem, self, key, value)
 
     def __delitem__(self, key):
-        return LambdaNode(operator.delitem, self, key)
+        return Call(operator.delitem, self, key)
 
     # Rich comparison methods
     def __lt__(self, other):
-        return LambdaNode(operator.lt, self, other)
+        return Call(operator.lt, self, other)
 
     def __le__(self, other):
-        return LambdaNode(operator.le, self, other)
+        return Call(operator.le, self, other)
 
     def __eq__(self, other):
-        return LambdaNode(operator.eq, self, other)
+        return Call(operator.eq, self, other)
 
     def __ne__(self, other):
-        return LambdaNode(operator.ne, self, other)
+        return Call(operator.ne, self, other)
 
     def __gt__(self, other):
-        return LambdaNode(operator.gt, self, other)
+        return Call(operator.gt, self, other)
 
     def __ge__(self, other):
-        return LambdaNode(operator.ge, self, other)
+        return Call(operator.ge, self, other)
 
     # Binary arithmetic operations
     def __add__(self, other):
-        return LambdaNode(operator.add, self, other)
+        return Call(operator.add, self, other)
 
     def __sub__(self, other):
-        return LambdaNode(operator.sub, self, other)
+        return Call(operator.sub, self, other)
 
     def __mul__(self, other):
-        return LambdaNode(operator.mul, self, other)
+        return Call(operator.mul, self, other)
 
     def __matmul__(self, other):
-        return LambdaNode(operator.matmul, self, other)
+        return Call(operator.matmul, self, other)
 
     def __truediv__(self, other):
-        return LambdaNode(operator.truediv, self, other)
+        return Call(operator.truediv, self, other)
 
     def __floordiv__(self, other):
-        return LambdaNode(operator.floordiv, self, other)
+        return Call(operator.floordiv, self, other)
 
     def __mod__(self, other):
-        return LambdaNode(operator.mod, self, other)
+        return Call(operator.mod, self, other)
 
     def __pow__(self, other):
-        return LambdaNode(operator.pow, self, other)
+        return Call(operator.pow, self, other)
 
     def __lshift__(self, other):
-        return LambdaNode(operator.lshift, self, other)
+        return Call(operator.lshift, self, other)
 
     def __rshift__(self, other):
-        return LambdaNode(operator.rshift, self, other)
+        return Call(operator.rshift, self, other)
 
     def __and__(self, other):
-        return LambdaNode(operator.and_, self, other)
+        return Call(operator.and_, self, other)
 
     def __xor__(self, other):
-        return LambdaNode(operator.xor, self, other)
+        return Call(operator.xor, self, other)
 
     def __or__(self, other):
-        return LambdaNode(operator.or_, self, other)
+        return Call(operator.or_, self, other)
 
     # Binary arithmetic operations with reflected (swapped) operands
     def __radd__(self, other):
-        return LambdaNode(operator.add, other, self)
+        return Call(operator.add, other, self)
 
     def __rsub__(self, other):
-        return LambdaNode(operator.sub, other, self)
+        return Call(operator.sub, other, self)
 
     def __rmul__(self, other):
-        return LambdaNode(operator.mul, other, self)
+        return Call(operator.mul, other, self)
 
     def __rmatmul__(self, other):
-        return LambdaNode(operator.matmul, other, self)
+        return Call(operator.matmul, other, self)
 
     def __rtruediv__(self, other):
-        return LambdaNode(operator.truediv, other, self)
+        return Call(operator.truediv, other, self)
 
     def __rfloordiv__(self, other):
-        return LambdaNode(operator.floordiv, other, self)
+        return Call(operator.floordiv, other, self)
 
     def __rmod__(self, other):
-        return LambdaNode(operator.mod, other, self)
+        return Call(operator.mod, other, self)
 
     def __rpow__(self, other):
-        return LambdaNode(operator.pow, other, self)
+        return Call(operator.pow, other, self)
 
     def __rlshift__(self, other):
-        return LambdaNode(operator.lshift, other, self)
+        return Call(operator.lshift, other, self)
 
     def __rrshift__(self, other):
-        return LambdaNode(operator.rshift, other, self)
+        return Call(operator.rshift, other, self)
 
     def __rand__(self, other):
-        return LambdaNode(operator.and_, other, self)
+        return Call(operator.and_, other, self)
 
     def __rxor__(self, other):
-        return LambdaNode(operator.xor, other, self)
+        return Call(operator.xor, other, self)
 
     def __ror__(self, other):
-        return LambdaNode(operator.or_, other, self)
+        return Call(operator.or_, other, self)
 
     # Unary arithmetic operations
     def __neg__(self):
-        return LambdaNode(operator.neg, self)
+        return Call(operator.neg, self)
 
     def __pos__(self):
-        return LambdaNode(operator.pos, self)
+        return Call(operator.pos, self)
 
     def __abs__(self):
-        return LambdaNode(operator.abs, self)
+        return Call(operator.abs, self)
 
     def __invert__(self):
-        return LambdaNode(operator.invert, self)
+        return Call(operator.invert, self)
 
     # Above operators without underscores
     getattr = __getattr__
@@ -306,37 +326,43 @@ class Variable(Generic[T]):
     # Special operators
     def not_(self):
         """Return the outcome of not obj."""
-        return LambdaNode(operator.not_, self)
+        return Call(operator.not_, self)
 
     def truth(self):
         """Return True if obj is true, and False otherwise."""
-        return LambdaNode(operator.truth, self)
+        return Call(operator.truth, self)
 
     def is_(self, other):
         """Return ``self is other``. Tests object identity."""
-        return LambdaNode(operator.is_, self, other)
+        return Call(operator.is_, self, other)
 
     def is_not(self, other):
         """Return ``self is not other``. Tests object identity."""
-        return LambdaNode(operator.is_not, self, other)
+        return Call(operator.is_not, self, other)
 
     def in_(self, other):
         """Return the outcome of the test  ``self in other``. Tests containment."""
-        return LambdaNode(operator.contains, other, self)
+        return Call(operator.contains, other, self)
 
     def contains(self, other):
         """Return the outcome of the test  ``other in self``. Tests containment."""
-        return LambdaNode(operator.contains, self, other)
+        return Call(operator.contains, self, other)
+
+    def unpack(self, size):
+        """Unpack the variable into a tuple of variables."""
+        return _Unpack(size, self)
 
 
 # Types
 RawOrVariable = Union[T, Variable[T]]
 NodeCallReturnType = Union[None, Variable, Tuple[Variable]]
+
 Stream = Iterable["StreamObject"]
+r"""A stream is an Iterable of :py:class:`StreamObject`\ s."""
 
 
 class Node(StreamTransformer):
-    """Base class for all nodes."""
+    """Base class for all stream processing nodes."""
 
     def __init__(self):
         self.id = "{:x}".format(id(self))
@@ -359,7 +385,7 @@ class Node(StreamTransformer):
 
     def __bind_output(self, port: "Output"):
         """Bind self to port and return a variable."""
-        variable = port.create_variable(self)
+        variable = port._create_variable(self)  # pylint: disable=protected-access
 
         return variable
 
@@ -456,14 +482,15 @@ class Node(StreamTransformer):
 
         names = self._get_parameter_names()
 
-        for obj in stream:
-            parameters = self.prepare_input(obj, names)
+        with closing_if_closable(stream):
+            for obj in stream:
+                parameters = self.prepare_input(obj, names)
 
-            result = self.transform(*parameters)  # pylint: disable=no-member
+                result = self.transform(*parameters)  # pylint: disable=no-member
 
-            self.prepare_output(obj, result)
+                self.prepare_output(obj, result)
 
-            yield obj
+                yield obj
 
         self.after_stream()
 
@@ -489,7 +516,7 @@ class Output:
         self.doc = doc
         self.node_cls = None
 
-    def create_variable(self, node: Node):
+    def _create_variable(self, node: Node):
         """Return a _Variable with a reference to the node."""
 
         return Variable(self.name, node)
@@ -533,9 +560,9 @@ def ReturnOutputs(node_cls):
 
 @ReturnOutputs
 @Output("result")
-class LambdaNode(Node):
+class Call(Node):
     """
-    Apply a function to the supplied variables.
+    Call a function with the supplied parameters.
 
     For every object in the stream, apply ``clbl`` to the corresponding stream variables.
 
@@ -554,8 +581,7 @@ class LambdaNode(Node):
                 return bar
 
             baz = ... # baz is a stream variable.
-            result = LambdaNode(foo, baz)
-
+            result = Call(foo, baz)
     """
 
     def __init__(self, clbl: Callable, *args, **kwargs):
@@ -576,6 +602,8 @@ class LambdaNode(Node):
 
 
 class StreamObjectKeyError(KeyError):
+    """Raised if a :py:class:`Variable` is not found in a :py:class:`StreamObject`."""
+
     def __str__(self):
         return "{}\nYou probably removed this key from the stream.".format(
             super().__str__()
@@ -583,6 +611,12 @@ class StreamObjectKeyError(KeyError):
 
 
 class StreamObject(abc.MutableMapping):
+    """
+    An object in the :py:obj:`Stream` that wraps all values.
+
+    A value can be retrieved by indexing: ``obj[var]``
+    """
+
     __slots__ = ["data"]
 
     def __init__(self, data: Dict = None):
@@ -591,6 +625,7 @@ class StreamObject(abc.MutableMapping):
         self.data = data
 
     def copy(self) -> "StreamObject":
+        """Create a shallow copy."""
         return StreamObject(self.data.copy())
 
     @staticmethod
@@ -617,6 +652,13 @@ class StreamObject(abc.MutableMapping):
     def __len__(self):
         return len(self.data)
 
+    def to_dict(self, **kwargs):
+        """Turn the StreamObject into a regular dictionary."""
+        if not kwargs:
+            raise ValueError("No names were supplied")
+
+        return {k: self[v] for k, v in kwargs.items()}
+
 
 class Pipeline(StreamTransformer):
     """
@@ -625,6 +667,10 @@ class Pipeline(StreamTransformer):
     Nodes defined inside the pipeline context will be added to the pipeline.
     When the pipeline is executed, stream objects are passed
     from one node to the next in the same order.
+
+    Args:
+        parent (Pipeline, optional): A parent pipeline to attach to.
+            If None and nested in an existing Pipeline, attach to this one.
 
     Example:
         .. code-block:: python
@@ -637,6 +683,15 @@ class Pipeline(StreamTransformer):
 
     def __init__(self, parent: Optional["Pipeline"] = None):
         self.children = []  # type: List[StreamTransformer]
+
+        if parent is not None:
+            parent.add_child(self)
+
+        if parent is None:
+            try:
+                parent = _pipeline_stack[-1]
+            except IndexError:
+                pass
 
         if parent is not None:
             parent.add_child(self)
@@ -663,22 +718,14 @@ class Pipeline(StreamTransformer):
 
         Returns:
             Stream: An iterable of stream objects.
-
         """
         if stream is None:
             stream = [StreamObject()]
 
-        streams = []
-
-        try:
-            for child in self.children:  # type: StreamTransformer
-                streams.append(stream)
-                stream = child.transform_stream(stream)
-        except:
-            for s in reversed(streams):
-                if hasattr(s, "close"):
-                    s.close()
-            raise
+        # Here, the stream is not automatically closed,
+        # as this would happen instantaneously.
+        for child in self.children:  # type: StreamTransformer
+            stream = child.transform_stream(stream)
 
         return stream
 
@@ -701,3 +748,15 @@ class Pipeline(StreamTransformer):
 
     def __str__(self):
         return "Pipeline([{}])".format(", ".join(str(n) for n in self.children))
+
+
+@ReturnOutputs
+class _Unpack(Node):
+    def __init__(self, size, value):
+        super().__init__()
+        self.size = size
+        self.value = value
+        self.outputs = [Variable(str(i), self) for i in range(self.size)]
+
+    def transform(self, value):
+        return value
