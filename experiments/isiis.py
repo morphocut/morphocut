@@ -1,31 +1,24 @@
+"""
+Process data from the ISIIS instrument.
+"""
 import contextlib
 import os.path
 
 import numpy as np
 import skimage.exposure
-from skimage.filters import threshold_otsu
 from timer_cm import Timer
 
-from morphocut import (
-    LambdaNode,
-    Node,
-    Output,
-    Pipeline,
-    RawOrVariable,
-    ReturnOutputs,
-    Variable,
-)
+from morphocut import Call, Node, Output, Pipeline, ReturnOutputs
+from morphocut.contrib.ecotaxa import EcotaxaWriter
 from morphocut.contrib.isiis import FindRegions
-from morphocut.ecotaxa import EcotaxaWriter
+from morphocut.contrib.zooprocess import CalculateZooProcessFeatures
 from morphocut.file import Glob
-from morphocut.image import BinaryClosing, ImageWriter, Rescale, RGB2Gray, ThresholdOtsu
-from morphocut.numpy import AsType
+from morphocut.image import BinaryClosing, ImageWriter, RescaleIntensity, RGB2Gray
 from morphocut.parallel import ParallelPipeline
 from morphocut.pims import VideoReader
 from morphocut.plot import Bar
 from morphocut.str import Format
-from morphocut.stream import TQDM, Filter, FilterVariables
-from morphocut.zooprocess import CalculateZooProcessFeatures
+from morphocut.stream import TQDM, FilterVariables
 
 # mypy: ignore-errors
 
@@ -59,9 +52,7 @@ CLOSING = True
 with Pipeline() as pipeline:
     # Find files and put them into the stream
     video_fn = Glob("/home/moi/Work/apeep_test/in/*.avi")
-    video_basename = LambdaNode(
-        lambda x: os.path.basename(os.path.splitext(x)[0]), video_fn
-    )
+    video_basename = Call(lambda x: os.path.basename(os.path.splitext(x)[0]), video_fn)
 
     TQDM(Format("Reading files ({})...", video_basename))
 
@@ -83,7 +74,7 @@ with Pipeline() as pipeline:
         frame = RGB2Gray(frame)
 
         ## Remove stripe artifacts
-        col_median = LambdaNode(np.median, frame, axis=0)
+        col_median = Call(np.median, frame, axis=0)
         # Average over multiple frames
         col_median = ExponentialSmoothing(col_median, 0.5)
         frame = frame - col_median
@@ -92,13 +83,13 @@ with Pipeline() as pipeline:
         # Subsample frame for histogram computation
         # This should be much faster than skimage.transform.rescale.
         frame_sml = frame[::4, ::4]
-        range_ = LambdaNode(np.percentile, frame_sml, (0, 85))
+        range_ = Call(np.percentile, frame_sml, (0, 85))
         # Average over multiple frames
         range_ = ExponentialSmoothing(range_, 0.5)
 
         # Convert range_ to tuple
-        range_ = LambdaNode(tuple, range_)
-        frame = Rescale(frame, in_range=range_, dtype="uint8")
+        range_ = Call(tuple, range_)
+        frame = RescaleIntensity(frame, in_range=range_, dtype="uint8")
 
         if WRITE_FRAMES:
             # Save pre-processed frames
@@ -110,12 +101,12 @@ with Pipeline() as pipeline:
             ImageWriter(frame_fn, frame)
 
         # A fixed threshold worked best so far
-        thresh = 200  # LambdaNode(threshold_otsu, frame)
+        thresh = 200  # Call(threshold_otsu, frame)
 
         if WRITE_HISTOGRAMS:
             # Save gray value histograms
-            hist = LambdaNode(lambda x: skimage.exposure.histogram(x)[0], frame)
-            x = LambdaNode(lambda hist: np.arange(len(hist)), hist)
+            hist = Call(lambda x: skimage.exposure.histogram(x)[0], frame)
+            x = Call(lambda hist: np.arange(len(hist)), hist)
 
             hist_img = Bar(x, hist, vline=thresh)
             hist_fn = Format(
