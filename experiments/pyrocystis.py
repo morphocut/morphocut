@@ -1,5 +1,6 @@
 """Experiment on processing KOSMOS data using MorphoCut."""
 
+import datetime
 import os
 
 from skimage.util import img_as_ubyte
@@ -21,9 +22,16 @@ from morphocut.stat import RunningMedian
 from morphocut.str import Format
 from morphocut.stream import TQDM, Enumerate
 
-import_path = "/data-ssd/mschroeder/Datasets/Pyrocystis_noctiluca/RAW"
+# import_path = "/data-ssd/mschroeder/Datasets/Pyrocystis_noctiluca/RAW"
+import_path = "/home/moi/Work/0-Datasets/Pyrocystis_noctiluca/RAW"
 export_path = "/tmp/Pyrocystis_noctiluca"
 archive_fn = os.path.join(export_path, "Pyrocystis_noctiluca_processed.zip")
+
+# Meta data that is added to every object
+global_metadata = {
+    "acq_instrument": "Planktoscope",
+    "process_datetime": datetime.datetime.now(),
+}
 
 if __name__ == "__main__":
     print("Processing images under {}...".format(import_path))
@@ -38,8 +46,7 @@ if __name__ == "__main__":
         abs_path = Find(import_path, [".jpg"], sort=True, verbose=True)
 
         # Extract name from abs_path
-        name = Call(lambda p: os.path.splitext(os.path.basename(p))[0],
-                    abs_path)
+        name = Call(lambda p: os.path.splitext(os.path.basename(p))[0], abs_path)
 
         # Read image
         img = ImageReader(abs_path)
@@ -69,11 +76,9 @@ if __name__ == "__main__":
         ImageWriter(frame_fn, img)
 
         # Find objects
-        regionprops = FindRegions(mask,
-                                  img_gray,
-                                  min_area=100,
-                                  padding=10,
-                                  warn_empty=name)
+        regionprops = FindRegions(
+            mask, img_gray, min_area=100, padding=10, warn_empty=name
+        )
 
         # For an object, extract a vignette/ROI from the image
         roi_orig = ExtractROI(img, regionprops, bg_color=255)
@@ -83,8 +88,10 @@ if __name__ == "__main__":
         i = Enumerate()
         object_id = Format("{name}_{i:d}", name=name, i=i)
 
-        # Calculate features
-        meta = CalculateZooProcessFeatures(regionprops, prefix="object_")
+        # Calculate features. The calculated features are added to the global_metadata
+        meta = CalculateZooProcessFeatures(
+            regionprops, prefix="object_", meta=global_metadata
+        )
         meta["object_id"] = object_id
 
         # Generate object filenames
@@ -92,11 +99,7 @@ if __name__ == "__main__":
         gray_fn = Format("{object_id}-gray.jpg", object_id=object_id)
 
         # Write objects to an EcoTaxa archive
-        EcotaxaWriter(
-            archive_fn,
-            [(orig_fn, roi_orig), (gray_fn, roi_gray)],
-            meta,
-        )
+        EcotaxaWriter(archive_fn, [(orig_fn, roi_orig), (gray_fn, roi_gray)], meta)
 
         # Progress bar for objects
         TQDM(Format("Object {object_id}", object_id=object_id))
