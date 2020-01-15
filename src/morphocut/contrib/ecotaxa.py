@@ -48,6 +48,7 @@ class EcotaxaWriter(Node):
             The file extension has to be one of ``".jpg"``, ``".png"`` or ``".gif"``
             to meet the specifications of EcoTaxa.
         meta (Mapping or Variable): Metadata to store in the TSV file.
+            Each key corresponds to a column in the resulting file.
         meta_fn (str, optional): TSV file. Must start with ``ecotaxa``.
         store_types (bool, optional): Whether to add a row with types after the header.
             Defaults to `True`, according to EcoTaxa's specifications.
@@ -60,7 +61,7 @@ class EcotaxaWriter(Node):
     - ``img_file_name``: Name of the image file (including extension)
     - ``img_rank``: Rank of image to be displayed. Starts at 1.
 
-    Other columns are read from ``meta``.
+    Other columns are read from ``meta``. The file will contain a column for each object in the stream.
 
     Example:
         .. code-block:: python
