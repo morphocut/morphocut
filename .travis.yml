@@ -2,12 +2,15 @@ language: python
 os:
   - linux
   - osx
+python:
+  - 3.6
+  - 3.7
+  - 3.8
 install: pip install tox-travis
 script: tox
 jobs:
-  include:
-  - python: 3.6
-  - python: 3.7
+  allow_failures:
+    - os: osx
 deploy:
   provider: pypi
   distributions: sdist bdist_wheel
