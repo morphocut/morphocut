@@ -14,7 +14,7 @@ def test_Profile():
 
     with Pipeline() as pipeline:
         Unpack(range(N))
-        with Profile("Sleep", summary=False) as profile_sleep:
+        with Profile("Sleep") as profile_sleep:
             Sleep()
 
     objects = list(pipeline.transform_stream())
