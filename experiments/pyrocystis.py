@@ -88,17 +88,24 @@ if __name__ == "__main__":
         i = Enumerate()
         object_id = Format("{name}_{i:d}", name=name, i=i)
 
-        # Calculate features. The calculated features are added to the global_metadata
+        # Calculate features. The calculated features are added to the global_metadata.
+        # Returns a Variable representing a dict for every object in the stream.
         meta = CalculateZooProcessFeatures(
             regionprops, prefix="object_", meta=global_metadata
         )
+        # If CalculateZooProcessFeatures is not used, we need to copy global_metadata into the stream:
+        # meta = Call(lambda: global_metadata.copy())
+        # https://github.com/morphocut/morphocut/issues/51
+
+        # Add object_id to the metadata dictionary
         meta["object_id"] = object_id
 
         # Generate object filenames
         orig_fn = Format("{object_id}.jpg", object_id=object_id)
         gray_fn = Format("{object_id}-gray.jpg", object_id=object_id)
 
-        # Write objects to an EcoTaxa archive
+        # Write objects to an EcoTaxa archive:
+        # roi image in original color, roi image in grayscale, metadata associated with each object
         EcotaxaWriter(archive_fn, [(orig_fn, roi_orig), (gray_fn, roi_gray)], meta)
 
         # Progress bar for objects
