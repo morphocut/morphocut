@@ -1,8 +1,8 @@
-sudo: false
 language: python
+os: linux
 install: pip install tox-travis
 script: tox
-matrix:
+jobs:
   include:
   - python: 3.6
   - python: 3.7
@@ -10,7 +10,7 @@ deploy:
   provider: pypi
   distributions: sdist bdist_wheel
   skip_existing: true
-  user: __token__
+  username: __token__
   on:
     tags: true
   password:
