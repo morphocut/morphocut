@@ -1,6 +1,9 @@
-from morphocut import Node, Output, ReturnOutputs
-from skimage.data import binary_blobs
+from time import sleep
+
 import numpy as np
+from skimage.data import binary_blobs
+
+from morphocut import Node, Output, ReturnOutputs
 
 
 @ReturnOutputs
@@ -43,3 +46,12 @@ class Const(Node):
 
     def transform(self, value):
         return value
+
+
+class Sleep(Node):
+    def __init__(self, duration=0.001):
+        super().__init__()
+        self.duration = duration
+
+    def transform(self):
+        sleep(self.duration)
