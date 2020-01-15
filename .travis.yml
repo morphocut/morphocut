@@ -1,7 +1,8 @@
 language: python
 os:
   - linux
-  - osx
+  # Exclude OS X for now
+  # - osx
 python:
   - 3.6
   - 3.7
