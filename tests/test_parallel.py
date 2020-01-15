@@ -1,6 +1,5 @@
 """Test morphocut.parallel."""
 
-from time import sleep
 
 import pytest
 from timer_cm import Timer
@@ -8,12 +7,7 @@ from timer_cm import Timer
 from morphocut import Node, Pipeline
 from morphocut.parallel import ParallelPipeline
 from morphocut.stream import Unpack
-
-
-class Sleep(Node):
-    def transform(self):
-        sleep(0.001)
-
+from tests.helpers import Sleep
 
 N_STEPS = 31
 
