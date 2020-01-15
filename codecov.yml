@@ -1,3 +1,7 @@
 ignore:
   - "examples"
   - "experiments"
+codecov:
+    # Avoid "Missing base report"
+    # https://docs.codecov.io/docs/comparing-commits
+    allow_coverage_offsets: true
