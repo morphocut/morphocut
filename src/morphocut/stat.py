@@ -85,17 +85,7 @@ class RunningMedian(Node):
             # TODO: This does not work correctly in situations when transform_stream
             # is called repeatedly, e.g. ParallelPipeline.
             if self.median is None:
-                objects = []
-                values = []
-                for obj in itertools.islice(stream, self.n_init):
-                    value = self.prepare_input(obj, "value")
-                    objects.append(obj)
-                    values.append(value)
-
-                self.median = np.median(values, axis=0)
-
-                for obj in objects:
-                    yield self.prepare_output(obj, self.median)
+                yield from self._initialize_median(stream)
 
             # Process
             for obj in stream:
@@ -119,3 +109,16 @@ class RunningMedian(Node):
                 yield self.prepare_output(obj, self.median)
 
         self.after_stream()
+
+    def _initialize_median(self, stream):
+        objects = []
+        values = []
+        for obj in itertools.islice(stream, self.n_init):
+            value = self.prepare_input(obj, "value")
+            objects.append(obj)
+            values.append(value)
+
+        self.median = np.median(values, axis=0)
+
+        for obj in objects:
+            yield self.prepare_output(obj, self.median)
