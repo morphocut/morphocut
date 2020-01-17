@@ -1,5 +1,6 @@
 import collections
 import itertools
+from typing import Optional, Any
 
 import numpy as np
 
@@ -70,7 +71,7 @@ class RunningMedian(Node):
         super().__init__()
         self.value = value
         self.n_init = n_init
-        self.median = None
+        self.median: Optional[Any] = None
 
         assert not any(
             isinstance(p, ParallelPipeline) for p in _pipeline_stack
@@ -102,10 +103,18 @@ class RunningMedian(Node):
 
                 # Update according to Mcfarlane & Schofield
                 mask = value > self.median
-                self.median[mask] += 1
+
+                if np.isscalar(mask):
+                    self.median += mask
+                else:
+                    self.median[mask] += 1
 
                 mask = value < self.median
-                self.median[mask] -= 1
+
+                if np.isscalar(mask):
+                    self.median -= mask
+                else:
+                    self.median[mask] -= 1
 
                 yield self.prepare_output(obj, self.median)
 
