@@ -355,6 +355,15 @@ class Variable(Generic[T]):
         """Unpack the variable into a tuple of variables."""
         return _Unpack(size, self)
 
+    def delete(self):
+        """
+        Delete objects associated with this Variable from the stream.
+        They can not be accessed afterwards.
+
+        See Also: :py:class:`morphocut.stream.FilterVariables`
+        """
+        DelVariable(self)
+
 
 # Types
 RawOrVariable = Union[T, Variable[T]]
@@ -363,6 +372,9 @@ NodeCallReturnType = Union[None, Variable, Tuple[Variable]]
 Stream = Iterable["StreamObject"]
 r"""A stream is an Iterable of :py:class:`StreamObject`\ s."""
 
+class EmptyPipelineStackError(Exception):
+    """Raised when a node is created outside of a Pipeline context."""
+    pass
 
 class Node(StreamTransformer):
     """Base class for all stream processing nodes."""
@@ -378,7 +390,7 @@ class Node(StreamTransformer):
         try:
             pipeline_top = _pipeline_stack[-1]
         except IndexError:
-            raise RuntimeError(
+            raise EmptyPipelineStackError(
                 "Empty pipeline stack. {} has to be called in a pipeline context.".format(
                     self.__class__.__name__
                 )
@@ -602,6 +614,19 @@ class Call(Node):
         args.extend(str(a) for a in self.args)
         args.extend("{}={}".format(k, v) for k, v in self.kwargs.items())
         return "{}({})".format(self.__class__.__name__, ", ".join(args))
+
+
+class DelVariable(Node):
+    """Delete a Variable from the stream."""
+
+    def __init__(self, variable):
+        super().__init__()
+        self.key = StreamObject._as_key(variable)  # pylint: disable=protected-access
+
+    def transform_stream(self, stream):
+        with closing_if_closable(stream):
+            for obj in stream:
+                yield StreamObject({k: v for k, v in obj.items() if k != self.key})
 
 
 class StreamObjectKeyError(KeyError):
