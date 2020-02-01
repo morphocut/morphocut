@@ -121,7 +121,7 @@ class FindRegions(Node):
         min_area=None,
         max_area=None,
         padding=0,
-        warn_empty=False
+        warn_empty=False,
     ):
         super().__init__()
 
@@ -163,7 +163,7 @@ class FindRegions(Node):
                         continue
 
                     yield self.prepare_output(obj.copy(), props)
-                
+
                 if nlabels == 0:
                     if self.warn_empty is not False:
                         warn_empty = self.prepare_input(obj, "warn_empty")
@@ -276,7 +276,7 @@ class ImageWriter(Node):
     Args:
         fp (file or Variable): A filename (string), pathlib.Path object or file object.
         image (np.ndarray or Variable): Image that is to be saved into a given directory.
-        **kwargs: Arguments for :py:method:`PIL.Image.save`.
+        **kwargs: Arguments for :py:meth:`PIL.Image.Image.save`.
     """
 
     def __init__(self, fp: RawOrVariable, image: RawOrVariable, **kwargs):

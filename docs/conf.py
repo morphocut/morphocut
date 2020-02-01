@@ -53,6 +53,7 @@ intersphinx_mapping = {
     # TODO: Always link to the latest stable
     "pims": ("https://soft-matter.github.io/pims/v0.4.1/", None),
     "skimage": ("https://scikit-image.org/docs/stable/", None),
+    "PIL": ("https://pillow.readthedocs.io/en/stable/", None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
