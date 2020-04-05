@@ -4,8 +4,10 @@ import inspect
 import operator
 from abc import ABC, abstractmethod
 from collections import abc
+from contextlib import contextmanager
 from functools import wraps
 from typing import (
+    Any,
     Callable,
     Dict,
     Generic,
@@ -24,6 +26,9 @@ _pipeline_stack = []  # type: List[Pipeline] # pylint: disable=invalid-name
 class StreamTransformer(ABC):
     """ABC for stream transformers like Pipeline and Node."""
 
+    def __init__(self):
+        self.id = "{:x}".format(id(self))
+
     @abstractmethod
     def transform_stream(self, stream):
         while False:
@@ -35,9 +40,6 @@ class StreamTransformer(ABC):
             if any("transform_stream" in B.__dict__ for B in C.__mro__):
                 return True
         return NotImplemented
-
-
-from contextlib import contextmanager
 
 
 @contextmanager
@@ -78,7 +80,8 @@ class Variable(Generic[T]):
 
     Attributes:
         name: The name of the Variable.
-        node: The node that created the Variable.
+        parent: The parent that created the Variable.
+            This is just used in the string representation.
 
     Operations:
         Variables support the following operations.
@@ -158,15 +161,15 @@ class Variable(Generic[T]):
         :py:class:`Variable` instances or raw values.
     """
 
-    __slots__ = ["name", "node", "hash"]
+    __slots__ = ["name", "parent", "hash"]
 
-    def __init__(self, name: str, node: "Node"):
+    def __init__(self, name: str, parent: Any):
         self.name = name
-        self.node = node
-        self.hash = hash((node.id, name))
+        self.parent = parent
+        self.hash = hash((parent.id, name))
 
     def __str__(self):
-        return "<Variable {}.{}>".format(self.node, self.name)
+        return "<Variable {}.{}>".format(self.parent, self.name)
 
     def __repr__(self):
         return self.__str__()
@@ -352,6 +355,15 @@ class Variable(Generic[T]):
         """Unpack the variable into a tuple of variables."""
         return _Unpack(size, self)
 
+    def delete(self):
+        """
+        Delete objects associated with this Variable from the stream.
+        They can not be accessed afterwards.
+
+        See Also: :py:class:`morphocut.stream.FilterVariables`
+        """
+        DelVariable(self)
+
 
 # Types
 RawOrVariable = Union[T, Variable[T]]
@@ -360,12 +372,15 @@ NodeCallReturnType = Union[None, Variable, Tuple[Variable]]
 Stream = Iterable["StreamObject"]
 r"""A stream is an Iterable of :py:class:`StreamObject`\ s."""
 
+class EmptyPipelineStackError(Exception):
+    """Raised when a node is created outside of a Pipeline context."""
+    pass
 
 class Node(StreamTransformer):
     """Base class for all stream processing nodes."""
 
     def __init__(self):
-        self.id = "{:x}".format(id(self))
+        super().__init__()
 
         # Bind outputs to self
         outputs = getattr(self.__class__, "outputs", [])
@@ -375,7 +390,7 @@ class Node(StreamTransformer):
         try:
             pipeline_top = _pipeline_stack[-1]
         except IndexError:
-            raise RuntimeError(
+            raise EmptyPipelineStackError(
                 "Empty pipeline stack. {} has to be called in a pipeline context.".format(
                     self.__class__.__name__
                 )
@@ -601,6 +616,19 @@ class Call(Node):
         return "{}({})".format(self.__class__.__name__, ", ".join(args))
 
 
+class DelVariable(Node):
+    """Delete a Variable from the stream."""
+
+    def __init__(self, variable):
+        super().__init__()
+        self.key = StreamObject._as_key(variable)  # pylint: disable=protected-access
+
+    def transform_stream(self, stream):
+        with closing_if_closable(stream):
+            for obj in stream:
+                yield StreamObject({k: v for k, v in obj.items() if k != self.key})
+
+
 class StreamObjectKeyError(KeyError):
     """Raised if a :py:class:`Variable` is not found in a :py:class:`StreamObject`."""
 
@@ -682,6 +710,8 @@ class Pipeline(StreamTransformer):
     """
 
     def __init__(self, parent: Optional["Pipeline"] = None):
+        super().__init__()
+
         self.children = []  # type: List[StreamTransformer]
 
         if parent is not None:

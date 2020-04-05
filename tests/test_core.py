@@ -4,7 +4,14 @@ import operator
 import numpy as np
 import pytest
 
-from morphocut import Call, Node, Output, Pipeline, ReturnOutputs
+from morphocut.core import (
+    Call,
+    Node,
+    Output,
+    Pipeline,
+    ReturnOutputs,
+    EmptyPipelineStackError,
+)
 from tests.helpers import Const
 
 
@@ -30,7 +37,7 @@ class TestNode(Node):
 
 def test_Node():
     # Assert that Node checks for the existence of a pipeline
-    with pytest.raises(RuntimeError):
+    with pytest.raises(EmptyPipelineStackError):
         TestNode(1, 2, 3)
 
     # Assert that Node checks for the existance of transform
@@ -133,11 +140,13 @@ def test_VariableOperationsSpecial():
 
     with Pipeline() as pipeline:
         _1 = 1
+        f_value = object()
         a = Const(False)
         b = Const(_1)
         c = Const(_1)
         d = Const([1, 2, 3])
         e = Const(E())
+        f = Const(f_value)
 
         not_a = a.not_()  # True
         true_b = b.truth()  # True
@@ -153,6 +162,9 @@ def test_VariableOperationsSpecial():
         d[0] = None
         del d[1]
 
+        # Unset Variables. This should remove the value from the stream.
+        f.delete()
+
     obj = next(pipeline.transform_stream())
 
     assert obj[not_a] == True
@@ -167,3 +179,5 @@ def test_VariableOperationsSpecial():
     assert obj[e_a] == 1
     assert obj[d] == [None, 3]
     assert obj[d1_3] == [2, 3]
+
+    assert f_value not in obj.values()

@@ -34,6 +34,7 @@ User Guide
    stream
    parallel
    formats
+   profiling
    core
    contrib
    contributing
