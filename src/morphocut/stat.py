@@ -11,8 +11,7 @@ class ExponentialSmoothing(Node):
 
     Args:
         value (Variable): Current value.
-        alpha (float): Alpha is the Smoothing factor, larger values of alpha actually reduce the level of 
-            smoothing. It should be (0 < alpha < 1)
+        alpha (float): Rate of adjustment (0 <= alpha <= 1). Smaller values lead to more smoothing.
     """
 
     def __init__(self, value: RawOrVariable, alpha: float):
