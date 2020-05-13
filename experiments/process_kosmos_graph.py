@@ -12,10 +12,10 @@ from morphocut import Call, Pipeline
 from morphocut.contrib.ecotaxa import EcotaxaWriter
 from morphocut.file import Find
 from morphocut.image import ExtractROI, FindRegions, RescaleIntensity, ThresholdConst
-from morphocut.pandas import JoinMetadata, PandasWriter, ToDataFrame, ToCSV
+from morphocut.pandas import JoinMetadata, ToCSV
 from morphocut.parallel import ParallelPipeline
 from morphocut.str import Format, Parse
-from morphocut.stream import TQDM, Enumerate, PrintObjects, StreamBuffer
+from morphocut.stream import TQDM, Enumerate
 from morphocut.zooprocess import CalculateZooProcessFeatures
 
 # import_path = "/data-ssd/mschroeder/Datasets/generic_zooscan_peru_kosmos_2017"
@@ -55,7 +55,12 @@ if __name__ == "__main__":
 
             img = Call(skimage.io.imread, abs_path)
 
-            img = RescaleIntensity(img, in_range=(9252, 65278), dtype=np.uint8)
+            # 9252 is the onset in most histograms.
+            # This could be calculated dynamically by finding the first peak in the histogram, but this value seems to work.
+            # The maximum should be the median of the image as the majority of pixels is empty.
+            # 65278 is the fixed alternative.
+            median = Call(np.median, img)
+            img = RescaleIntensity(img, in_range=(9252, median), dtype=np.uint8)
 
             mask = ThresholdConst(img, 245)  # 245(ubyte) / 62965(uint16)
             mask = Call(skimage.segmentation.clear_border, mask)
@@ -83,10 +88,9 @@ if __name__ == "__main__":
             meta["object_id"] = object_id
             meta = CalculateZooProcessFeatures(regionprops, meta, "object_")
 
-        # EcotaxaWriter(
-        #     os.path.join(import_path, "export.zip"), "{object_id}.jpg",
-        #     vignette, meta
-        # )
+        EcotaxaWriter(
+            os.path.join(import_path, "export.zip"), "{object_id}.jpg", vignette, meta
+        )
 
         TQDM(object_id)
 
