@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import pytest
 import skimage.io
@@ -18,11 +20,14 @@ from morphocut.stream import Unpack
 
 
 def test_ThresholdConst():
-    image = skimage.data.camera()
+    images = [skimage.data.camera(), np.zeros((10, 10), np.uint8) + 255]
     with Pipeline() as pipeline:
-        result = ThresholdConst(image, 256)
+        image = Unpack(images)
+        mask = ThresholdConst(image, 255)
 
-    pipeline.run()
+    objects = list(pipeline.transform_stream())
+
+    assert not objects[1][mask].any()
 
 
 def test_RescaleIntensity():
@@ -33,13 +38,19 @@ def test_RescaleIntensity():
     pipeline.run()
 
 
-def test_FindRegions():
-    image = skimage.data.camera()
+@pytest.mark.parametrize("warn_empty", [True, False, "foo"])
+def test_FindRegions(warn_empty, recwarn):
+    images = [skimage.data.camera(), np.zeros((10, 10), np.uint8) + 255]
     with Pipeline() as pipeline:
+        image = Unpack(images)
         mask = ThresholdConst(image, 255)
-        result = FindRegions(mask, image, 0, 100, padding=10)
+        result = FindRegions(mask, image, 0, 100, padding=10, warn_empty=warn_empty)
 
     pipeline.run()
+
+    if warn_empty:
+        w = recwarn.pop(UserWarning)
+        assert re.search(r"^(Image|foo) did not contain any objects.$", str(w.message))
 
 
 def test_ExtractROI():
