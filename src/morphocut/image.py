@@ -19,12 +19,15 @@ class ThresholdConst(Node):
     """
     Calculate a mask by applying a constant threshold.
 
-    The result will be `image <= threshold`.
+    The result will be `image < threshold`.
 
     Args:
         image (np.ndarray or Variable): Image for which the mask is to be calculated.
         threshold (Number or Variable): Threshold. Image intensities less than this will be `True` in the 
             result.
+
+    Returns:
+        Variable[np.ndarray]: Mask.
     """
 
     def __init__(self, image: RawOrVariable, threshold: RawOrVariable):
@@ -36,7 +39,7 @@ class ThresholdConst(Node):
         if image.ndim != 2:
             raise ValueError("image.ndim needs to be exactly 2.")
 
-        mask = image <= self.threshold
+        mask = image < self.threshold
 
         return mask
 
