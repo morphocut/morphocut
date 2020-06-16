@@ -2,11 +2,8 @@ import pytest
 import skimage.io
 
 from morphocut import Pipeline
-from morphocut.annotation import (
-    DrawContours,
-    DrawContoursOnParent,
-)
-from morphocut.image import ThresholdConst, FindRegions, ExtractROI
+from morphocut.annotation import DrawContours, DrawContoursOnParent
+from morphocut.image import ExtractROI, FindRegions, ThresholdConst
 
 
 def test_DrawContours():
@@ -15,8 +12,8 @@ def test_DrawContours():
         mask = ThresholdConst(image, 255)
         result = DrawContours(image, mask, (0, 255, 0))
 
-    stream = pipeline.transform_stream()
     pipeline.run()
+
 
 def test_DrawContoursOnParent():
     image = skimage.data.camera()
@@ -26,6 +23,4 @@ def test_DrawContoursOnParent():
         output_ref = image
         result = DrawContoursOnParent(image, mask, output_ref, regions, (0, 255, 0))
 
-    stream = pipeline.transform_stream()
     pipeline.run()
-

@@ -30,5 +30,4 @@ def test_Glob(data_path):
     with Pipeline() as pipeline:
         result = Glob(d, True)
 
-    stream = pipeline.transform_stream()
     pipeline.run()
