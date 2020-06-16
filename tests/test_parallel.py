@@ -1,6 +1,5 @@
 """Test morphocut.parallel."""
 
-from time import sleep
 
 import pytest
 from timer_cm import Timer
@@ -8,12 +7,7 @@ from timer_cm import Timer
 from morphocut import Node, Pipeline
 from morphocut.parallel import ParallelPipeline
 from morphocut.stream import Unpack
-
-
-class Sleep(Node):
-    def transform(self):
-        sleep(0.001)
-
+from tests.helpers import Sleep
 
 N_STEPS = 31
 
@@ -52,7 +46,7 @@ class SomeException(Exception):
     pass
 
 
-def test_exception_parent():
+def test_exception_main_thread():
 
     with Pipeline() as pipeline:
         level1 = Unpack(range(N_STEPS))
@@ -114,3 +108,13 @@ def test_exception_upstream():
 
     with pytest.raises(SomeException, match="foo"):
         pipeline.run()
+
+
+@pytest.mark.parametrize("num_workers", [1, 2, 3, 4])
+def test_num_workers(num_workers):
+    with Pipeline() as pipeline:
+        level1 = Unpack(range(N_STEPS))
+        with ParallelPipeline(num_workers) as pp:
+            level2 = Unpack(range(N_STEPS))
+
+    pipeline.run()

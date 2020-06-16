@@ -2,6 +2,7 @@ import enum
 import multiprocessing
 import multiprocessing.synchronize
 import os
+import queue
 import sys
 import threading
 import traceback
@@ -13,6 +14,8 @@ class _Signal(enum.Enum):
     END = 0
     YIELD = 1
 
+
+QUEUE_POLL_INTERVAL = 0.1
 
 # TODO: Look at pytorch/torch/utils/data/_utils/worker.py for determining if the parent is dead
 
@@ -41,6 +44,35 @@ class ExceptionWrapper:
         raise self.exc_type(msg)
 
 
+class _Stop(Exception):
+    """Raised by _get_until_stop."""
+
+
+def _put_until_stop(queue_, stop_event, obj):
+    while True:
+        if stop_event.is_set():
+            return False
+        try:
+            queue_.put(obj, True, QUEUE_POLL_INTERVAL)
+        except queue.Full:
+            continue
+        else:
+            break
+    return True
+
+
+def _get_until_stop(queue_, stop_event):
+    while True:
+        if stop_event.is_set():
+            raise _Stop()
+        try:
+            return queue_.get(True, QUEUE_POLL_INTERVAL)
+        except queue.Empty:
+            continue
+        else:
+            break
+
+
 def _worker_loop(
     input_queue: multiprocessing.Queue,
     output_queue: multiprocessing.Queue,
@@ -58,15 +90,10 @@ def _worker_loop(
     """
     try:
         while True:
-            input_obj = input_queue.get()
+            input_obj = _get_until_stop(input_queue, stop_event)
 
             if input_obj is _Signal.END:
                 # Nothing is left to be done
-                output_queue.put(_Signal.END)
-                break
-
-            if stop_event.is_set():
-                # If stop event is set, continue until _Signal.END to empty the input queue
                 output_queue.put(_Signal.END)
                 break
 
@@ -90,6 +117,8 @@ def _worker_loop(
 
     except KeyboardInterrupt:
         pass
+    except _Stop:
+        pass
 
 
 class ParallelPipeline(Pipeline):
@@ -99,7 +128,9 @@ class ParallelPipeline(Pipeline):
     Args:
         num_workers (int, optional): Number of worker processes.
             Default: Number of CPUs in the system.
-        queue_size (int, optional): Size of the input queue of each worker.
+        queue_size (int, optional): Upperbound limit on the number of items
+            that can be placed in the input queue of each worker.
+            If queue_size is less than or equal to zero, the queue size is infinite.
         multiprocessing_context (optional): Result of :py:func:`multiprocessing.get_context`.
         parent (:py:class:`~morphocut.core.Pipeline`):
             The parent pipeline.
@@ -130,6 +161,8 @@ class ParallelPipeline(Pipeline):
 
         if num_workers is None:
             num_workers = multiprocessing.cpu_count()
+
+        assert num_workers >= 1
 
         self.num_workers = num_workers
         self.queue_size = queue_size
@@ -166,21 +199,28 @@ class ParallelPipeline(Pipeline):
             try:
                 with closing_if_closable(stream):
                     for i, obj in enumerate(stream):
-                        if stop_event.is_set():
-                            break
-
                         # Send objects to workers in a round-robin fashion
                         worker_idx = i % self.num_workers
-                        input_queues[worker_idx].put(obj)
-            except Exception as exc:
-                stop_event.set()
-                upstream_exception.append(ExceptionWrapper(exc))
-            finally:
+
+                        if not _put_until_stop(
+                            input_queues[worker_idx], stop_event, obj
+                        ):
+                            return
+
                 # Tell all workers to stop working
                 for iqu in input_queues:
-                    iqu.put(_Signal.END)
+                    if not _put_until_stop(iqu, stop_event, _Signal.END):
+                        return
 
-        qf = threading.Thread(target=_queue_filler)
+            except Exception as exc:
+                # Stop everything immediately
+                stop_event.set()
+                print("ParallelPipeline._queue_filler", exc)
+                upstream_exception.append(ExceptionWrapper(exc))
+
+        qf = threading.Thread(
+            target=_queue_filler, name="ParallelPipeline._queue_filler"
+        )
         qf.start()
 
         # Read output queues in the main thread
@@ -191,7 +231,7 @@ class ParallelPipeline(Pipeline):
                         continue
 
                     while True:
-                        output_object = oqu.get()
+                        output_object = _get_until_stop(oqu, stop_event)
 
                         if output_object is _Signal.END:
                             workers_running[i] = False
@@ -208,15 +248,14 @@ class ParallelPipeline(Pipeline):
 
                         yield output_object
         except (SystemExit, KeyboardInterrupt, GeneratorExit, Exception) as exc:
-            # Anything, but most importantly GeneratorExit
-            print("Stopping workers...")
+            print("Stopping workers due to {}...".format(type(exc).__name__))
             stop_event.set()
             raise
         finally:
             qf.join()
 
-            if upstream_exception:
-                upstream_exception[0].reraise()
-
             for w in workers:
                 w.join()
+
+            if upstream_exception:
+                upstream_exception[0].reraise()

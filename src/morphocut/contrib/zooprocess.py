@@ -1,5 +1,13 @@
-import os
-from typing import Mapping, Optional
+"""
+Feature calculation like in ZooProcess.
+
+    `Zooprocess`_ is a suite of routines in ImageJ macro language
+    for Plankton image analysis.
+
+.. _Zooprocess: https://sites.google.com/view/piqv/zooprocess
+"""
+
+from typing import Optional
 
 import numpy as np
 
@@ -87,12 +95,31 @@ def regionprop2zooprocess(prop):
 @ReturnOutputs
 @Output("meta")
 class CalculateZooProcessFeatures(Node):
-    """Calculate descriptive features using :py:func:`skimage.measure.regionprops`."""
+    """
+    Calculate descriptive features similar to ZooProcess using :py:func:`skimage.measure.regionprops`.
+
+    Args:
+        regionprops (RegionProperties or Variable): :py:class:`~skimage.measure._regionprops.RegionProperties`
+            instance returned by :py:class:`FindRegions`.
+        meta (dict or Variable, optional): Meta-data dictionary to update.
+        prefix (str or Variable, optional): Prefix for all keys.
+
+    Example:
+        .. code-block:: python
+
+            with Pipeline() as p:
+                image = ...
+                mask = ...
+
+                regionprops = FindRegions(mask, image)
+
+                features = CalculateZooProcessFeatures(regionprops)
+    """
 
     def __init__(
         self,
         regionprops: RawOrVariable,
-        meta: Optional[RawOrVariable[Mapping]] = None,
+        meta: Optional[RawOrVariable[dict]] = None,
         prefix: Optional[RawOrVariable[str]] = None,
     ):
         super().__init__()

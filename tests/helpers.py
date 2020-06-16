@@ -1,5 +1,9 @@
-from morphocut import Node, Output, ReturnOutputs
+from time import sleep
+
+import numpy as np
 from skimage.data import binary_blobs
+
+from morphocut import Node, Output, ReturnOutputs
 
 
 @ReturnOutputs
@@ -22,6 +26,18 @@ class BinaryBlobs(Node):
 
 
 @ReturnOutputs
+@Output("blobs")
+class NoiseImage(Node):
+    def __init__(self, shape):
+        super().__init__()
+
+        self.shape = shape
+
+    def transform(self, shape):
+        return np.random.rand(*shape)
+
+
+@ReturnOutputs
 @Output("value")
 class Const(Node):
     def __init__(self, value):
@@ -30,3 +46,12 @@ class Const(Node):
 
     def transform(self, value):
         return value
+
+
+class Sleep(Node):
+    def __init__(self, duration=0.001):
+        super().__init__()
+        self.duration = duration
+
+    def transform(self):
+        sleep(self.duration)
