@@ -308,7 +308,7 @@ class FilterVariables(Node):
     r"""
     Only keep the specified Variables in the stream.
 
-    This might speed up processing, especially when
+    This might reduce memory usage and speed up processing, especially when
     :py:class:`~morphocut.core.StreamObject`\ s have to be sent to other processes.
     """
 
