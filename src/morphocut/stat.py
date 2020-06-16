@@ -1,6 +1,6 @@
 import collections
 import itertools
-from typing import Optional, Any
+from typing import Any, Optional
 
 import numpy as np
 
@@ -29,7 +29,7 @@ class ExponentialSmoothing(Node):
     Returns:
         Variable: Smoothed ``value``.
 
-    Formula: out = alpha * value + (1 - alpha) * last_value
+    Formula: ``out = alpha * value + (1 - alpha) * last_value``
     """
 
     def __init__(self, value: Variable, alpha: float):
@@ -61,10 +61,10 @@ class RunningMedian(Node):
     Returns:
         Variable[numpy.ndarray]: Running median approximation of ``value``.
 
-    Uses the efficient approximation from:
-        Mcfarlane, N. J. B., & Schofield, C. P. (1995).
-        Segmentation and tracking of piglets in images.
-        In Machine Vision and Applications (Vol. 8).
+    This node uses the efficient approximation of the median from:
+    Mcfarlane, N. J. B., & Schofield, C. P. (1995).
+    Segmentation and tracking of piglets in images.
+    In Machine Vision and Applications (Vol. 8).
     """
 
     def __init__(self, value: Variable[np.ndarray], n_init: int = 10):
