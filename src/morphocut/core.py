@@ -41,6 +41,9 @@ class StreamTransformer(ABC):
                 return True
         return NotImplemented
 
+    def get_info(self):
+        return dict(label=self.__class__.__name__)
+
 
 @contextmanager
 def closing_if_closable(stream):
@@ -615,6 +618,14 @@ class Call(Node):
         args.extend("{}={}".format(k, v) for k, v in self.kwargs.items())
         return "{}({})".format(self.__class__.__name__, ", ".join(args))
 
+    def get_info(self):
+        label=self.clbl.__name__
+        if self.clbl == getattr:
+            label=f".{self.args[1]}"
+        elif self.clbl == operator.lt:
+            label=f"{self.args[0]} < {self.args[1]}"
+        return dict(super().get_info(), label=label)
+
 
 class DelVariable(Node):
     """Delete a Variable from the stream."""
@@ -778,6 +789,11 @@ class Pipeline(StreamTransformer):
 
     def __str__(self):
         return "Pipeline([{}])".format(", ".join(str(n) for n in self.children))
+
+    def to_dot(self, path_or_handle=None):
+        from morphocut.formatters.dot import DotFormatter
+        formatter = DotFormatter(self)
+        return formatter.save(path_or_handle)
 
 
 @ReturnOutputs
