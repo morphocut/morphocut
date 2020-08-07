@@ -1,10 +1,13 @@
 """Test morphocut.parallel."""
 
 
+import os
+import signal
+
 import pytest
 from timer_cm import Timer
 
-from morphocut import Node, Pipeline
+from morphocut import Call, Node, Pipeline
 from morphocut.parallel import ParallelPipeline
 from morphocut.stream import Unpack
 from tests.helpers import Sleep
@@ -118,3 +121,16 @@ def test_num_workers(num_workers):
             level2 = Unpack(range(N_STEPS))
 
     pipeline.run()
+
+
+def test_worker_die():
+
+    with Pipeline() as pipeline:
+        level1 = Unpack(range(N_STEPS))
+        with ParallelPipeline(4):
+            Call(lambda: os.kill(os.getpid(), signal.SIGKILL))
+
+    with pytest.raises(
+        RuntimeError, match=r"Worker \d+ died unexpectedly. Exit code: -SIGKILL"
+    ):
+        pipeline.run()
