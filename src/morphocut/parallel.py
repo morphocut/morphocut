@@ -7,8 +7,12 @@ import signal
 import sys
 import threading
 import traceback
+import typing
 
 from morphocut.core import Pipeline, closing_if_closable
+
+if typing.TYPE_CHECKING:
+    from typing import List
 
 
 class _Signal(enum.Enum):
@@ -244,7 +248,7 @@ class ParallelPipeline(Pipeline):
                                 exitcode = workers[i].exitcode
                                 raise RuntimeError(
                                     f"Worker {i+1} died unexpectedly. Exit code: {_exitcode_to_signame.get(exitcode,exitcode)}"
-                                )
+                                ) from None
                             continue
 
                         if output_object is _Signal.END:
@@ -275,9 +279,7 @@ class ParallelPipeline(Pipeline):
                 upstream_exception[0].reraise()
 
 
-#
-# Give names to some return codes
-#
+# Store names for exit codes
 
 _exitcode_to_signame = {}
 
