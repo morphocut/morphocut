@@ -1,6 +1,7 @@
 """Core components of the MorphoCut processing graph."""
 
 import inspect
+import itertools
 import operator
 from abc import ABC, abstractmethod
 from collections import abc
@@ -395,8 +396,8 @@ class Node(StreamTransformer):
                     self.__class__.__name__
                 )
             ) from None
-        else:
-            pipeline_top.add_child(self)
+        
+        self.rank = pipeline_top.add_child(self)
 
     def __bind_output(self, port: "Output"):
         """Bind self to port and return a variable."""
@@ -712,6 +713,7 @@ class Pipeline(StreamTransformer):
     def __init__(self, parent: Optional["Pipeline"] = None):
         super().__init__()
 
+        # Direct children of this pipeline
         self.children = []  # type: List[StreamTransformer]
 
         if parent is not None:
@@ -725,6 +727,9 @@ class Pipeline(StreamTransformer):
 
         if parent is not None:
             parent.add_child(self)
+            self.counter = parent.counter
+        else:
+            self.counter = itertools.count()
 
     def __enter__(self):
         # Push self to pipeline stack
@@ -775,6 +780,8 @@ class Pipeline(StreamTransformer):
 
     def add_child(self, child: StreamTransformer):
         self.children.append(child)
+
+        return next(self.counter)
 
     def __str__(self):
         return "Pipeline([{}])".format(", ".join(str(n) for n in self.children))
