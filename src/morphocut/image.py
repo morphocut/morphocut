@@ -86,6 +86,37 @@ class RescaleIntensity(Node):
         return image
 
 
+class RegionProperties(
+    skimage.measure._regionprops.RegionProperties  # pylint: disable=protected-access
+):
+    """
+    Like skimage.measure.RegionProperties but without storing the whole image.
+
+    Please refer to `skimage.measure.regionprops` for more information
+    on the available region properties.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._image = super().image
+
+        if self._intensity_image is not None:
+            self._intensity_image = super().intensity_image
+        else:
+            self._intensity_image = None
+
+    @property
+    def image(self):
+        return self._image
+
+    @property
+    def intensity_image(self):
+        if self._intensity_image is None:
+            raise AttributeError("No intensity image specified.")
+        return self._intensity_image
+
+
 @ReturnOutputs
 @Output("regionprops")
 class FindRegions(Node):
@@ -155,9 +186,7 @@ class FindRegions(Node):
                     if self.padding:
                         slices = self._enlarge_slice(slices, self.padding)
 
-                    props = skimage.measure._regionprops.RegionProperties(  # pylint: disable=protected-access
-                        slices, i + 1, labels, image, True
-                    )
+                    props = RegionProperties(slices, i + 1, labels, image, True)
 
                     if self.min_area is not None and props.area < self.min_area:
                         continue

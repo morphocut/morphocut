@@ -104,3 +104,39 @@ def test_RGB2Gray():
     obj = next(stream)
 
     assert obj[result].ndim == 2
+
+
+from morphocut.image import RegionProperties
+from skimage.measure._regionprops import RegionProperties as RegionProperties_orig
+import numpy as np
+import pickle
+
+
+def regionproperties_to_dict(rprop):
+    return {k: rprop[k] for k in rprop}
+
+
+@pytest.mark.parametrize("intensity_image", [True, False])
+@pytest.mark.parametrize("cache", [True, False])
+def test_RegionProperties(intensity_image, cache):
+    image = skimage.data.camera()
+
+    cargs = (
+        (slice(128, 256), slice(128, 256)),
+        1,
+        image < 128,
+        image if intensity_image else None,
+        cache,
+    )
+
+    rprops = RegionProperties(*cargs)
+    rprops_orig = RegionProperties_orig(*cargs)
+
+    np.testing.assert_equal(
+        regionproperties_to_dict(rprops), regionproperties_to_dict(rprops_orig)
+    )
+
+    length = len(pickle.dumps(rprops))
+    length_orig = len(pickle.dumps(rprops_orig))
+    assert length < length_orig
+
