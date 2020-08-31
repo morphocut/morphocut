@@ -40,7 +40,8 @@ def test_speed():
 
     elapsed_parallel = t.elapsed
 
-    assert result == expected_result
+    # Make sure the calculated result matches the expected (ignoring order)
+    assert set(result) == set(expected_result)
 
     assert elapsed_parallel < elapsed_sequential
 
@@ -123,6 +124,9 @@ def test_num_workers(num_workers):
     pipeline.run()
 
 
+from morphocut.parallel import WorkerDiedException
+
+
 def test_worker_die():
 
     with Pipeline() as pipeline:
@@ -131,6 +135,7 @@ def test_worker_die():
             Call(lambda: os.kill(os.getpid(), signal.SIGKILL))
 
     with pytest.raises(
-        RuntimeError, match=r"Worker \d+ died unexpectedly. Exit code: -SIGKILL"
+        WorkerDiedException,
+        match=r".*_Worker-\d+ died unexpectedly. Exit code: -SIGKILL",
     ):
         pipeline.run()
