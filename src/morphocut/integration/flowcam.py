@@ -157,4 +157,3 @@ class FlowCamReader(Node):
                             obj.copy(),
                             FlowCamObject(row, lst_name, collage, collage_bin),
                         )
-
