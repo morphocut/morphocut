@@ -129,8 +129,8 @@ class FindRegions(Node):
         This Node creates multiple objects per incoming object.
 
     Args:
-        image (np.ndarray or Variable): An image whose mask we have to find region with.
         mask (np.ndarray or Variable): Mask of a given image.
+        image (np.ndarray or Variable): An image whose mask we have to find region with.
         min_area (int): Minimum area of the region. If the area of our prop/region is 
             smaller than our min_area then it will discard it.
         max_area (int): Maximum area of the region. If the area of our prop/region is 
