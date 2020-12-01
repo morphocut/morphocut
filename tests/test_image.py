@@ -145,7 +145,5 @@ def test_RegionProperties(intensity_image, cache):
         regionproperties_to_dict(rprops), regionproperties_to_dict(rprops_orig)
     )
 
-    length = len(pickle.dumps(rprops))
-    length_orig = len(pickle.dumps(rprops_orig))
-    assert length < length_orig
-
+    if intensity_image:
+        assert rprops.intensity_image.base is None
