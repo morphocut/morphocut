@@ -1,17 +1,21 @@
+import pickle
 import re
 
 import numpy as np
 import pytest
 import skimage.io
+from numpy.testing import assert_equal
+from skimage.measure._regionprops import RegionProperties as RegionProperties_orig
 
 from morphocut import Pipeline
-from morphocut.file import Glob
 from morphocut.image import (
     ExtractROI,
     FindRegions,
     Gray2RGB,
+    ImageProperties,
     ImageReader,
     ImageWriter,
+    RegionProperties,
     RescaleIntensity,
     RGB2Gray,
     ThresholdConst,
@@ -64,6 +68,17 @@ def test_ExtractROI():
     pipeline.run()
 
 
+def test_ImageProperties():
+    with Pipeline() as pipeline:
+        image = Unpack([skimage.data.camera()])
+        mask = ThresholdConst(image, 255)
+        region = ImageProperties(mask, image)
+        image2 = ExtractROI(image, region, 0)
+
+    for obj in pipeline.transform_stream():
+        assert_equal(obj[image], obj[image2])
+
+
 def test_ImageWriter(tmp_path):
     d = tmp_path / "sub"
     d.mkdir()
@@ -104,12 +119,6 @@ def test_RGB2Gray():
     obj = next(stream)
 
     assert obj[result].ndim == 2
-
-
-from morphocut.image import RegionProperties
-from skimage.measure._regionprops import RegionProperties as RegionProperties_orig
-import numpy as np
-import pickle
 
 
 def regionproperties_to_dict(rprop):
