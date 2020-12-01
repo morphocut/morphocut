@@ -234,7 +234,7 @@ class ImageProperties(Node):
 
     def transform(self, mask: np.ndarray, image: np.ndarray):
         return RegionProperties(
-            tuple(slice(None, None) for _ in mask.shape),  # Whole mask
+            tuple(slice(0, s) for s in mask.shape),  # Whole mask
             True,  # Where mask == True
             mask,
             image,
