@@ -205,6 +205,44 @@ class FindRegions(Node):
 
 
 @ReturnOutputs
+@Output("regionprops")
+class ImageProperties(Node):
+    """
+    Calculate region properties for an image containing a single object.
+
+    For more information see :py:func:`skimage.measure.regionprops`.
+
+    Args:
+        mask (np.ndarray or Variable): Mask of a given image.
+        image (np.ndarray or Variable): An image whose mask we have to find region with.
+
+    Example:
+        .. code-block:: python
+
+            image = ...
+            mask = image < 128
+            regionsprops = ImageProperties(mask, image)
+
+            # regionsprops: A skimage.measure.regionsprops object.
+    """
+
+    def __init__(self, mask: RawOrVariable, image: RawOrVariable = None):
+        super().__init__()
+
+        self.mask = mask
+        self.image = image
+
+    def transform(self, mask: np.ndarray, image: np.ndarray):
+        return RegionProperties(
+            tuple(slice(None, None) for _ in mask.shape),  # Whole mask
+            True,  # Where mask == True
+            mask,
+            image,
+            True,
+        )
+
+
+@ReturnOutputs
 @Output("extracted_image")
 class ExtractROI(Node):
     """
