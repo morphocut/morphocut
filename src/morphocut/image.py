@@ -7,8 +7,8 @@ import scipy.ndimage as ndi
 import skimage.exposure
 import skimage.io
 import skimage.measure
-from skimage import img_as_float
 from skimage.color import gray2rgb, rgb2gray
+from skimage.util import dtype
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
 
@@ -378,12 +378,18 @@ class Gray2RGB(Node):
             but with a channel dimension appended.
     """
 
-    def __init__(self, image: RawOrVariable[np.ndarray]):
+    def __init__(self, image: RawOrVariable[np.ndarray], keep_dtype=False):
         super().__init__()
         self.image = image
+        self.keep_dtype = keep_dtype
 
     def transform(self, image):
-        return gray2rgb(image)
+        result = gray2rgb(image)
+
+        if self.keep_dtype:
+            result = dtype.convert(result, image.dtype)
+
+        return result
 
 
 @ReturnOutputs
@@ -401,12 +407,19 @@ class RGB2Gray(Node):
             but with the channel dimension removed and dtype=float.
     """
 
-    def __init__(self, image: RawOrVariable[np.ndarray]):
+    def __init__(self, image: RawOrVariable[np.ndarray], keep_dtype=False):
         super().__init__()
         self.image = image
+        self.keep_dtype = keep_dtype
 
-    def transform(self, image):
+    def transform(self, image: np.ndarray):
         if len(image.shape) != 3:
             raise ValueError("image.shape != 3 in {!r}".format(self))
 
-        return rgb2gray(image)
+        result = rgb2gray(image)
+
+        if self.keep_dtype:
+            result = dtype.convert(result, image.dtype)
+
+        return result
+

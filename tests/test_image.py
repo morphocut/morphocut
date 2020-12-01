@@ -98,27 +98,38 @@ def test_ImageReader(data_path):
     pipeline.run()
 
 
-def test_Gray2RGB():
+@pytest.mark.parametrize("keep_dtype", [True, False])
+def test_Gray2RGB(keep_dtype):
     image = skimage.data.camera()
     with Pipeline() as pipeline:
-        result = Gray2RGB(image)
+        result = Gray2RGB(image, keep_dtype)
 
     stream = pipeline.transform_stream()
     obj = next(stream)
+    result = obj[result]
 
-    assert obj[result].ndim == 3
-    assert obj[result].shape[-1] == 3
+    assert result.ndim == 3
+    assert result.shape[-1] == 3
+
+    if keep_dtype:
+        assert image.dtype == result.dtype
 
 
-def test_RGB2Gray():
+@pytest.mark.parametrize("keep_dtype", [True, False])
+def test_RGB2Gray(keep_dtype):
     image = skimage.data.astronaut()
     with Pipeline() as pipeline:
-        result = RGB2Gray(image)
+        result = RGB2Gray(image, keep_dtype)
 
     stream = pipeline.transform_stream()
     obj = next(stream)
+    result = obj[result]
 
-    assert obj[result].ndim == 2
+    assert result.ndim == 2
+    assert result.shape == image.shape[:-1]
+
+    if keep_dtype:
+        assert image.dtype == result.dtype
 
 
 def regionproperties_to_dict(rprop):
