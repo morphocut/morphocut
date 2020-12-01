@@ -1,14 +1,24 @@
+"""
+Read FlowCam® collage files.
+
+    `FlowCam®`_ is an automated particle analysis instrument for measuring size
+    and shape of microscopic particles in a fluid medium.
+
+.. _FlowCam®: https://www.fluidimaging.com/
+"""
 import collections.abc
 import csv
 import itertools
 import operator
 import os.path
+import pathlib
+from typing import Union
 
 import dateutil.parser
 import numpy as np
 import PIL.Image
 
-from morphocut import Node, Output, ReturnOutputs, closing_if_closable
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
 
 _DTYPES = {
     "int32": int,
@@ -51,6 +61,15 @@ class _LstReader(collections.abc.Iterable):
 
 
 class FlowCamObject:
+    """
+    A single object.
+
+    Not to be instanciated manually.
+    
+    .. seealso::
+         :py:class:`~FlowCamReader`
+    """
+
     def __init__(self, data, lst_name, collage, collage_bin):
         self.data = data
         self.lst_name = lst_name
@@ -72,10 +91,12 @@ class FlowCamObject:
 
     @property
     def image(self):
+        """The object image."""
         return self.collage[self.slice]
 
     @property
     def mask(self):
+        """The object mask."""
         return self.collage_bin[self.slice]
 
 
@@ -89,14 +110,17 @@ class FlowCamReader(Node):
         This Node creates multiple objects per incoming object.
 
     Args:
+        lst_fn (str or Path, optional): The path to a ``.lst`` file.
 
     Example:
         .. code-block:: python
 
-            image, mask, ... = FlowCamReader
+            obj = FlowCamReader("flowcam.lst")
+            image = obj.image
+            mask = obj.mask
     """
 
-    def __init__(self, lst_fn):
+    def __init__(self, lst_fn: RawOrVariable[Union[str, pathlib.Path]]):
         super().__init__()
 
         self.lst_fn = lst_fn
@@ -133,3 +157,4 @@ class FlowCamReader(Node):
                             obj.copy(),
                             FlowCamObject(row, lst_name, collage, collage_bin),
                         )
+
