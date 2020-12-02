@@ -1,4 +1,4 @@
-.. _contrib:
+.. _integration:
 
 Integration
 ===========
