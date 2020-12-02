@@ -39,6 +39,7 @@ User Guide
    core
    contrib
    integration
+   examples
    contributing
    authors
 
