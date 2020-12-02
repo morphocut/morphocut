@@ -30,7 +30,7 @@ setup(
             "parse",
         ],
         "docs": [
-            "sphinx >= 1.4",
+            "sphinx ~= 2.2",
             "sphinx_rtd_theme",
             "sphinxcontrib-programoutput",
             "sphinx-autodoc-typehints>=1.10.0",
