@@ -1,6 +1,7 @@
 """Test morphocut.parallel."""
 
 
+import multiprocessing
 import os
 import signal
 
@@ -8,11 +9,24 @@ import pytest
 from timer_cm import Timer
 
 from morphocut import Call, Node, Pipeline
-from morphocut.parallel import ParallelPipeline
+from morphocut.parallel import ParallelPipeline, WorkerDiedException
 from morphocut.stream import Unpack
 from tests.helpers import Sleep
 
 N_STEPS = 31
+
+
+def test_parallel_pipeline():
+    print("start method:", multiprocessing.get_start_method())
+    inp = list(range(N_STEPS))
+    with Pipeline() as pipeline:
+        x = Unpack(inp)
+        with ParallelPipeline(2):
+            pass
+
+    result = [obj[x] for obj in pipeline.transform_stream()]
+
+    assert set(result) == set(inp)
 
 
 def test_speed():
@@ -31,8 +45,8 @@ def test_speed():
 
     with Pipeline() as pipeline:
         level1 = Unpack(range(N_STEPS))
-        with ParallelPipeline(4) as pp:
-            level2 = Unpack(range(N_STEPS))
+        level2 = Unpack(range(N_STEPS))
+        with ParallelPipeline(4):
             Sleep()
 
     with Timer("parallel") as t:
@@ -41,7 +55,7 @@ def test_speed():
     elapsed_parallel = t.elapsed
 
     # Make sure the calculated result matches the expected (ignoring order)
-    assert set(result) == set(expected_result)
+    assert sorted(result) == sorted(expected_result)
 
     assert elapsed_parallel < elapsed_sequential
 
@@ -95,7 +109,7 @@ class KeyErrorRaiser(Node):
 
 def test_KeyError():
     with Pipeline() as pipeline:
-        with ParallelPipeline(4) as pp:
+        with ParallelPipeline(4):
             KeyErrorRaiser()
 
     with pytest.raises(KeyError, match="foo"):
@@ -122,9 +136,6 @@ def test_num_workers(num_workers):
             level2 = Unpack(range(N_STEPS))
 
     pipeline.run()
-
-
-from morphocut.parallel import WorkerDiedException
 
 
 def test_worker_die():
