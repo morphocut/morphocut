@@ -38,6 +38,8 @@ User Guide
    profiling
    core
    contrib
+   integration
+   examples
    contributing
    authors
 

@@ -7,8 +7,8 @@ import scipy.ndimage as ndi
 import skimage.exposure
 import skimage.io
 import skimage.measure
-from skimage import img_as_float
 from skimage.color import gray2rgb, rgb2gray
+from skimage.util import dtype
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
 
@@ -86,6 +86,37 @@ class RescaleIntensity(Node):
         return image
 
 
+class RegionProperties(
+    skimage.measure._regionprops.RegionProperties  # pylint: disable=protected-access
+):
+    """
+    Like skimage.measure.RegionProperties but without storing the whole image.
+
+    Please refer to `skimage.measure.regionprops` for more information
+    on the available region properties.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self._image = super().image
+
+        if self._intensity_image is not None:
+            self._intensity_image = super().intensity_image
+        else:
+            self._intensity_image = None
+
+    @property
+    def image(self):
+        return self._image
+
+    @property
+    def intensity_image(self):
+        if self._intensity_image is None:
+            raise AttributeError("No intensity image specified.")
+        return self._intensity_image
+
+
 @ReturnOutputs
 @Output("regionprops")
 class FindRegions(Node):
@@ -98,8 +129,8 @@ class FindRegions(Node):
         This Node creates multiple objects per incoming object.
 
     Args:
-        image (np.ndarray or Variable): An image whose mask we have to find region with.
         mask (np.ndarray or Variable): Mask of a given image.
+        image (np.ndarray or Variable): An image whose mask we have to find region with.
         min_area (int): Minimum area of the region. If the area of our prop/region is 
             smaller than our min_area then it will discard it.
         max_area (int): Maximum area of the region. If the area of our prop/region is 
@@ -155,9 +186,7 @@ class FindRegions(Node):
                     if self.padding:
                         slices = self._enlarge_slice(slices, self.padding)
 
-                    props = skimage.measure._regionprops.RegionProperties(  # pylint: disable=protected-access
-                        slices, i + 1, labels, image, True
-                    )
+                    props = RegionProperties(slices, i + 1, labels, image, True)
 
                     if self.min_area is not None and props.area < self.min_area:
                         continue
@@ -173,6 +202,44 @@ class FindRegions(Node):
                         if not isinstance(warn_empty, str):
                             warn_empty = "Image"
                         warnings.warn(f"{warn_empty} did not contain any objects.")
+
+
+@ReturnOutputs
+@Output("regionprops")
+class ImageProperties(Node):
+    """
+    Calculate region properties for an image containing a single object.
+
+    For more information see :py:func:`skimage.measure.regionprops`.
+
+    Args:
+        mask (np.ndarray or Variable): Mask of a given image.
+        image (np.ndarray or Variable): An image whose mask we have to find region with.
+
+    Example:
+        .. code-block:: python
+
+            image = ...
+            mask = image < 128
+            regionsprops = ImageProperties(mask, image)
+
+            # regionsprops: A skimage.measure.regionsprops object.
+    """
+
+    def __init__(self, mask: RawOrVariable, image: RawOrVariable = None):
+        super().__init__()
+
+        self.mask = mask
+        self.image = image
+
+    def transform(self, mask: np.ndarray, image: np.ndarray):
+        return RegionProperties(
+            tuple(slice(0, s) for s in mask.shape),  # Whole mask
+            True,  # Where mask == True
+            mask,
+            image,
+            True,
+        )
 
 
 @ReturnOutputs
@@ -311,12 +378,18 @@ class Gray2RGB(Node):
             but with a channel dimension appended.
     """
 
-    def __init__(self, image: RawOrVariable[np.ndarray]):
+    def __init__(self, image: RawOrVariable[np.ndarray], keep_dtype=False):
         super().__init__()
         self.image = image
+        self.keep_dtype = keep_dtype
 
     def transform(self, image):
-        return gray2rgb(image)
+        result = gray2rgb(image)
+
+        if self.keep_dtype:
+            result = dtype.convert(result, image.dtype)
+
+        return result
 
 
 @ReturnOutputs
@@ -334,12 +407,19 @@ class RGB2Gray(Node):
             but with the channel dimension removed and dtype=float.
     """
 
-    def __init__(self, image: RawOrVariable[np.ndarray]):
+    def __init__(self, image: RawOrVariable[np.ndarray], keep_dtype=False):
         super().__init__()
         self.image = image
+        self.keep_dtype = keep_dtype
 
-    def transform(self, image):
+    def transform(self, image: np.ndarray):
         if len(image.shape) != 3:
             raise ValueError("image.shape != 3 in {!r}".format(self))
 
-        return rgb2gray(image)
+        result = rgb2gray(image)
+
+        if self.keep_dtype:
+            result = dtype.convert(result, image.dtype)
+
+        return result
+

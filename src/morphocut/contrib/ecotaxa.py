@@ -11,7 +11,7 @@ import fnmatch
 import io
 import os.path
 import zipfile
-from typing import Mapping, Tuple, TypeVar, Union, List
+from typing import Mapping, Tuple, TypeVar, Union, List, Optional
 
 import numpy as np
 import PIL.Image
@@ -47,8 +47,12 @@ class EcotaxaWriter(Node):
             ``filename`` is the name in the archive. ``image`` is a NumPy array.
             The file extension has to be one of ``".jpg"``, ``".png"`` or ``".gif"``
             to meet the specifications of EcoTaxa.
-        meta (Mapping or Variable): Metadata to store in the TSV file.
+        meta (Mapping or Variable, optional): Metadata to store in the TSV file.
             Each key corresponds to a column in the resulting file.
+        object_meta (Mapping or Variable, optional): Metadata stored with ``object_`` prefix.
+        acq_meta (Mapping or Variable, optional): Metadata stored with ``acq_`` prefix.
+        process_meta (Mapping or Variable, optional): Metadata stored with ``process_`` prefix.
+        sample_meta (Mapping or Variable, optional): Metadata stored with ``sample_`` prefix.
         meta_fn (str, optional): TSV file. Must start with ``ecotaxa``.
         store_types (bool, optional): Whether to add a row with types after the header.
             Defaults to `True`, according to EcoTaxa's specifications.
@@ -72,13 +76,20 @@ class EcotaxaWriter(Node):
                 meta = ... # Calculate some meta-data
                 EcotaxaWriter("path/to/archive.zip", (image_fn, image), meta)
             pipeline.transform_stream()
+
+    .. seealso::
+        For more information about the metadata fields, see the project import page of EcoTaxa.
     """
 
     def __init__(
         self,
         archive_fn: str,
         fnames_images: MaybeList[RawOrVariable[Tuple[str, ...]]],
-        meta: RawOrVariable[Mapping],
+        meta: Optional[RawOrVariable[Mapping]] = None,
+        object_meta: Optional[RawOrVariable[Mapping]] = None,
+        acq_meta: Optional[RawOrVariable[Mapping]] = None,
+        process_meta: Optional[RawOrVariable[Mapping]] = None,
+        sample_meta: Optional[RawOrVariable[Mapping]] = None,
         meta_fn: str = "ecotaxa_export.tsv",
         store_types: bool = True,
     ):
@@ -95,6 +106,10 @@ class EcotaxaWriter(Node):
 
         self.fnames_images = fnames_images
         self.meta = meta
+        self.object_meta = object_meta
+        self.acq_meta = acq_meta
+        self.process_meta = process_meta
+        self.sample_meta = sample_meta
         self.meta_fn = meta_fn
         self.store_types = store_types
 
@@ -109,7 +124,32 @@ class EcotaxaWriter(Node):
             dataframe = []
             i = 0
             for obj in stream:
-                fnames_images, meta = self.prepare_input(obj, ("fnames_images", "meta"))
+                fnames_images, meta, object_meta, acq_meta, process_meta, sample_meta = self.prepare_input(
+                    obj,
+                    (
+                        "fnames_images",
+                        "meta",
+                        "object_meta",
+                        "acq_meta",
+                        "process_meta",
+                        "sample_meta",
+                    ),
+                )
+
+                if meta is None:
+                    meta = {}
+
+                if object_meta is not None:
+                    meta.update(("object_" + k, v) for k, v in object_meta.items())
+
+                if acq_meta is not None:
+                    meta.update(("acq_" + k, v) for k, v in acq_meta.items())
+
+                if process_meta is not None:
+                    meta.update(("process_" + k, v) for k, v in process_meta.items())
+
+                if sample_meta is not None:
+                    meta.update(("sample_" + k, v) for k, v in sample_meta.items())
 
                 for img_rank, (fname, img) in enumerate(fnames_images, start=1):
                     img_ext = os.path.splitext(fname)[1]
@@ -117,7 +157,11 @@ class EcotaxaWriter(Node):
 
                     img = PIL.Image.fromarray(img)
                     img_fp = io.BytesIO()
-                    img.save(img_fp, format=pil_format)
+                    try:
+                        img.save(img_fp, format=pil_format)
+                    except:
+                        print(f"Error writing {fname}")
+                        raise
 
                     zip_file.writestr(fname, img_fp.getvalue())
 
