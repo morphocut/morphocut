@@ -4,3 +4,4 @@ closes #xxxx
 - [ ] all tests pass
 - [ ] documentation
 - [ ] AUTHORS entry
+- [ ] Changelog entry
