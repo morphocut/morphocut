@@ -9,15 +9,18 @@ Read and write EcoTaxa archives.
 """
 import fnmatch
 import io
+import itertools
+import operator
 import os.path
 import zipfile
-from typing import Mapping, Tuple, TypeVar, Union, List, Optional
+from typing import List, Mapping, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 import PIL.Image
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
 from morphocut._optional import import_optional_dependency
+from morphocut.core import Stream
 
 T = TypeVar("T")
 MaybeTuple = Union[T, Tuple[T]]
@@ -41,7 +44,7 @@ class EcotaxaWriter(Node):
     Create an archive of images and metadata that is importable to EcoTaxa.
 
     Args:
-        archive_fn (str): Location of the output file.
+        archive_fn (str, Variable): Location of the output file.
         fnames_images (Tuple, Variable, or a list thereof):
             Tuple of ``(filename, image)`` or a list of such tuples.
             ``filename`` is the name in the archive. ``image`` is a NumPy array.
@@ -83,7 +86,7 @@ class EcotaxaWriter(Node):
 
     def __init__(
         self,
-        archive_fn: str,
+        archive_fn: RawOrVariable[str],
         fnames_images: MaybeList[RawOrVariable[Tuple[str, ...]]],
         meta: Optional[RawOrVariable[Mapping]] = None,
         object_meta: Optional[RawOrVariable[Mapping]] = None,
@@ -115,77 +118,115 @@ class EcotaxaWriter(Node):
 
         self._pd = import_optional_dependency("pandas")
 
+    def _groupby_archive_fn(self, stream: Stream):
+        return itertools.groupby(
+            (
+                (
+                    obj,
+                    self.prepare_input(
+                        obj,
+                        (
+                            "archive_fn",
+                            "fnames_images",
+                            "meta",
+                            "object_meta",
+                            "acq_meta",
+                            "process_meta",
+                            "sample_meta",
+                        ),
+                    ),
+                )
+                for obj in stream
+            ),
+            lambda x: x[1][0],
+        )
+
     def transform_stream(self, stream):
         pil_extensions = PIL.Image.registered_extensions()
 
-        with closing_if_closable(stream), zipfile.ZipFile(
-            self.archive_fn, mode="w"
-        ) as zip_file:
-            dataframe = []
-            i = 0
-            for obj in stream:
-                fnames_images, meta, object_meta, acq_meta, process_meta, sample_meta = self.prepare_input(
-                    obj,
-                    (
-                        "fnames_images",
-                        "meta",
-                        "object_meta",
-                        "acq_meta",
-                        "process_meta",
-                        "sample_meta",
-                    ),
-                )
-
-                if meta is None:
-                    meta = {}
-
-                if object_meta is not None:
-                    meta.update(("object_" + k, v) for k, v in object_meta.items())
-
-                if acq_meta is not None:
-                    meta.update(("acq_" + k, v) for k, v in acq_meta.items())
-
-                if process_meta is not None:
-                    meta.update(("process_" + k, v) for k, v in process_meta.items())
-
-                if sample_meta is not None:
-                    meta.update(("sample_" + k, v) for k, v in sample_meta.items())
-
-                for img_rank, (fname, img) in enumerate(fnames_images, start=1):
-                    img_ext = os.path.splitext(fname)[1]
-                    pil_format = pil_extensions[img_ext]
-
-                    img = PIL.Image.fromarray(img)
-                    img_fp = io.BytesIO()
-                    try:
-                        img.save(img_fp, format=pil_format)
-                    except:
-                        print(f"Error writing {fname}")
-                        raise
-
-                    zip_file.writestr(fname, img_fp.getvalue())
-
-                    dataframe.append(
-                        {**meta, "img_file_name": fname, "img_rank": img_rank}
+        with closing_if_closable(stream):
+            seen_archive_fns = set()
+            for archive_fn, group in self._groupby_archive_fn(stream):
+                if archive_fn in seen_archive_fns:
+                    raise ValueError(
+                        "archive_fn {archive_fn} was repeated in the stream."
                     )
 
-                yield obj
+                seen_archive_fns.add(archive_fn)
 
-                i += 1
+                with zipfile.ZipFile(archive_fn, mode="w") as zip_file:
+                    dataframe = []
+                    i = 0
+                    for (
+                        obj,
+                        (
+                            _,
+                            fnames_images,
+                            meta,
+                            object_meta,
+                            acq_meta,
+                            process_meta,
+                            sample_meta,
+                        ),
+                    ) in group:
 
-            dataframe = self._pd.DataFrame(dataframe)
+                        if meta is None:
+                            meta = {}
 
-            # Insert types into header
-            type_header = [dtype_to_ecotaxa(dt) for dt in dataframe.dtypes]
-            dataframe.columns = self._pd.MultiIndex.from_tuples(
-                list(zip(dataframe.columns, type_header))
-            )
+                        if object_meta is not None:
+                            meta.update(
+                                ("object_" + k, v) for k, v in object_meta.items()
+                            )
 
-            zip_file.writestr(
-                self.meta_fn, dataframe.to_csv(sep="\t", encoding="utf-8", index=False)
-            )
+                        if acq_meta is not None:
+                            meta.update(("acq_" + k, v) for k, v in acq_meta.items())
 
-            print("Wrote {:,d} objects to {}.".format(i, self.archive_fn))
+                        if process_meta is not None:
+                            meta.update(
+                                ("process_" + k, v) for k, v in process_meta.items()
+                            )
+
+                        if sample_meta is not None:
+                            meta.update(
+                                ("sample_" + k, v) for k, v in sample_meta.items()
+                            )
+
+                        for img_rank, (fname, img) in enumerate(fnames_images, start=1):
+                            img_ext = os.path.splitext(fname)[1]
+                            pil_format = pil_extensions[img_ext]
+
+                            img = PIL.Image.fromarray(img)
+                            img_fp = io.BytesIO()
+                            try:
+                                img.save(img_fp, format=pil_format)
+                            except:
+                                print(f"Error writing {fname}")
+                                raise
+
+                            zip_file.writestr(fname, img_fp.getvalue())
+
+                            dataframe.append(
+                                {**meta, "img_file_name": fname, "img_rank": img_rank}
+                            )
+
+                        yield obj
+
+                        i += 1
+
+                    dataframe = self._pd.DataFrame(dataframe)
+
+                    # Insert types into header
+                    type_header = [dtype_to_ecotaxa(dt) for dt in dataframe.dtypes]
+                    dataframe.columns = self._pd.MultiIndex.from_tuples(
+                        list(zip(dataframe.columns, type_header))
+                    )
+
+                    zip_file.writestr(
+                        self.meta_fn,
+                        dataframe.to_csv(sep="\t", encoding="utf-8", index=False),
+                    )
+
+                    print("Wrote {:,d} objects to {}.".format(i, archive_fn))
 
 
 @ReturnOutputs
