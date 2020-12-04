@@ -234,7 +234,7 @@ class Unpack(Node):
 @ReturnOutputs
 class Pack(Node):
     """
-    Pack values of subsequent objects in the stream into one tuple.
+    |stream| Pack values of subsequent objects in the stream into one tuple.
 
     Args:
         size (int or Variable): Number of objects to aggregate.
@@ -320,7 +320,7 @@ class Filter(Node):
 @ReturnOutputs
 class FilterVariables(Node):
     r"""
-    Only keep the specified Variables in the stream.
+    |stream| Only keep the specified Variables in the stream.
 
     This might reduce memory usage and speed up processing, especially when
     :py:class:`~morphocut.core.StreamObject`\ s have to be sent to other processes.
