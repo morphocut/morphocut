@@ -298,6 +298,20 @@ class Filter(Node):
             If the predicate is true, the object will stay in the stream.
             If a callable, it will receive a
             :py:class:`~morphocut.core.StreamObject` and must return a bool.
+
+    Example:
+        .. code-block:: python
+
+            with Pipeline() as p:
+                a = Unpack([1,2,3])
+                # The stream now consists of three objects:
+                # {a: 1}, {a: 2}, {a: 3}
+
+                # Keep only objects where a>2
+                Filter(a>2)
+                # The stream now consists of 1 object:
+                # {a: 3}
+
     """
 
     def __init__(self, predicate: Union[Variable, Callable[[StreamObject], bool]]):
