@@ -13,3 +13,4 @@ htmlcov
 pip-wheel-metadata/
 docs/inventory/
 *.code-workspace
+.coverage.*
