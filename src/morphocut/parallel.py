@@ -1,36 +1,49 @@
+import collections.abc
 import enum
 import multiprocessing
-import multiprocessing.synchronize
-import os
 import queue
-import signal
 import sys
 import threading
 import traceback
-import typing
+from typing import Optional
+import signal
+from morphocut.core import Pipeline, Stream, StreamObject, closing_if_closable
+import logging
 
-from morphocut.core import Pipeline, closing_if_closable
+QUEUE_POLL_INTERVAL = 1
 
-if typing.TYPE_CHECKING:
-    from typing import List
+# Store names for exit codes
 
+_exitcode_to_signame = {}
 
-class _Signal(enum.Enum):
-    END = 0
-    YIELD = 1
+for name, signum in list(signal.__dict__.items()):
+    if name[:3] == "SIG" and "_" not in name:
+        _exitcode_to_signame[-signum] = f"-{name}"
 
-
-QUEUE_POLL_INTERVAL = 0.1
-
-# TODO: Look at pytorch/torch/utils/data/_utils/worker.py for determining if the parent is dead
+_logger = logging.getLogger(__name__)
 
 
-class StrRepr(str):
-    def __repr__(self):
+class _Message:
+    pass
+
+
+class EndOfStream(_Message):
+    pass
+
+
+class _WorkerFinished(_Message):
+    __slots__ = ["pid"]
+
+    def __init__(self, pid):
+        self.pid = pid
+
+
+class _StrRepr(str):
+    def __repr__(self):  # pylint: disable=invalid-repr-returned
         return self
 
 
-class ExceptionWrapper:
+class _WrappedException(_Message):
     """Wraps an exception plus traceback."""
 
     def __init__(self, where):
@@ -45,87 +58,188 @@ class ExceptionWrapper:
         msg = "{} in {}:\n{}".format(self.exc_type.__name__, self.where, self.exc_msg)
 
         if self.exc_type == KeyError:
-            msg = StrRepr(msg)
-        raise self.exc_type(msg)
+            msg = _StrRepr(msg)
+        raise self.exc_type(msg) from None
+
+
+class _Feeder(threading.Thread):
+    """Feeder thread for the input queue."""
+
+    def __init__(
+        self,
+        stream,
+        input_queue: multiprocessing.Queue,
+        stop_event: multiprocessing.Event,
+    ):
+        super().__init__(daemon=True)
+
+        self._stream = stream
+        self._input_queue = input_queue
+        self._stop_event = stop_event
+        self._exception = None
+
+    def run(self):
+        try:
+            with closing_if_closable(self._stream):
+                for i, obj in enumerate(self._stream):
+                    if self._stop_event.is_set():
+                        break
+
+                    while not self._stop_event.is_set():
+                        try:
+                            self._input_queue.put(obj, timeout=QUEUE_POLL_INTERVAL)
+                            _logger.debug(f"_Feeder put {i}:{obj} to queue.")
+                            break
+                        except queue.Full:
+                            _logger.debug("_Feeder waiting for queue.")
+
+            while not self._stop_event.is_set():
+                try:
+                    self._input_queue.put(EndOfStream(), timeout=QUEUE_POLL_INTERVAL)
+                    break
+                except queue.Full:
+                    _logger.debug("_Feeder waiting for queue (EndOfStream).")
+            _logger.debug(f"_Feeder put EndOfStream to queue.")
+        except Exception as exc:
+            # Stop everything immediately
+            self._stop_event.set()
+            self._input_queue.cancel_join_thread()
+            _logger.info(f"Exception in _Feeder: {exc}")
+            self._exception = _WrappedException(exc)
+
+    @property
+    def exception(self):
+        return self._exception
+
+    def stop(self):
+        self._stop = True
 
 
 class _Stop(Exception):
-    """Raised by _get_until_stop."""
+    pass
 
 
-def _put_until_stop(queue_, stop_event, obj):
-    while True:
-        if stop_event.is_set():
-            return False
+class WorkerDiedException(Exception):
+    pass
+
+
+class _Worker(multiprocessing.Process):
+    """Worker process that executes Pipeline.transform_stream."""
+
+    def __init__(
+        self,
+        pipeline: "ParallelPipeline",
+        input_queue: multiprocessing.Queue,
+        output_queue: multiprocessing.Queue,
+        stop_event: multiprocessing.Event,
+    ):
+        super().__init__(daemon=True)
+
+        self._pipeline = pipeline
+        self._input_queue = input_queue
+        self._output_queue = output_queue
+        self._stop_event = stop_event
+        self.running = multiprocessing.Event()
+        self._finished = multiprocessing.Event()
+
+    def start(self):
+        multiprocessing.Process.start(self)
+
+        watchdog = threading.Thread(target=self._watchdog, name=f"{self.name}-watchdog")
+        watchdog.start()
+
+    def _watchdog(self):
         try:
-            queue_.put(obj, True, QUEUE_POLL_INTERVAL)
-        except queue.Full:
-            continue
-        else:
-            break
-    return True
+            while True:
+                if self._finished.wait(QUEUE_POLL_INTERVAL):
+                    break
 
+                if not self.is_alive():
+                    raise WorkerDiedException(
+                        f"{self.name} died unexpectedly. Exit code: {_exitcode_to_signame.get(self.exitcode,self.exitcode)}"
+                    )
+        except Exception as exc:
+            # Stop everything immediately
+            self._stop_event.set()
+            _logger.info(f"Exception in {self.name}._watchdog: {exc}")
+            self._output_queue.put(_WrappedException(self.name), block=True)
 
-def _get_until_stop(queue_: multiprocessing.Queue, stop_event, block=True):
-    while True:
-        if stop_event.is_set():
-            raise _Stop()
+    def run(self):
+        _logger.debug(f"{self.name} started.")
+        self.running.set()
+
         try:
-            return queue_.get(True, QUEUE_POLL_INTERVAL)
-        except queue.Empty:
-            if block:
-                continue
-            raise
-        else:
-            break
+            # Read from input queue
+            stream = QueueIterator(
+                self._input_queue, self._stop_event, name=f"QueueIterator({self.name})"
+            )
 
+            # Transform
+            stream = Pipeline.transform_stream(self._pipeline, stream)
 
-def _worker_loop(
-    input_queue: multiprocessing.Queue,
-    output_queue: multiprocessing.Queue,
-    transform_stream,
-    stop_event: multiprocessing.synchronize.Event,
-):
-    """
-    Do the actual work.
-
-    1. Get an object from the input queue.
-    2. Transform this object, and
-    3. Put all resulting objects onto the result queue.
-    4. Put an additional _Signal.YIELD onto the result queue to signalize
-       to the reader that it may switch to another worker.
-    """
-    try:
-        while True:
-            input_obj = _get_until_stop(input_queue, stop_event)
-
-            if input_obj is _Signal.END:
-                # Nothing is left to be done
-                output_queue.put(_Signal.END)
-                break
-
-            try:
-                # Transform object
-                for output_obj in transform_stream([input_obj]):
-                    if stop_event.is_set():
-                        # If stop event is set, quit processing this object
+            # Write to output queue
+            for i, obj in enumerate(stream):
+                while True:
+                    try:
+                        self._output_queue.put(
+                            obj, block=True, timeout=QUEUE_POLL_INTERVAL
+                        )
                         break
-                    # Put results onto the output_queue
-                    output_queue.put(output_obj)
-            except:  # pylint: disable=bare-except
-                # Put exception to queue and quit processing
-                output_queue.put(
-                    ExceptionWrapper("worker process PID {}".format(os.getpid()))
-                )
-                break
-            finally:
-                # Signalize the collector to switch to the next worker
-                output_queue.put(_Signal.YIELD)
+                    except queue.Full:
+                        if self._stop_event.is_set():
+                            raise _Stop() from None
+                        continue
 
-    except KeyboardInterrupt:
-        pass
-    except _Stop:
-        pass
+            _logger.debug(f"{self.name} finished processing stream.")
+            self._output_queue.put(_WorkerFinished(self.pid), block=True)
+        except _Stop:
+            pass
+        except Exception as exc:
+            # Stop everything immediately
+            self._stop_event.set()
+            _logger.info(f"Exception in {self.name}: {exc}")
+            self._output_queue.put(_WrappedException(self.name), block=True)
+        finally:
+            _logger.debug(f"{self.name} announcing finished...")
+            self._finished.set()
+            _logger.debug(f"{self.name} done.")
+
+
+class QueueIterator(collections.abc.Iterator):
+    def __init__(
+        self, queue: multiprocessing.Queue, stop_event: multiprocessing.Event, name=None
+    ):
+        self._queue = queue
+        self._stop_event = stop_event
+        self._name = name or self.__class__.__name__
+        self._stop = False
+
+    def __next__(self):
+        "Return the next item from the queue. When exhausted, raise StopIteration"
+        while not self._stop:
+            try:
+                obj = self._queue.get(block=True, timeout=QUEUE_POLL_INTERVAL)
+                _logger.debug(f"{self._name} received object.")
+            except queue.Empty:
+                if self._stop_event.is_set():
+                    raise _Stop() from None
+                _logger.debug(f"{self._name} waiting for queue.")
+                continue
+
+            if isinstance(obj, EndOfStream):
+                _logger.debug(f"{self._name} received EndOfStream.")
+                # Put back signal so that other workers can receive it as well
+                self._queue.put(obj, block=True)
+                _logger.debug(f"{self._name} put EndOfStream back to queue.")
+                raise StopIteration
+
+            return obj
+
+    def stop(self):
+        self._stop = True
+
+
+from typing import Dict, Any
 
 
 class ParallelPipeline(Pipeline):
@@ -143,9 +257,12 @@ class ParallelPipeline(Pipeline):
             The parent pipeline.
 
     Note:
+        The order in which objects are processed and returned is indeterminate.
+
+    Note:
         :py:class:`~morphocut.parallel.ParallelPipeline` creates
-        distinct copies of its nodes in each worker thread that are not accessible
-        from the main thread.
+        distinct copies of its nodes in each worker process that do not share state and are not accessible from
+        or reflected in the main thread.
 
     Example:
         .. code-block:: python
@@ -155,134 +272,83 @@ class ParallelPipeline(Pipeline):
                 ...
                 with ParallelPipeline():
                     # Parallelized processing in this block,
-                    # work is distributed between all cores.
+                    # work is distributed between cores.
                     ...
 
             pipeline.run()
     """
 
-    def __init__(
-        self, num_workers=None, queue_size=2, multiprocessing_context=None, parent=None
-    ):
-        super().__init__(parent=parent)
+    def __init__(self, n_workers: Optional[int] = None):
+        super().__init__()
 
-        if num_workers is None:
-            num_workers = multiprocessing.cpu_count()
+        if n_workers is None:
+            n_workers = multiprocessing.cpu_count()
+        self._n_workers = n_workers
 
-        assert num_workers >= 1
+        self._input_queue = multiprocessing.Queue(self._n_workers)
+        self._output_queue = multiprocessing.Queue(self._n_workers)
+        self._feeder = None
+        self._stop_event = multiprocessing.Event()
+        self._workers: Dict[Any, _Worker] = {}
 
-        self.num_workers = num_workers
-        self.queue_size = queue_size
+    def transform_stream(self, stream: Optional[Stream] = None) -> Stream:
+        """
+        Run the stream through all nodes and return it.
 
-        if multiprocessing_context is None:
-            multiprocessing_context = multiprocessing
-        self.multiprocessing_context = multiprocessing_context
+        Args:
+            stream: A stream to transform.
+                *This argument is solely to be used internally.*
 
-    def transform_stream(self, stream):
-        # Create queues and worker
-        input_queues = []  # type: List[multiprocessing.Queue]
-        output_queues = []  # type: List[multiprocessing.Queue]
-        workers = []  # type: List[multiprocessing.Process]
-        workers_running = []  # type: List[bool]
-        stop_event = self.multiprocessing_context.Event()
-        upstream_exception = []  # type: List[Exception]
-        for i in range(self.num_workers):
-            iqu = self.multiprocessing_context.Queue(self.queue_size)
-            oqu = self.multiprocessing_context.Queue()
+        Returns:
+            Stream: An iterable of stream objects.
+        """
+        if stream is None:
+            stream = [StreamObject()]
 
-            w = self.multiprocessing_context.Process(
-                target=_worker_loop,
-                args=(iqu, oqu, super().transform_stream, stop_event),
-            )
-            w.daemon = True
+        self._stop_event.clear()
+
+        for _ in range(self._n_workers):
+            w = _Worker(self, self._input_queue, self._output_queue, self._stop_event)
             w.start()
-            input_queues.append(iqu)
-            output_queues.append(oqu)
-            workers.append(w)
-            workers_running.append(True)
+            if not w.running.wait(2):
+                print(w)
+                raise Exception(f"{w.name} did not enter running state.")
+            self._workers[w.pid] = w
+        _logger.debug(f"{len(self._workers)} workers started.")
 
-        # Fill input queues in a thread
-        def _queue_filler():
-            try:
-                with closing_if_closable(stream):
-                    for i, obj in enumerate(stream):
-                        # Send objects to workers in a round-robin fashion
-                        worker_idx = i % self.num_workers
+        self._feeder = _Feeder(stream, self._input_queue, self._stop_event)
+        self._feeder.start()
+        _logger.debug("Feeder started.")
 
-                        if not _put_until_stop(
-                            input_queues[worker_idx], stop_event, obj
-                        ):
-                            return
-
-                # Tell all workers to stop working
-                for iqu in input_queues:
-                    if not _put_until_stop(iqu, stop_event, _Signal.END):
-                        return
-
-            except Exception as exc:
-                # Stop everything immediately
-                stop_event.set()
-                print("ParallelPipeline._queue_filler", exc)
-                upstream_exception.append(ExceptionWrapper(exc))
-
-        qf = threading.Thread(
-            target=_queue_filler, name="ParallelPipeline._queue_filler"
+        stream = QueueIterator(
+            self._output_queue, self._stop_event, name="QueueIterator(main)"
         )
-        qf.start()
 
-        # Read output queues in the main thread
         try:
-            while any(workers_running):
-                for i, oqu in enumerate(output_queues):
-                    if not workers_running[i]:
-                        continue
+            for obj in stream:
+                if isinstance(obj, StreamObject):
+                    yield obj
+                elif isinstance(obj, _WorkerFinished):
+                    w: _Worker = self._workers[obj.pid]
+                    _logger.debug(f"Joining {w.name}...")
+                    w.join(1)
+                    w.terminate()
+                    _logger.debug(f"Joined {w.name}.")
+                    del self._workers[obj.pid]
 
-                    while True:
-                        try:
-                            output_object = _get_until_stop(
-                                oqu, stop_event, block=False
-                            )
-                        except queue.Empty:
-                            # Check that the worker process is still running
-                            if not workers[i].is_alive():
-                                exitcode = workers[i].exitcode
-                                raise RuntimeError(
-                                    f"Worker {i+1} died unexpectedly. Exit code: {_exitcode_to_signame.get(exitcode,exitcode)}"
-                                ) from None
-                            continue
+                    _logger.debug(f"{len(self._workers)} workers remaining.")
 
-                        if output_object is _Signal.END:
-                            workers_running[i] = False
-                            break
-
-                        if output_object is _Signal.YIELD:
-                            # Switch to the next worker
-                            break
-
-                        # Re-raise exceptions from workers and stop
-                        if isinstance(output_object, ExceptionWrapper):
-                            stop_event.set()
-                            output_object.reraise()
-
-                        yield output_object
-        except (SystemExit, KeyboardInterrupt, GeneratorExit, Exception) as exc:
-            print("Stopping workers due to {}...".format(type(exc).__name__))
-            stop_event.set()
-            raise
+                    if not self._workers:
+                        _logger.debug("No workers left, exiting...")
+                        break
+                    continue
+                elif isinstance(obj, _WrappedException):
+                    obj.reraise()
+                else:
+                    raise Exception("Unknown message:", obj)
+        except _Stop:
+            if self._feeder.exception is not None:
+                self._feeder.exception.reraise()
         finally:
-            qf.join()
-
-            for w in workers:
-                w.join()
-
-            if upstream_exception:
-                upstream_exception[0].reraise()
-
-
-# Store names for exit codes
-
-_exitcode_to_signame = {}
-
-for name, signum in list(signal.__dict__.items()):
-    if name[:3] == "SIG" and "_" not in name:
-        _exitcode_to_signame[-signum] = f"-{name}"
+            # Stop everything that is left
+            self._stop_event.set()

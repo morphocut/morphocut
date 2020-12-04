@@ -12,3 +12,4 @@ htmlcov
 .tox/
 pip-wheel-metadata/
 docs/inventory/
+mprofile_*.dat
