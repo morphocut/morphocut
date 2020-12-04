@@ -4,7 +4,7 @@ import itertools
 import pprint
 from queue import Queue
 from threading import Thread
-from typing import Callable, Iterable, Optional, Tuple
+from typing import Callable, Iterable, Optional, Tuple, Union
 
 from morphocut._optional import import_optional_dependency
 from morphocut.core import (
@@ -277,6 +277,14 @@ class Pack(Node):
             yield self.prepare_output(packed[0], *packed_values)
 
 
+class _Predicate:
+    def __init__(self, variable: Variable):
+        self.variable = variable
+
+    def __call__(self, obj: StreamObject) -> bool:
+        return obj[self.variable]
+
+
 @ReturnOutputs
 class Filter(Node):
     """
@@ -286,18 +294,24 @@ class Filter(Node):
     which `function` evaluates to `True`.
 
     Args:
-        function (Callable): A callable recieving a
-            :py:class:`~morphocut.core.StreamObject` and returning a bool.
+        predicate (Variable or callable):
+            If the predicate is true, the object will stay in the stream.
+            If a callable, it will receive a
+            :py:class:`~morphocut.core.StreamObject` and must return a bool.
     """
 
-    def __init__(self, function: Callable[[StreamObject], bool]):
+    def __init__(self, predicate: Union[Variable, Callable[[StreamObject], bool]]):
         super().__init__()
-        self.function = function
+
+        if isinstance(predicate, Variable):
+            self.predicate = _Predicate(predicate)
+        else:
+            self.predicate = predicate
 
     def transform_stream(self, stream):
         with closing_if_closable(stream):
             for obj in stream:
-                if not self.function(obj):
+                if not self.predicate(obj):
                     continue
 
                 yield obj

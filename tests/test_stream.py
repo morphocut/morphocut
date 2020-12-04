@@ -123,6 +123,21 @@ def test_Filter():
     assert [v for v in values if v % 2 == 0] == result
 
 
+def test_Filter_highlevel():
+    values = list(range(10))
+
+    with Pipeline() as pipeline:
+        value = Unpack(values)
+        predicate = value % 2 == 0
+        Filter(predicate)
+
+    stream = pipeline.transform_stream()
+
+    result = [o[value] for o in stream]
+
+    assert [v for v in values if v % 2 == 0] == result
+
+
 def test_FilterVariables():
     values = list(range(10))
 
