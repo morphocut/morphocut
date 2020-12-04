@@ -312,6 +312,12 @@ class Filter(Node):
                 # The stream now consists of 1 object:
                 # {a: 3}
 
+                ## OR:
+                # Keep only objects where a>2.
+                # Here, `obj` is the current StreamObject.
+                # This form might be preferred for performance reasons.
+                Filter(lambda obj: obj[a] > 2)
+
     """
 
     def __init__(self, predicate: Union[Variable, Callable[[StreamObject], bool]]):
