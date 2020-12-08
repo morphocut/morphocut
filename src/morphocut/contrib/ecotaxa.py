@@ -10,8 +10,10 @@ Read and write EcoTaxa archives.
 import fnmatch
 import io
 import os.path
+import pathlib
+import tarfile
 import zipfile
-from typing import Mapping, Tuple, TypeVar, Union, List, Optional
+from typing import IO, List, Mapping, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 import PIL.Image
@@ -33,6 +35,124 @@ def dtype_to_ecotaxa(dtype):
         raise
 
     return "[t]"
+
+
+class Archive:
+    """
+    A generic archive reader for ZIP and TAR archives.
+    """
+
+    extensions: List[str] = []
+
+    def __new__(cls, archive_fn: Union[str, pathlib.Path], mode: str = "r"):
+        archive_fn = str(archive_fn)
+
+        if mode[0] == "r":
+            for subclass in cls.__subclasses__():
+                if subclass.is_readable(archive_fn):
+                    return super(Archive, subclass).__new__(subclass)
+
+            raise ValueError("No handler found to read {}".format(archive_fn))
+
+        if mode[0] in ("a", "w", "x"):
+            for subclass in cls.__subclasses__():
+                if any(archive_fn.endswith(ext) for ext in subclass.extensions):
+                    return super(Archive, subclass).__new__(subclass)
+
+            raise ValueError("No handler found to write {}".format(archive_fn))
+
+    @staticmethod
+    def is_readable(archive_fn) -> bool:
+        raise NotImplementedError()
+
+    def __init__(self, archive_fn: Union[str, pathlib.Path], mode: str = "r"):
+        raise NotImplementedError()
+
+    def read_member(self, member_fn) -> IO:
+        raise NotImplementedError()
+
+    def write_member(self, member_fn, fileobj_or_bytes: Union[IO, bytes]):
+        raise NotImplementedError()
+
+    def find(self, pattern) -> List[str]:
+        return fnmatch.filter(self.members(), pattern)
+
+    def members(self) -> List[str]:
+        raise NotImplementedError()
+
+    def close(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_, **__):
+        self.close()
+
+
+class TarArchive(Archive):
+    extensions = [
+        ".tar",
+        ".tar.bz2",
+        ".tb2",
+        ".tbz",
+        ".tbz2",
+        ".tz2",
+        ".tar.gz",
+        ".taz",
+        ".tgz",
+        ".tar.lzma",
+        ".tlz",
+    ]
+
+    @staticmethod
+    def is_readable(archive_fn):
+        return tarfile.is_tarfile(archive_fn)
+
+    def __init__(self, archive_fn: Union[str, pathlib.Path], mode: str = "r"):
+        self._tar = tarfile.open(archive_fn, mode)
+
+    def read_member(self, member):
+        return self._tar.extractfile(member)
+
+    def write_member(self, member_fn: str, fileobj_or_bytes: Union[IO, bytes]):
+        if isinstance(fileobj_or_bytes, bytes):
+            fileobj_or_bytes = io.BytesIO(fileobj_or_bytes)
+
+        if isinstance(fileobj_or_bytes, io.BytesIO):
+            tar_info = tarfile.TarInfo(member_fn)
+            tar_info.size = len(fileobj_or_bytes.getbuffer())
+        else:
+            tar_info = self._tar.gettarinfo(arcname=member_fn, fileobj=fileobj_or_bytes)
+
+        self._tar.addfile(tar_info, fileobj=fileobj_or_bytes)
+
+    def members(self):
+        return self._tar.getnames()
+
+
+class ZipArchive(Archive):
+    extensions = [".zip"]
+
+    @staticmethod
+    def is_readable(archive_fn):
+        return zipfile.is_zipfile(archive_fn)
+
+    def __init__(self, archive_fn: Union[str, pathlib.Path], mode: str = "r"):
+        self._zip = zipfile.ZipFile(archive_fn, mode)
+
+    def members(self):
+        return self._zip.namelist()
+
+    def read_member(self, member):
+        return self._zip.open(member)
+
+    def write_member(self, member_fn: str, fileobj_or_bytes: Union[IO, bytes]):
+        # TODO: Optimize for on-disk files and BytesIO (.getvalue())
+        if isinstance(fileobj_or_bytes, bytes):
+            return self._zip.writestr(member_fn, fileobj_or_bytes)
+
+        self._zip.writestr(member_fn, fileobj_or_bytes.read())
 
 
 @ReturnOutputs
@@ -118,13 +238,18 @@ class EcotaxaWriter(Node):
     def transform_stream(self, stream):
         pil_extensions = PIL.Image.registered_extensions()
 
-        with closing_if_closable(stream), zipfile.ZipFile(
-            self.archive_fn, mode="w"
-        ) as zip_file:
+        with closing_if_closable(stream), Archive(self.archive_fn, "w") as archive:
             dataframe = []
             i = 0
             for obj in stream:
-                fnames_images, meta, object_meta, acq_meta, process_meta, sample_meta = self.prepare_input(
+                (
+                    fnames_images,
+                    meta,
+                    object_meta,
+                    acq_meta,
+                    process_meta,
+                    sample_meta,
+                ) = self.prepare_input(
                     obj,
                     (
                         "fnames_images",
@@ -163,7 +288,7 @@ class EcotaxaWriter(Node):
                         print(f"Error writing {fname}")
                         raise
 
-                    zip_file.writestr(fname, img_fp.getvalue())
+                    archive.write_member(fname, img_fp.getvalue())
 
                     dataframe.append(
                         {**meta, "img_file_name": fname, "img_rank": img_rank}
@@ -181,8 +306,11 @@ class EcotaxaWriter(Node):
                 list(zip(dataframe.columns, type_header))
             )
 
-            zip_file.writestr(
-                self.meta_fn, dataframe.to_csv(sep="\t", encoding="utf-8", index=False)
+            archive.write_member(
+                self.meta_fn,
+                io.BytesIO(
+                    dataframe.to_csv(sep="\t", encoding="utf-8", index=False).encode()
+                ),
             )
 
             print("Wrote {:,d} objects to {}.".format(i, self.archive_fn))
@@ -237,13 +365,15 @@ class EcotaxaReader(Node):
                     obj, ("archive_fn", "img_rank")
                 )
 
-                with zipfile.ZipFile(archive_fn, mode="r") as zip_file:
-                    index_names = fnmatch.filter(zip_file.namelist(), "ecotaxa_*")
+                with Archive(archive_fn) as archive:
+                    index_fns = archive.find("*ecotaxa_*")
 
-                    for index_name in index_names:
-                        index_base = os.path.dirname(index_name)
-                        with zip_file.open(index_name) as index_fp:
-                            dataframe = self._pd.read_csv(index_fp, sep="\t")
+                    for index_fn in index_fns:
+                        index_base = os.path.dirname(index_fn)
+                        with archive.read_member(index_fn) as index_fp:
+                            dataframe = self._pd.read_csv(
+                                index_fp, sep="\t", low_memory=False
+                            )
                             dataframe = self._fix_types(dataframe)
 
                             for _, row in dataframe.iterrows():
@@ -251,7 +381,7 @@ class EcotaxaReader(Node):
                                     index_base, row["img_file_name"]
                                 )
 
-                                with zip_file.open(image_fn) as image_fp:
+                                with archive.read_member(image_fn) as image_fp:
                                     image = np.array(PIL.Image.open(image_fp))
 
                                 yield self.prepare_output(

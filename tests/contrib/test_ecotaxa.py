@@ -6,9 +6,12 @@ from morphocut.str import Format
 from morphocut.stream import Unpack
 from tests.helpers import BinaryBlobs
 
+import pytest
 
-def test_ecotaxa(tmp_path):
-    archive_fn = tmp_path / "ecotaxa.zip"
+
+@pytest.mark.parametrize("ext", [".tar", ".zip"])
+def test_ecotaxa(tmp_path, ext):
+    archive_fn = tmp_path / ("ecotaxa" + ext)
     print(archive_fn)
 
     # Create an archive
