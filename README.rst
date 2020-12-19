@@ -1,7 +1,12 @@
 MorphoCut
 =========
 
+.. image:: https://img.shields.io/pypi/v/morphocut.svg?style=flat
+    :alt: PyPI
+    :target: https://pypi.org/project/morphocut/
+
 .. image:: https://travis-ci.org/morphocut/morphocut.svg?branch=master
+    :alt: Travis
     :target: https://travis-ci.org/morphocut/morphocut
 
 .. image:: https://codecov.io/gh/morphocut/morphocut/branch/master/graph/badge.svg
