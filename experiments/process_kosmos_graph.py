@@ -2,18 +2,20 @@
 import os
 
 import numpy as np
+import pandas as pd
 import skimage
 import skimage.io
 import skimage.measure
 import skimage.segmentation
 
 from morphocut import Call, Pipeline
-from morphocut.ecotaxa import EcotaxaWriter
+from morphocut.contrib.ecotaxa import EcotaxaWriter
 from morphocut.file import Find
-from morphocut.image import ExtractROI, FindRegions, Rescale, ThresholdConst
-from morphocut.pandas import JoinMetadata, PandasWriter
+from morphocut.image import ExtractROI, FindRegions, RescaleIntensity, ThresholdConst
+from morphocut.pandas import JoinMetadata, ToCSV
+from morphocut.parallel import ParallelPipeline
 from morphocut.str import Format, Parse
-from morphocut.stream import TQDM, Enumerate, PrintObjects, StreamBuffer
+from morphocut.stream import TQDM, Enumerate
 from morphocut.zooprocess import CalculateZooProcessFeatures
 
 # import_path = "/data-ssd/mschroeder/Datasets/generic_zooscan_peru_kosmos_2017"
@@ -41,50 +43,54 @@ if __name__ == "__main__":
             "sample_id",
         )
 
-        PandasWriter(
+        ToCSV(
             os.path.join(import_path, "meta.csv"),
             meta,
-            drop_duplicates_subset="sample_id",
+            _drop_duplicates_subset="sample_id",
         )
-
-        img = Call(skimage.io.imread, abs_path)
-
-        StreamBuffer(maxsize=2)
 
         TQDM(rel_path)
 
-        img = Rescale(img, in_range=(9252, 65278), dtype=np.uint8)
+        with ParallelPipeline():
 
-        mask = ThresholdConst(img, 245)  # 245(ubyte) / 62965(uint16)
-        mask = Call(skimage.segmentation.clear_border, mask)
+            img = Call(skimage.io.imread, abs_path)
 
-        regionprops = FindRegions(mask, img, 100, padding=10)
+            # 9252 is the onset in most histograms.
+            # This could be calculated dynamically by finding the first peak in the histogram, but this value seems to work.
+            # The maximum should be the median of the image as the majority of pixels is empty.
+            # 65278 is the fixed alternative.
+            median = Call(np.median, img)
+            img = RescaleIntensity(img, in_range=(9252, median), dtype=np.uint8)
 
-        # TODO: Draw object info
+            mask = ThresholdConst(img, 245)  # 245(ubyte) / 62965(uint16)
+            mask = Call(skimage.segmentation.clear_border, mask)
 
-        # Extract a vignette from the image
-        vignette = ExtractROI(img, regionprops)
+            regionprops = FindRegions(mask, img, 100, padding=10)
 
-        # # Extract features from vignette
-        # model = resnet18(pretrained=True)
-        # model = torch.nn.Sequential(OrderedDict(
-        #     list(model.named_children())[:-2]))
+            # TODO: Draw object info
 
-        # features = PyTorch(lambda x: model(x).cpu().numpy())(vignette)
+            # Extract a vignette from the image
+            vignette = ExtractROI(img, regionprops)
 
-        i = Enumerate()
-        object_id = Format(
-            "{sample_id}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}_{i:d}",
-            _kwargs=meta,
-            i=i,
+            # # Extract features from vignette
+            # model = resnet18(pretrained=True)
+            # model = torch.nn.Sequential(OrderedDict(
+            #     list(model.named_children())[:-2]))
+
+            # features = PyTorch(lambda x: model(x).cpu().numpy())(vignette)
+
+            i = Enumerate()
+            object_id = Format(
+                "{sample_id}_{sample_split:d}_{sample_nsplit:d}_{sample_subid}_{i:d}",
+                _kwargs=meta,
+                i=i,
+            )
+            meta["object_id"] = object_id
+            meta = CalculateZooProcessFeatures(regionprops, meta, "object_")
+
+        EcotaxaWriter(
+            os.path.join(import_path, "export.zip"), "{object_id}.jpg", vignette, meta
         )
-        meta["object_id"] = object_id
-        meta = CalculateZooProcessFeatures(regionprops, meta, "object_")
-
-        # EcotaxaWriter(
-        #     os.path.join(import_path, "export.zip"), "{object_id}.jpg",
-        #     vignette, meta
-        # )
 
         TQDM(object_id)
 
