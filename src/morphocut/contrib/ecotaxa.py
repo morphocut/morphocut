@@ -111,9 +111,22 @@ class TarArchive(Archive):
 
     def __init__(self, archive_fn: Union[str, pathlib.Path], mode: str = "r"):
         self._tar = tarfile.open(archive_fn, mode)
+        self._members = None
 
-    def read_member(self, member):
-        return self._tar.extractfile(member)
+    def read_member(self, member_fn):
+        return self._tar.extractfile(self._resolve_member(member_fn))
+
+    def _load_members(self):
+        if self._members is not None:
+            return
+
+        self._members = {tar_info.name: tar_info for tar_info in self._tar.getmembers()}
+
+    def _resolve_member(self, member):
+        if isinstance(member, tarfile.TarInfo):
+            return member
+        self._load_members()
+        return self._members[member]
 
     def write_member(self, member_fn: str, fileobj_or_bytes: Union[IO, bytes]):
         if isinstance(fileobj_or_bytes, bytes):
