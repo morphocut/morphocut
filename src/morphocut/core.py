@@ -373,9 +373,12 @@ NodeCallReturnType = Union[None, Variable, Tuple[Variable]]
 Stream = Iterable["StreamObject"]
 r"""A stream is an Iterable of :py:class:`StreamObject`\ s."""
 
+
 class EmptyPipelineStackError(Exception):
     """Raised when a node is created outside of a Pipeline context."""
+
     pass
+
 
 class Node(StreamTransformer):
     """Base class for all stream processing nodes."""
@@ -396,7 +399,7 @@ class Node(StreamTransformer):
                     self.__class__.__name__
                 )
             ) from None
-        
+
         self.rank = pipeline_top.add_child(self)
 
     def __bind_output(self, port: "Output"):
@@ -646,12 +649,13 @@ class StreamObject(abc.MutableMapping):
     A value can be retrieved by indexing: ``obj[var]``
     """
 
-    __slots__ = ["data"]
+    __slots__ = ["data", "stream_length"]
 
-    def __init__(self, data: Dict = None):
+    def __init__(self, data: Dict = None, stream_length=None):
         if data is None:
             data = {}
         self.data = data
+        self.stream_length = stream_length
 
     def copy(self) -> "StreamObject":
         """Create a shallow copy."""
@@ -755,7 +759,7 @@ class Pipeline(StreamTransformer):
             Stream: An iterable of stream objects.
         """
         if stream is None:
-            stream = [StreamObject()]
+            stream = [StreamObject(stream_length=1)]
 
         # Here, the stream is not automatically closed,
         # as this would happen instantaneously.
