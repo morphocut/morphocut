@@ -5,6 +5,8 @@ from typing import Collection, List, Mapping, Optional, Sequence  # noqa
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs
 from morphocut._optional import import_optional_dependency
 
+__all__ = ["PandasWriter", "JoinDataframe"]
+
 
 def _default_writer(dataframe, path_or_buf):
     dataframe.to_csv(path_or_buf, index=False)
@@ -43,20 +45,23 @@ class PandasWriter(Node):
         dataframe = self._pd.DataFrame(self.dataframe)
 
         if self.drop_duplicates_subset is not None:
-            dataframe.drop_duplicates(
-                subset=self.drop_duplicates_subset,
-                inplace=True,
-            )
+            dataframe.drop_duplicates(subset=self.drop_duplicates_subset, inplace=True)
 
         self.writer(dataframe, self.path_or_buf)
 
 
 @ReturnOutputs
 @Output("meta_out")
-class JoinMetadata(Node):
+class JoinDataframe(Node):
     """Join information from a CSV/TSV/Excel/... file."""
 
-    def __init__(self, filename: str, data: RawOrVariable[Mapping] = None, on=None, fields: Sequence = None):
+    def __init__(
+        self,
+        filename: str,
+        data: RawOrVariable[Mapping] = None,
+        on=None,
+        fields: Sequence = None,
+    ):
         super().__init__()
 
         self.data = data
@@ -69,7 +74,7 @@ class JoinMetadata(Node):
         if ext in (".xls", ".xlsx"):
             dataframe = pd.read_excel(filename, usecols=fields)
         else:
-            with open('example.csv', newline='') as csvfile:
+            with open("example.csv", newline="") as csvfile:
                 dialect = csv.Sniffer().sniff(csvfile.read(1024))
             dataframe = pd.read_csv(filename, dialect=dialect, usecols=fields)
 
