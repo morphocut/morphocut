@@ -5,9 +5,9 @@ MorphoCut
     :alt: PyPI
     :target: https://pypi.org/project/morphocut/
 
-.. image:: https://travis-ci.org/morphocut/morphocut.svg?branch=master
-    :alt: Travis
-    :target: https://travis-ci.org/morphocut/morphocut
+.. image:: https://github.com/morphocut/morphocut/workflows/CI/badge.svg
+    :alt: CI
+    :target: https://github.com/morphocut/morphocut/actions
 
 .. image:: https://codecov.io/gh/morphocut/morphocut/branch/master/graph/badge.svg
     :alt: Codecov
