@@ -1,3 +1,4 @@
+import pytest
 from numpy.testing import assert_equal
 
 from morphocut import Call, Pipeline
@@ -11,11 +12,13 @@ import pytest
 
 @pytest.mark.parametrize("ext", [".tar", ".zip"])
 def test_ecotaxa(tmp_path, ext):
-    archive_fn = tmp_path / ("ecotaxa" + ext)
-    print(archive_fn)
+    archive_fmt = str(tmp_path / "ecotaxa_{}") + ext
 
     # Create an archive
     with Pipeline() as p:
+        archive_idx = Unpack(range(3))
+        archive_fn = Format(archive_fmt, archive_idx)
+
         i = Unpack(range(10))
 
         meta = Call(dict, i=i, foo="Sömé UTF-8 ſtríng…")
@@ -36,6 +39,9 @@ def test_ecotaxa(tmp_path, ext):
 
     # Read the archive
     with Pipeline() as p:
+        archive_idx = Unpack(range(3))
+        archive_fn = Format(archive_fmt, archive_idx)
+
         image, meta = EcotaxaReader(archive_fn)
 
     roundtrip_result = [o.to_dict(meta=meta, image=image) for o in p.transform_stream()]
@@ -51,3 +57,23 @@ def test_ecotaxa(tmp_path, ext):
         ]
 
     assert_equal([o["image"] for o in result], [o["image"] for o in roundtrip_result])
+
+
+def test_ecotaxa_repeated_archive_fn_raises(tmp_path):
+    archive_fmt = str(tmp_path / "ecotaxa_{}.zip")
+
+    with Pipeline() as p:
+        Unpack(range(3))
+
+        archive_idx = Unpack(range(3))
+        archive_fn = Format(archive_fmt, archive_idx)
+
+        i = Unpack(range(3))
+        image = BinaryBlobs()
+        image_name = Format("image_{}.png", i)
+
+        EcotaxaWriter(archive_fn, (image_name, image))
+
+    with pytest.raises(ValueError):
+        p.run()
+
