@@ -6,7 +6,7 @@ from queue import Queue
 from threading import Thread
 from typing import Callable, Iterable, Optional, Tuple, Union
 
-from morphocut._optional import import_optional_dependency
+import tqdm
 from morphocut.core import (
     Node,
     Output,
@@ -35,11 +35,6 @@ class TQDM(Node):
     """
     Show a dynamically updating progress bar using `tqdm`_.
 
-    .. note::
-       The external dependency `tqdm`_ is required to use this Node.
-
-    .. _tqdm: https://github.com/tqdm/tqdm
-
     Args:
         description (str): Description of the progress bar.
 
@@ -56,12 +51,11 @@ class TQDM(Node):
         self, description: Optional[RawOrVariable[str]] = None, monitor_interval=None
     ):
         super().__init__()
-        self._tqdm = import_optional_dependency("tqdm")
         self.description = description
         self.monitor_interval = monitor_interval
 
     def transform_stream(self, stream):
-        with closing_if_closable(stream), self._tqdm.tqdm(stream) as progress:
+        with closing_if_closable(stream), tqdm.tqdm(stream) as progress:
             if self.monitor_interval is not None:
                 progress.monitor_interval = self.monitor_interval
 
