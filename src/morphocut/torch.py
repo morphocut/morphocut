@@ -1,7 +1,14 @@
 from typing import Callable
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
-from morphocut._optional import import_optional_dependency
+from morphocut._optional import UnavailableObject
+
+try:
+    import torch
+    import torch.utils.data as torch_utils_data
+except ImportError:
+    torch = UnavailableObject("torch")
+    torch_utils_data = UnavailableObject("torch.utils.data")
 
 
 class _Envelope:
@@ -19,14 +26,7 @@ class PyTorch(Node):
         self.model = model
         self.image = image
 
-        self._torch = import_optional_dependency(
-            "torch", "Visit https://pytorch.org/ for instructions.", "1.2"
-        )
-        import torch.utils.data
-
-        self._torch_utils_data = torch.utils.data
-
-        class _StreamDataset(torch.utils.data.IterableDataset):
+        class _StreamDataset(torch_utils_data.IterableDataset):
             def __init__(self, node, stream):
                 self.node = node
                 self.stream = stream
@@ -40,9 +40,9 @@ class PyTorch(Node):
 
     def transform_stream(self, stream):
         stream_ds = self._StreamDataset(self, stream)
-        dl = self._torch_utils_data.DataLoader(stream_ds, batch_size=128, num_workers=0)
+        dl = torch_utils_data.DataLoader(stream_ds, batch_size=128, num_workers=0)
 
-        with self._torch.no_grad():
+        with torch.no_grad():
             for batch_image, batch_obj in dl:
                 batch_output = self.model(batch_image)
 
