@@ -1,7 +1,34 @@
 """
 Optional dependency checking.
+"""
 
-The code is adapted from pandas.compat._optional,
+import sys
+
+
+class UnavailableObjectError(Exception):
+    pass
+
+
+class OptionalObject:
+    def __init__(self, name, msg=None):
+        self.name = name
+        self.msg = msg
+        self._orig_exc = sys.exc_info()[1]
+
+    def _raise(self, *_, **__):
+        msg = f"Object {self.name} is unavailable."
+        if self.msg is not None:
+            msg = f"{msg}\n\n{self.msg}"
+
+        raise UnavailableObjectError(msg) from self._orig_exc
+
+    __call__ = _raise
+    __getattr__ = _raise
+    __getitem__ = _raise
+
+
+"""
+The following code is adapted from pandas.compat._optional,
 which is published under the following license:
 
     BSD 3-Clause License
@@ -60,9 +87,7 @@ def _get_version(module: types.ModuleType) -> str:
         version = getattr(module, "__VERSION__", None)
 
     if version is None:
-        raise ImportError(
-            "Can't determine version for {}".format(module.__name__)
-        )
+        raise ImportError("Can't determine version for {}".format(module.__name__))
     return version
 
 
@@ -71,7 +96,7 @@ def import_optional_dependency(
     extra: str = "",
     min_version: Optional[str] = None,
     raise_on_missing: bool = True,
-    on_version: str = "raise"
+    on_version: str = "raise",
 ):
     """
     Import an optional dependency.
