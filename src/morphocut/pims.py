@@ -12,7 +12,25 @@ Through PIMS, MorphoCut supports reading Bioformats and Video.
 from typing import Optional
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
-from morphocut._optional import import_optional_dependency
+from morphocut._optional import UnavailableObject, check_available
+
+try:
+    import av
+except ImportError:
+    av = UnavailableObject("av", "Use conda or pip to install av.")
+
+try:
+    import pims
+except ImportError:
+    pims = UnavailableObject("pims", "Use pip to install pims.")
+
+try:
+    import jpype
+except ImportError:
+    jpype = UnavailableObject(
+        "jpype",
+        "See https://github.com/jpype-project/jpype for installation instructions.",
+    )
 
 
 @ReturnOutputs
@@ -44,17 +62,17 @@ class VideoReader(Node):
     def __init__(self, path: RawOrVariable[str], **kwargs):
         super().__init__()
 
+        # Check that pims and av are available
+        check_available(pims, av)
+
         self.path = path
         self.kwargs = kwargs
-
-        import_optional_dependency("av")
-        self._pims = import_optional_dependency("pims")
 
     def transform_stream(self, stream):
         with closing_if_closable(stream):
             for obj in stream:
                 path = self.prepare_input(obj, "path")
-                reader = self._pims.PyAVReaderIndexed(path, **self.kwargs)
+                reader = pims.PyAVReaderIndexed(path, **self.kwargs)
 
                 for frame in reader:
                     yield self.prepare_output(obj.copy(), frame)
@@ -106,13 +124,13 @@ class BioformatsReader(Node):
     ):
         super().__init__()
 
+        # Check that pims and jpype are available
+        check_available(pims, jpype)
+
         self.path = path
         self.meta = meta
         self.series = series
         self.kwargs = kwargs
-
-        import_optional_dependency("jpype")
-        self._pims = import_optional_dependency("pims")
 
     def transform_stream(self, stream):
         with closing_if_closable(stream):
@@ -121,9 +139,7 @@ class BioformatsReader(Node):
                     obj, ("path", "meta", "series", "kwargs")
                 )
 
-                reader = self._pims.bioformats.BioformatsReader(
-                    path, meta=meta, **kwargs
-                )
+                reader = pims.bioformats.BioformatsReader(path, meta=meta, **kwargs)
 
                 if series is None:
                     series = range(reader.size_series)

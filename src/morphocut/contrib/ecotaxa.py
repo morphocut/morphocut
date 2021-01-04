@@ -16,10 +16,10 @@ import zipfile
 from typing import IO, List, Mapping, Optional, Tuple, TypeVar, Union
 
 import numpy as np
+import pandas as pd
 import PIL.Image
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
-from morphocut._optional import import_optional_dependency
 
 T = TypeVar("T")
 MaybeTuple = Union[T, Tuple[T]]
@@ -111,9 +111,22 @@ class TarArchive(Archive):
 
     def __init__(self, archive_fn: Union[str, pathlib.Path], mode: str = "r"):
         self._tar = tarfile.open(archive_fn, mode)
+        self._members = None
 
-    def read_member(self, member):
-        return self._tar.extractfile(member)
+    def read_member(self, member_fn):
+        return self._tar.extractfile(self._resolve_member(member_fn))
+
+    def _load_members(self):
+        if self._members is not None:
+            return
+
+        self._members = {tar_info.name: tar_info for tar_info in self._tar.getmembers()}
+
+    def _resolve_member(self, member):
+        if isinstance(member, tarfile.TarInfo):
+            return member
+        self._load_members()
+        return self._members[member]
 
     def write_member(self, member_fn: str, fileobj_or_bytes: Union[IO, bytes]):
         if isinstance(fileobj_or_bytes, bytes):
@@ -233,8 +246,6 @@ class EcotaxaWriter(Node):
         self.meta_fn = meta_fn
         self.store_types = store_types
 
-        self._pd = import_optional_dependency("pandas")
-
     def transform_stream(self, stream):
         pil_extensions = PIL.Image.registered_extensions()
 
@@ -298,11 +309,11 @@ class EcotaxaWriter(Node):
 
                 i += 1
 
-            dataframe = self._pd.DataFrame(dataframe)
+            dataframe = pd.DataFrame(dataframe)
 
             # Insert types into header
             type_header = [dtype_to_ecotaxa(dt) for dt in dataframe.dtypes]
-            dataframe.columns = self._pd.MultiIndex.from_tuples(
+            dataframe.columns = pd.MultiIndex.from_tuples(
                 list(zip(dataframe.columns, type_header))
             )
 
@@ -356,7 +367,6 @@ class EcotaxaReader(Node):
         super().__init__()
         self.archive_fn = archive_fn
         self.img_rank = img_rank
-        self._pd = import_optional_dependency("pandas")
 
     def transform_stream(self, stream):
         with closing_if_closable(stream):
@@ -371,7 +381,7 @@ class EcotaxaReader(Node):
                     for index_fn in index_fns:
                         index_base = os.path.dirname(index_fn)
                         with archive.read_member(index_fn) as index_fp:
-                            dataframe = self._pd.read_csv(
+                            dataframe = pd.read_csv(
                                 index_fp, sep="\t", low_memory=False
                             )
                             dataframe = self._fix_types(dataframe)
@@ -405,7 +415,7 @@ class EcotaxaReader(Node):
         dataframe = dataframe.iloc[1:].copy()
 
         dataframe[num_cols] = dataframe[num_cols].apply(
-            self._pd.to_numeric, errors="coerce", axis=1
+            pd.to_numeric, errors="coerce", axis=1
         )
 
         return dataframe
