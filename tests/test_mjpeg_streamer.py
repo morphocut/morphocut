@@ -15,9 +15,14 @@ from morphocut.mjpeg_streamer.server import MJPEGServer
 from morphocut.stream import Unpack
 from tests.helpers import Sleep
 
+import sys
+
+# "unix" fails on Max OS (AF_UNIX path too long) and is unavailable on Windows.
+input_families = ["unix", "inet"] if sys.platform.startswith("linux") else ["inet"]
+
 
 @pytest.mark.slow
-@pytest.mark.parametrize("input_family", ["unix", "inet"])
+@pytest.mark.parametrize("input_family", input_families)
 @pytest.mark.parametrize("server_max_fps", [None, 1, 10])
 def test_mjpeg_streamer_server(tmp_path, input_family, server_max_fps):
 
