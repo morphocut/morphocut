@@ -39,6 +39,7 @@ User Guide
    core
    contrib
    integration
+   mjpeg_streamer
    examples
    contributing
    authors

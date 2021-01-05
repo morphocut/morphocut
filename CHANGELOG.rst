@@ -8,6 +8,8 @@ Added
 ~~~~~
 
 - `batch.BatchPipeline`: Combine consecutive objects into a batch.
+- `mjpeg_streamer.MJPEGStreamer`: Stream images via HTTP (e.g. to the Browser). (#75)
+- `integration.raspi.PiCameraReader`: Read frames from the Raspberry Pi's camera. (#75)
 
 Changed
 ~~~~~~~
