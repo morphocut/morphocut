@@ -35,6 +35,8 @@ class TQDM(Node):
     """
     Show a dynamically updating progress bar using `tqdm`_.
 
+    .. _tqdm: https://github.com/tqdm/tqdm
+
     Args:
         description (str): Description of the progress bar.
 
