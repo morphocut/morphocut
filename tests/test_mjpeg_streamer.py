@@ -102,6 +102,8 @@ def test_mjpeg_streamer_server(tmp_path, input_family, server_max_fps):
 @pytest.mark.slow
 @pytest.mark.parametrize("max_fps", [1, 5, 10])
 def test_mjpeg_streamer_fps(max_fps):
+    EPSILON = 0.1
+
     listener = Listener(("localhost", 0))
 
     with Pipeline() as p:
@@ -123,7 +125,7 @@ def test_mjpeg_streamer_fps(max_fps):
             if then is not None:
                 fps = 1 / (now - then)
                 print("fps:", fps)
-                assert fps < max_fps
+                assert fps <= max_fps + EPSILON
                 fps_checked = True
             then = now
         except EOFError:
