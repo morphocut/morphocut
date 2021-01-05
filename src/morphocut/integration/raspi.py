@@ -44,7 +44,7 @@ class PiCameraReader(Node):
     def __init__(self, resolution=(1280, 720)):
         super().__init__()
 
-        self._resolution = picamera_array.raw_resolution(*resolution)
+        self._resolution = picamera_array.raw_resolution(resolution)
 
     def transform_stream(self, stream: Stream) -> Stream:
         cam = picamera.PiCamera(resolution=self._resolution)
