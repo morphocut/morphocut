@@ -101,16 +101,13 @@ def test_mjpeg_streamer_server(tmp_path, input_family, server_max_fps):
 
 @pytest.mark.slow
 @pytest.mark.parametrize("max_fps", [1, 5, 10])
-def test_mjpeg_streamer_fps(tmp_path, max_fps):
-
-    input_address = str(tmp_path / "input")
-
-    listener = Listener(input_address)
+def test_mjpeg_streamer_fps(max_fps):
+    listener = Listener(("localhost", 0))
 
     with Pipeline() as p:
         image = Unpack([skimage.data.astronaut() for _ in range(20)])
         Sleep(0.1)
-        MJPEGStreamer(image, "image", input_address, max_fps=max_fps)
+        MJPEGStreamer(image, "image", listener.address, max_fps=max_fps)
 
     pipeline_thread = threading.Thread(target=p.run)
     pipeline_thread.start()
