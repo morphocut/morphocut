@@ -1,13 +1,13 @@
-from collections import defaultdict
-from multiprocessing.connection import Connection, Listener
-
 import http.server
-import threading
-from http import HTTPStatus
-import time
-from typing import Dict, List, Optional, Tuple, Union
-import traceback
 import logging
+import socketserver
+import threading
+import time
+import traceback
+from collections import defaultdict
+from http import HTTPStatus
+from multiprocessing.connection import Connection, Listener
+from typing import Dict, List, Optional, Tuple, Union
 
 from numpy.lib.arraysetops import isin
 
@@ -123,7 +123,7 @@ class _MJPEGRequestHandler(http.server.BaseHTTPRequestHandler):
             logger.debug("Request closed.")
 
 
-class _MJPEGHTTPServer(http.server.ThreadingHTTPServer):
+class _MJPEGHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     def __init__(self, server_address, publisher, max_fps):
         super().__init__(server_address, _MJPEGRequestHandler)
         self.publisher = publisher
@@ -213,7 +213,8 @@ if __name__ == "__main__":
         raise ValueError(f"Unknown address format: {address!r}")
 
     parser = argparse.ArgumentParser(
-        description="Receive JPEG data and stream as MJPEG using HTTP multipart content."
+        prog="python -m morphocut.mjpeg_streamer.server",
+        description="Receive JPEG data and stream as MJPEG using HTTP multipart content.",
     )
     parser.add_argument(
         "--input-address",
@@ -226,8 +227,8 @@ if __name__ == "__main__":
         "--http-address",
         dest="http_address",
         type=str,
-        help="Listen HTTP requests on this address (default: %(default)s).",
-        default="localhost:8084",
+        help="Listen for HTTP requests on this address (default: %(default)s).",
+        default="localhost:0",
     )
     parser.add_argument("--verbose", "-v", action="count", default=0)
     args = parser.parse_args()

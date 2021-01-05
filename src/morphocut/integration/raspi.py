@@ -5,16 +5,18 @@ import numpy as np
 from morphocut._optional import UnavailableObject
 from morphocut.core import Node, Output, ReturnOutputs, Stream, closing_if_closable
 
+
 def is_raspberrypi():
     """Check if the platform is a Raspberry Pi."""
 
     try:
-        with io.open('/sys/firmware/devicetree/base/model', 'r') as m:
-            if 'raspberry pi' in m.read().lower():
+        with io.open("/sys/firmware/devicetree/base/model", "r") as m:
+            if "raspberry pi" in m.read().lower():
                 return True
     except Exception:
         pass
     return False
+
 
 if is_raspberrypi():
     try:
@@ -35,6 +37,10 @@ else:
 @ReturnOutputs
 @Output("frame")
 class PiCameraReader(Node):
+    """
+    Read frames from the Raspberry Pi's camera.
+    """
+
     def __init__(self, resolution=(1280, 720)):
         super().__init__()
 
