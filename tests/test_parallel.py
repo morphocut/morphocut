@@ -22,6 +22,7 @@ if not sys.platform.startswith("linux"):
 N_STEPS = 31
 
 
+@pytest.mark.xfail(reason="This test is nondeterministic.")
 def test_speed():
 
     with Pipeline() as pipeline:
