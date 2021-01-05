@@ -22,6 +22,7 @@ if not sys.platform.startswith("linux"):
 N_STEPS = 31
 
 
+@pytest.mark.slow
 @pytest.mark.xfail(reason="This test is nondeterministic.")
 def test_speed():
 
@@ -57,6 +58,7 @@ class SomeException(Exception):
     pass
 
 
+@pytest.mark.slow
 def test_exception_main_thread():
 
     with Pipeline() as pipeline:
@@ -81,6 +83,7 @@ class Raiser(Node):
         raise SomeException("foo")
 
 
+@pytest.mark.slow
 def test_exception_worker():
 
     with Pipeline() as pipeline:
