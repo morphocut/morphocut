@@ -82,6 +82,11 @@ def TQDM(*args, **kwargs):
     return Progress(*args, **kwargs)
 
 
+@deprecated(reason="Deprecated in favor of Progress.")
+def TQDM(*args, **kwargs):
+    return Progress(*args, **kwargs)
+
+
 @ReturnOutputs
 class Slice(Node):
     """
