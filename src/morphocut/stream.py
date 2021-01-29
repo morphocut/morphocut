@@ -7,6 +7,8 @@ from threading import Thread
 from typing import Callable, Iterable, Optional, Tuple, Union
 
 import tqdm
+from deprecated.sphinx import deprecated
+
 from morphocut.core import (
     Node,
     Output,
@@ -25,13 +27,13 @@ __all__ = [
     "PrintObjects",
     "Slice",
     "StreamBuffer",
-    "TQDM",
+    "Progress",
     "Unpack",
 ]
 
 
 @ReturnOutputs
-class TQDM(Node):
+class Progress(Node):
     """
     Show a dynamically updating progress bar using `tqdm`_.
 
@@ -44,7 +46,7 @@ class TQDM(Node):
         .. code-block:: python
 
             with Pipeline() as pipeline:
-                TQDM("Description")
+                Progress("Description")
 
         Output: Description|███████████████████████| [00:00, 2434.24it/s]
     """
@@ -69,6 +71,11 @@ class TQDM(Node):
                     progress.set_description(description)
 
                 yield obj
+
+
+@deprecated(reason="Deprecated in favor of Progress.")
+def TQDM(*args, **kwargs):
+    return Progress(*args, **kwargs)
 
 
 @ReturnOutputs
