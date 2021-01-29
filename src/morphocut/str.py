@@ -4,7 +4,12 @@ import warnings
 from typing import Mapping, Optional, Sequence
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, Variable
-from morphocut._optional import import_optional_dependency
+from morphocut._optional import UnavailableObject
+
+try:
+    import parse
+except ImportError:
+    parse = UnavailableObject("parse", "Use pip to install parse.")
 
 
 @ReturnOutputs
@@ -110,9 +115,7 @@ class Parse(Node):
         self.string = string
         self.case_sensitive = case_sensitive
 
-        self._parse = import_optional_dependency("parse")
-
-        @self._parse.with_pattern(".*")
+        @parse.with_pattern(".*")
         def parse_greedystar(text):
             return text
 
@@ -124,7 +127,7 @@ class Parse(Node):
             self._parser = None
 
     def _compile(self, fmt):
-        parser = self._parse.compile(
+        parser = parse.compile(
             fmt, extra_types=self._extra_types, case_sensitive=self.case_sensitive
         )
         if not parser._named_fields:

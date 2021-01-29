@@ -12,6 +12,13 @@ from morphocut.parallel import ParallelPipeline
 from morphocut.stream import Unpack
 from tests.helpers import Sleep
 
+import sys
+
+if not sys.platform.startswith("linux"):
+    pytest.skip(
+        "skipping parallel tests on non-linux platforms", allow_module_level=True
+    )
+
 N_STEPS = 31
 
 
