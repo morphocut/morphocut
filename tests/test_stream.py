@@ -4,7 +4,7 @@ import pytest
 
 from morphocut import Pipeline
 from morphocut.stream import (
-    TQDM,
+    Progress,
     Enumerate,
     Filter,
     FilterVariables,
@@ -16,11 +16,11 @@ from morphocut.stream import (
 )
 
 
-def test_TQDM():
+def test_Progress():
     # Assert that the progress bar works with stream
     with Pipeline() as pipeline:
         item = Unpack(range(10))
-        result = TQDM("Description")
+        result = Progress("Description")
 
     stream = pipeline.transform_stream()
     result = [o[item] for o in stream]

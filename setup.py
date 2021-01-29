@@ -18,7 +18,14 @@ setup(
     packages=find_packages("src"),
     package_dir={"": "src"},
     include_package_data=True,
-    install_requires=["numpy", "scikit-image>=0.16.0", "pandas", "tqdm", "scipy"],
+    install_requires=[
+        "numpy",
+        "scikit-image>=0.16.0",
+        "pandas",
+        "tqdm",
+        "scipy",
+        "deprecated",
+    ],
     python_requires=">=3.6",
     extras_require={
         "tests": [
