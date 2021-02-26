@@ -19,11 +19,3 @@ def test_RunningMedian_numpy():
         running_median = RunningMedian(value, n_init=2)
 
     p.run()
-
-
-def test_ExponentialSmoothing():
-    with Pipeline() as p:
-        value = Unpack(range(20))
-        running_median = ExponentialSmoothing(value, 0.5)
-
-    p.run()

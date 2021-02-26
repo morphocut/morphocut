@@ -1,4 +1,8 @@
-import collections
+"""
+.. note::
+    This module is deprecated.
+"""
+
 import itertools
 from typing import Any, Optional
 
