@@ -37,7 +37,7 @@ class _WindowFilter(Node):
         self.size = size
 
     @abstractmethod
-    def _update(self, value):
+    def _update(self, value):  # pragma: no cover
         return None
 
     def transform_stream(self, stream: Stream) -> Stream:
@@ -94,8 +94,7 @@ class _UFuncFilter(_WindowFilter):
 
     def _update(self, value):
         if value is None:
-            if self._valid is None:
-                raise ValueError("First value must not be None")
+            assert self._valid is not None
             self._valid[self._i] = False
         else:
             value = np.asarray(value)
@@ -142,8 +141,33 @@ class MeanFilter(_UFuncFilter):
 @ReturnOutputs
 @Output("response")
 class ExponentialSmoothingFilter(Node):
-    # TODO
-    ...
+    """
+    Smooth value over a stream of objects with exponential decay.
+
+    Parameters:
+        value (RawOrVariable): Values to smooth.
+        alpha (float): Decaying factor, ``0 <= alpha <= 1``.
+
+    Returns:
+        Variable: Smoothed ``value``.
+
+    Formula: ``out = alpha * value + (1 - alpha) * last_value``
+    """
+
+    def __init__(self, value: RawOrVariable, alpha: float):
+        super().__init__()
+
+        self.value = value
+        self.alpha = alpha
+        self.last_value = None
+
+    def transform(self, value):
+        if self.last_value is None:
+            self.last_value = value
+        else:
+            self.last_value = self.alpha * value + (1 - self.alpha) * self.last_value
+
+        return self.last_value
 
 
 @ReturnOutputs
@@ -151,7 +175,7 @@ class ExponentialSmoothingFilter(Node):
 class BinomialFilter(_WindowFilter):
     def __init__(self, value: RawOrVariable, size: int, centered=True):
         if not centered:
-            raise ValueError("BinomialFilter only supports centered filters.")
+            raise ValueError("BinomialFilter only supports centered filters")
 
         super().__init__(value, size=size, centered=centered)
 
@@ -164,8 +188,7 @@ class BinomialFilter(_WindowFilter):
 
     def _update(self, value):
         if value is None:
-            if self._valid is None:
-                raise ValueError("First value must not be None")
+            assert self._valid is not None
             self._valid[self._i] = False
         else:
             value = np.asarray(value)
