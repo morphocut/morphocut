@@ -1,5 +1,5 @@
 """
-Filters applied to a sliding window of stream objects.
+Signal processing filters applied to a stream objects.
 """
 
 from abc import abstractmethod
@@ -21,6 +21,13 @@ from morphocut.core import (
 
 class _WindowFilter(Node):
     def __init__(self, value: RawOrVariable, size: int = 5, centered=True):
+        """
+        Args:
+            value (Variable): Input to the filter.
+            size (int): Size of the filter.
+            centered (bool): Center the filter at the current object.
+                (The current value then dependes on future and past observations.)
+        """
         super().__init__()
 
         self.value = value
@@ -117,24 +124,32 @@ class _UFuncFilter(_WindowFilter):
 @ReturnOutputs
 @Output("response")
 class MaxFilter(_UFuncFilter):
+    """Calculate the maximum inside the specified window."""
+
     ufunc = np.max
 
 
 @ReturnOutputs
 @Output("response")
 class MinFilter(_UFuncFilter):
+    """Calculate the minimum inside the specified window."""
+
     ufunc = np.min
 
 
 @ReturnOutputs
 @Output("response")
 class MedianFilter(_UFuncFilter):
+    """Calculate the median inside the specified window."""
+
     ufunc = np.median
 
 
 @ReturnOutputs
 @Output("response")
 class MeanFilter(_UFuncFilter):
+    """Calculate the mean inside the specified window."""
+
     ufunc = np.mean
 
 
@@ -173,6 +188,13 @@ class ExponentialSmoothingFilter(Node):
 @ReturnOutputs
 @Output("response")
 class BinomialFilter(_WindowFilter):
+    """
+    Apply a binomial kernel (e.g. [1,2,1]) to the specified window.
+
+    .note:
+        Only supports centered filters.
+    """
+
     def __init__(self, value: RawOrVariable, size: int, centered=True):
         if not centered:
             raise ValueError("BinomialFilter only supports centered filters")
