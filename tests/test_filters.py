@@ -1,5 +1,11 @@
 from morphocut.core import Pipeline, ReturnOutputs, Output
-from morphocut.filters import BinomialFilter, MaxFilter, MedianFilter, _WindowFilter
+from morphocut.filters import (
+    BinomialFilter,
+    ExponentialSmoothingFilter,
+    MaxFilter,
+    MedianFilter,
+    _WindowFilter,
+)
 from morphocut.stream import Unpack
 import numpy as np
 import pytest
@@ -10,6 +16,38 @@ import pytest
 class IdFilter(_WindowFilter):
     def _update(self, value):
         return value
+
+
+@pytest.mark.parametrize(
+    "filter_cls", [MaxFilter, MedianFilter, BinomialFilter, IdFilter]
+)
+def test_filter_negative_size(filter_cls):
+    values = list(range(10))
+    with pytest.raises(ValueError, match="size must be positive"):
+        with Pipeline() as p:
+            value = Unpack(values)
+            response = filter_cls(value, size=-1)
+
+
+@pytest.mark.parametrize(
+    "filter_cls", [MaxFilter, MedianFilter, BinomialFilter, IdFilter]
+)
+def test_filter_even_size_centered(filter_cls):
+    values = list(range(10))
+    with pytest.raises(ValueError, match="size must be odd if centered"):
+        with Pipeline() as p:
+            value = Unpack(values)
+            response = filter_cls(value, size=4, centered=True)
+
+
+def test_binomial_uncentered():
+    values = list(range(10))
+    with pytest.raises(
+        ValueError, match="BinomialFilter only supports centered filters"
+    ):
+        with Pipeline() as p:
+            value = Unpack(values)
+            response = BinomialFilter(value, size=3, centered=False)
 
 
 @pytest.mark.parametrize("centered", [True, False])
@@ -62,3 +100,11 @@ def test_filter_numpy(filter_cls):
     print(responses)
 
     assert len(responses) == len(values)
+
+
+def test_ExponentialSmoothingFilter():
+    with Pipeline() as p:
+        value = Unpack(range(20))
+        running_median = ExponentialSmoothingFilter(value, 0.5)
+
+    p.run()
