@@ -12,7 +12,7 @@ from typing import (
     Callable,
     Dict,
     Generic,
-    Iterable,
+    Iterator,
     List,
     Optional,
     Tuple,
@@ -31,7 +31,7 @@ class StreamTransformer(ABC):
         self.id = "{:x}".format(id(self))
 
     @abstractmethod
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: "Stream") -> "Stream":
         while False:
             yield
 
@@ -370,7 +370,7 @@ class Variable(Generic[T]):
 RawOrVariable = Union[T, Variable[T]]
 NodeCallReturnType = Union[None, Variable, Tuple[Variable]]
 
-Stream = Iterable["StreamObject"]
+Stream = Iterator["StreamObject"]
 r"""A stream is an Iterable of :py:class:`StreamObject`\ s."""
 
 class EmptyPipelineStackError(Exception):
@@ -688,6 +688,12 @@ class StreamObject(abc.MutableMapping):
 
         return {k: self[v] for k, v in kwargs.items()}
 
+def check_stream(stream: Optional[Stream]) -> Stream:
+    """Ensure that `stream` is a valid stream."""
+
+    if stream is None:
+        return iter([StreamObject()])
+    return stream
 
 class Pipeline(StreamTransformer):
     """
@@ -754,8 +760,8 @@ class Pipeline(StreamTransformer):
         Returns:
             Stream: An iterable of stream objects.
         """
-        if stream is None:
-            stream = [StreamObject()]
+
+        stream = check_stream(stream)
 
         # Here, the stream is not automatically closed,
         # as this would happen instantaneously.
