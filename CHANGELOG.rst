@@ -7,6 +7,8 @@ Changelog
 Added
 ~~~~~
 
+- Added `filters` as a replacement for `stat` (#77).
+
 Changed
 ~~~~~~~
 
@@ -15,6 +17,8 @@ Changed
 
 Deprecated
 ~~~~~~~~~~
+
+- Deprecate `stat` (#77).
 
 Removed
 ~~~~~~~
