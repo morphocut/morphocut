@@ -5,6 +5,7 @@ Filters applied to a sliding window of stream objects.
 from abc import abstractmethod
 from collections import deque
 
+import scipy.special
 import numpy as np
 
 from morphocut.core import (
@@ -18,7 +19,7 @@ from morphocut.core import (
 )
 
 
-class _BaseFilter(Node):
+class _WindowFilter(Node):
     def __init__(self, value: RawOrVariable, size: int = 5, centered=True):
         super().__init__()
 
@@ -81,7 +82,7 @@ class _BaseFilter(Node):
             assert not obj_queue
 
 
-class _UFuncFilter(_BaseFilter):
+class _UFuncFilter(_WindowFilter):
     ufunc: np.ufunc
 
     def __init__(self, value: RawOrVariable, size: int = 5, centered=True):
@@ -136,3 +137,59 @@ class MedianFilter(_UFuncFilter):
 @Output("response")
 class MeanFilter(_UFuncFilter):
     ufunc = np.mean
+
+
+@ReturnOutputs
+@Output("response")
+class ExponentialSmoothingFilter(Node):
+    # TODO
+    ...
+
+
+@ReturnOutputs
+@Output("response")
+class BinomialFilter(_WindowFilter):
+    def __init__(self, value: RawOrVariable, size: int, centered=True):
+        if not centered:
+            raise ValueError("BinomialFilter only supports centered filters.")
+
+        super().__init__(value, size=size, centered=centered)
+
+        self._weights = scipy.special.binom(self.size - 1, np.arange(self.size))
+        self._weights = np.roll(self._weights, 1)
+
+        self._acc = None
+        self._valid = None
+        self._i = 0
+
+    def _update(self, value):
+        if value is None:
+            if self._valid is None:
+                raise ValueError("First value must not be None")
+            self._valid[self._i] = False
+        else:
+            value = np.asarray(value)
+
+            if self._acc is None:
+                self._acc = np.zeros((self.size,) + value.shape)
+                self._valid = np.zeros((self.size,), dtype=bool)
+
+                if self._acc.ndim > 1:
+                    self._weights = self._weights[:, np.newaxis]
+
+            self._acc[self._i] = value
+            self._valid[self._i] = True
+
+        print("weights", self._weights, "i", self._i)
+
+        if self._valid.any():
+            response = (self._weights * self._acc)[self._valid].sum(axis=0)
+            response /= self._weights[self._valid].sum()
+        else:
+            response = None
+
+        # Increase i and roll weights
+        self._i = (self._i + 1) % self.size
+        self._weights = np.roll(self._weights, 1)
+
+        return response
