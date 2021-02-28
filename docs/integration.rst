@@ -1,5 +1,3 @@
-.. _integration:
-
 Integration
 ===========
 
@@ -9,4 +7,10 @@ FlowCam
 -------
 
 .. automodule:: morphocut.integration.flowcam
+    :members:
+
+RaspberryPi
+-------
+
+.. automodule:: morphocut.integration.raspi
     :members:
