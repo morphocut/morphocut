@@ -86,9 +86,10 @@ def test_filter_scalar_centered_is_symmetric(filter_cls):
     assert responses == responses_r[::-1]
 
 
+@pytest.mark.parametrize("shape", [(), (1,), (4, 6), (4, 6, 3)])
 @pytest.mark.parametrize("filter_cls", [MaxFilter, MedianFilter, BinomialFilter])
-def test_filter_numpy(filter_cls):
-    values = np.arange(20)[:, np.newaxis] * np.ones((10))
+def test_filter_numpy(filter_cls, shape):
+    values = [i * np.ones(shape) for i in range(20)]
 
     with Pipeline() as p:
         value = Unpack(values)
@@ -100,6 +101,9 @@ def test_filter_numpy(filter_cls):
     print(responses)
 
     assert len(responses) == len(values)
+
+    for resp in responses:
+        assert resp.shape == shape
 
 
 def test_ExponentialSmoothingFilter():
