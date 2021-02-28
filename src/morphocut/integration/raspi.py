@@ -1,4 +1,5 @@
 import io
+import itertools
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -20,49 +21,56 @@ def is_raspberrypi():
 
 
 if TYPE_CHECKING:
-    import picamera
     import picamera.array as picamera_array
+    import picamera.camera as picamera_camera
 elif is_raspberrypi():
     try:
-        import picamera
         import picamera.array as picamera_array
+        import picamera.camera as picamera_camera
     except ImportError:
         msg = "See https://picamera.readthedocs.io/en/latest/install.html for installation instructions."
-        picamera = UnavailableObject("picamera", msg)
         picamera_array = UnavailableObject("picamera.array", msg)
+        picamera_camera = UnavailableObject("picamera.camera", msg)
 else:
     # picamera is installable and importable on systems other than the Raspberry Pi (using READTHEDOCS=True during installation),
     # but still not usable.
     msg = "This only works on a Raspberry Pi."
-    picamera = UnavailableObject("picamera", msg)
     picamera_array = UnavailableObject("picamera.array", msg)
+    picamera_camera = UnavailableObject("picamera.camera", msg)
 
 
 @ReturnOutputs
 @Output("frame")
 class PiCameraReader(Node):
     """
-    Read frames from the Raspberry Pi's camera.
+    |stream| Read frames from the Raspberry Pi's camera.
 
     Args:
         resolution (tuple (width, height), optional): The desired image resolution.
     """
 
-    def __init__(self, resolution=(1280, 720)):
+    def __init__(self, **kwargs):
         super().__init__()
 
-        self._resolution = picamera_array.raw_resolution(resolution)
+        kwargs.setdefault("resolution", picamera_camera.PiCameraMaxResolution)
+
+        self.kwargs = kwargs
 
     def transform_stream(self, stream: Stream) -> Stream:
-        with picamera.PiCamera(resolution=self._resolution) as cam:
+        with picamera_camera.PiCamera(**self.kwargs) as cam:
+            resolution = picamera_array.raw_resolution(cam.resolution)
+
             with closing_if_closable(stream):
                 for obj in stream:
 
-                    while True:
-                        # Get image
-                        output = np.empty(self._resolution[::-1] + (3,), dtype=np.uint8)
-                        cam.capture(output, "rgb")
-
+                    # Capture continously, each time into a fresh buffer
+                    for output in cam.capture_continuous(
+                        (
+                            np.empty(resolution[::-1] + (3,), dtype=np.uint8)
+                            for _ in itertools.repeat(None)
+                        ),
+                        format="rgb",
+                    ):
                         self.prepare_output(obj, output)
 
                         yield obj
