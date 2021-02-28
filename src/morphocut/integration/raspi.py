@@ -47,6 +47,11 @@ class PiCameraReader(Node):
 
     Args:
         resolution (tuple (width, height), optional): The desired image resolution.
+
+    Example:
+        .. code-block:: python
+
+            frame = PiCameraReader()
     """
 
     def __init__(self, **kwargs):
