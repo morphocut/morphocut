@@ -11,6 +11,7 @@ DURATION_INNER = 0.001
 DURATION_OUTER = 0.01
 
 
+@pytest.mark.slow
 def test_Profile():
 
     with Pipeline() as pipeline:
