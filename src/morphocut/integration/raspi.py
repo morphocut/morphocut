@@ -1,4 +1,5 @@
 import io
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -18,7 +19,10 @@ def is_raspberrypi():
     return False
 
 
-if is_raspberrypi():
+if TYPE_CHECKING:
+    import picamera
+    import picamera.array as picamera_array
+elif is_raspberrypi():
     try:
         import picamera
         import picamera.array as picamera_array
@@ -39,6 +43,9 @@ else:
 class PiCameraReader(Node):
     """
     Read frames from the Raspberry Pi's camera.
+
+    Args:
+        resolution (tuple (width, height), optional): The desired image resolution.
     """
 
     def __init__(self, resolution=(1280, 720)):
@@ -47,17 +54,17 @@ class PiCameraReader(Node):
         self._resolution = picamera_array.raw_resolution(resolution)
 
     def transform_stream(self, stream: Stream) -> Stream:
-        cam = picamera.PiCamera(resolution=self._resolution)
-        with closing_if_closable(stream):
-            for obj in stream:
+        with picamera.PiCamera(resolution=self._resolution) as cam:
+            with closing_if_closable(stream):
+                for obj in stream:
 
-                while True:
-                    # Get image
-                    output = np.empty(self._resolution[::-1] + (3,), dtype=np.uint8)
-                    cam.capture(output, "rgb")
+                    while True:
+                        # Get image
+                        output = np.empty(self._resolution[::-1] + (3,), dtype=np.uint8)
+                        cam.capture(output, "rgb")
 
-                    self.prepare_output(obj, output)
+                        self.prepare_output(obj, output)
 
-                    yield obj
+                        yield obj
 
         self.after_stream()
