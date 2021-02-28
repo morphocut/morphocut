@@ -63,15 +63,11 @@ class PiCameraReader(Node):
             with closing_if_closable(stream):
                 for obj in stream:
 
-                    # Capture continously, each time into a fresh buffer
-                    for output in cam.capture_continuous(
-                        (
-                            np.empty(resolution[::-1] + (3,), dtype=np.uint8)
-                            for _ in itertools.repeat(None)
-                        ),
-                        format="rgb",
-                    ):
-                        self.prepare_output(obj, output)
+                    output = np.empty(resolution[::-1] + (3,), dtype=np.uint8)
+
+                    # Capture continously
+                    for _ in cam.capture_continuous(output, format="rgb"):
+                        self.prepare_output(obj, output.copy())
 
                         yield obj
 
