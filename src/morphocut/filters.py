@@ -219,13 +219,13 @@ class BinomialFilter(_WindowFilter):
                 self._acc = np.zeros((self.size,) + value.shape)
                 self._valid = np.zeros((self.size,), dtype=bool)
 
-                if self._acc.ndim > 1:
-                    self._weights = self._weights[:, np.newaxis]
+                # Adapt shape to data shape
+                self._weights.shape = (-1,) + tuple(
+                    1 for _ in range(self._acc.ndim - 1)
+                )
 
             self._acc[self._i] = value
             self._valid[self._i] = True
-
-        print("weights", self._weights, "i", self._i)
 
         if self._valid.any():
             response = (self._weights * self._acc)[self._valid].sum(axis=0)
