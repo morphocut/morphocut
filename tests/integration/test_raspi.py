@@ -1,5 +1,5 @@
 import pytest
-from morphocut.integration.raspi import PiCameraReader
+from morphocut.integration.raspi import PiCameraReader, is_raspberrypi
 from morphocut import Pipeline
 from morphocut._optional import UnavailableObjectError
 from morphocut.stream import Slice
@@ -9,13 +9,18 @@ picamera_available = False
 try:
     import picamera
 
-    picamera.PiCamera()
+    with picamera.PiCamera():
+        pass
 except:
     pass
 else:
     picamera_available = True
 
 print("picamera_available", picamera_available)
+
+
+def test_is_raspberrypi():
+    assert is_raspberrypi() == picamera_available
 
 
 @pytest.mark.skipif(picamera_available, reason="picamera available")
