@@ -31,3 +31,5 @@ Removed
 
 Fixed
 ~~~~~
+
+- ValueError: 'version' argument is required in Sphinx directives #80
