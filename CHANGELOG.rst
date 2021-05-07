@@ -7,6 +7,10 @@ Changelog
 Added
 ~~~~~
 
+- Added `mjpeg_streamer.MJPEGStreamer`: Stream images via HTTP (e.g. to the Browser). (#75)
+- Added `integration.raspi.PiCameraReader`: Read frames from the Raspberry Pi's camera. (#75)
+- Added `filters` as a replacement for `stat` (#77).
+
 Changed
 ~~~~~~~
 
@@ -16,6 +20,8 @@ Changed
 Deprecated
 ~~~~~~~~~~
 
+- Deprecate `stat` (#77).
+
 Removed
 ~~~~~~~
 
@@ -23,3 +29,5 @@ Removed
 
 Fixed
 ~~~~~
+
+- ValueError: 'version' argument is required in Sphinx directives #80

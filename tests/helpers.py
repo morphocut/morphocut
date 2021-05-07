@@ -49,6 +49,10 @@ class Const(Node):
 
 
 class Sleep(Node):
+    """
+    Tests that use Sleep should be marked with :code:`@pytest.mark.slow`.
+    """
+
     def __init__(self, duration=0.001):
         super().__init__()
         self.duration = duration

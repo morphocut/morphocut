@@ -14,3 +14,4 @@ pip-wheel-metadata/
 docs/inventory/
 *.code-workspace
 .coverage.*
+.venv/
