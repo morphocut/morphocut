@@ -14,6 +14,7 @@ from morphocut.core import (
     Output,
     RawOrVariable,
     ReturnOutputs,
+    Stream,
     StreamObject,
     Variable,
     closing_if_closable,
@@ -58,7 +59,7 @@ class Progress(Node):
         self.description = description
         self.monitor_interval = monitor_interval
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: Stream):
         with closing_if_closable(stream), tqdm.tqdm(stream) as progress:
             if self.monitor_interval is not None:
                 progress.monitor_interval = self.monitor_interval
@@ -76,6 +77,8 @@ class Progress(Node):
 @deprecated(reason="Deprecated in favor of Progress.", version="0.2.x")
 def TQDM(*args, **kwargs):
     return Progress(*args, **kwargs)
+
+TQDM.__doc__ = Progress.__doc__
 
 
 @ReturnOutputs
@@ -95,7 +98,7 @@ class Slice(Node):
         super().__init__()
         self.args = args
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: Stream):
         with closing_if_closable(stream):
             for obj in itertools.islice(stream, *self.args):
                 yield obj
@@ -118,7 +121,7 @@ class StreamBuffer(Node):
         super().__init__()
         self.queue = Queue(maxsize)
 
-    def _fill_queue(self, stream):
+    def _fill_queue(self, stream: Stream):
         try:
             with closing_if_closable(stream):
                 for obj in stream:
@@ -126,7 +129,7 @@ class StreamBuffer(Node):
         finally:
             self.queue.put(self._sentinel)
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: Stream):
         thread = Thread(target=self._fill_queue, args=(stream,), daemon=True)
         thread.start()
 
@@ -155,7 +158,7 @@ class PrintObjects(Node):
         super().__init__()
         self.args = args
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: Stream):
         with closing_if_closable(stream):
             for obj in stream:
                 print("Stream object at 0x{:x}".format(id(obj)))
@@ -182,7 +185,7 @@ class Enumerate(Node):
         super().__init__()
         self.start = start
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: Stream):
         with closing_if_closable(stream):
             for i, obj in enumerate(stream, start=self.start):
                 yield self.prepare_output(obj, i)
@@ -223,7 +226,7 @@ class Unpack(Node):
         super().__init__()
         self.iterable = iterable
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: Stream):
         """Transform a stream."""
 
         with closing_if_closable(stream):
@@ -268,7 +271,7 @@ class Pack(Node):
         # Mess with self.outputs
         self.outputs = [Variable(v.name, self) for v in self.variables]
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: Stream):
         while True:
             packed = list(itertools.islice(stream, self.size))
 
@@ -331,7 +334,7 @@ class Filter(Node):
         else:
             self.predicate = predicate
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: Stream):
         with closing_if_closable(stream):
             for obj in stream:
                 if not self.predicate(obj):
@@ -356,7 +359,7 @@ class FilterVariables(Node):
             for v in variables
         }
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: Stream):
         with closing_if_closable(stream):
             for obj in stream:
                 yield StreamObject({k: v for k, v in obj.items() if k in self.keys})
