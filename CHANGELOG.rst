@@ -7,6 +7,8 @@ Changelog
 Added
 ~~~~~
 
+- `batch.BatchPipeline`: Combine consecutive objects into a batch.
+
 Changed
 ~~~~~~~
 

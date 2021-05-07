@@ -747,6 +747,13 @@ class Pipeline(StreamTransformer):
 
         assert item is self
 
+    @staticmethod
+    def check_stream(stream: Optional[Stream]) -> Stream:
+        if stream is None:
+            return [StreamObject(stream_length=1)]
+
+        return stream
+
     def transform_stream(self, stream: Optional[Stream] = None) -> Stream:
         """
         Run the stream through all nodes and return it.
@@ -758,8 +765,8 @@ class Pipeline(StreamTransformer):
         Returns:
             Stream: An iterable of stream objects.
         """
-        if stream is None:
-            stream = [StreamObject(stream_length=1)]
+        
+        stream = self.check_stream(stream)
 
         # Here, the stream is not automatically closed,
         # as this would happen instantaneously.
