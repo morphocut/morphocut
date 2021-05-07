@@ -16,6 +16,8 @@ Changed
 Deprecated
 ~~~~~~~~~~
 
+- `stream.TQDM` in favor of `stream.Progress`
+
 Removed
 ~~~~~~~
 

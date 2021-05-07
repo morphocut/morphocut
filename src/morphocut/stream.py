@@ -14,6 +14,7 @@ from morphocut.core import (
     Output,
     RawOrVariable,
     ReturnOutputs,
+    Stream,
     StreamObject,
     Variable,
     closing_if_closable,
@@ -58,7 +59,7 @@ class Progress(Node):
         self.description = description
         self.monitor_interval = monitor_interval
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: Stream):
         with closing_if_closable(stream), tqdm.tqdm(stream) as progress:
             if self.monitor_interval is not None:
                 progress.monitor_interval = self.monitor_interval
@@ -70,10 +71,13 @@ class Progress(Node):
                 if description:
                     progress.set_description(description)
 
+                if obj.stream_length is not None:
+                    progress.total = obj.stream_length
+
                 yield obj
 
-
-@deprecated(reason="Deprecated in favor of Progress.")
+# TODO: Version
+@deprecated(reason="Deprecated in favor of Progress.", version="0.2.x")
 def TQDM(*args, **kwargs):
     return Progress(*args, **kwargs)
 
@@ -98,6 +102,10 @@ class Slice(Node):
     def transform_stream(self, stream):
         with closing_if_closable(stream):
             for obj in itertools.islice(stream, *self.args):
+                if obj.stream_length is not None:
+                    obj.stream_length = len(
+                        range(*slice(*self.args).indices(obj.stream_length))
+                    )
                 yield obj
 
 
