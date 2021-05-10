@@ -48,7 +48,7 @@ def test_StreamEstimator_full_estimate():
 
     n_remaining = []
     for i in range(stream_length):
-        with est.incoming_object(stream_length - i, multiplier):
+        with est.incoming_object(stream_length - i, local_estimate=multiplier):
             for j in range(multiplier):
                 n_remaining.append(est.emit())
 
@@ -79,7 +79,7 @@ def test_StreamEstimator_non_deterministic_full_estimate():
     n_remaining = []
     for i in range(stream_length):
         local_mult = random.randint(1, 10)
-        with est.incoming_object(stream_length - i, local_mult):
+        with est.incoming_object(stream_length - i, local_estimate=local_mult):
             for j in range(local_mult):
                 n_remaining.append(est.emit())
 
@@ -98,9 +98,9 @@ def test_StreamEstimator_stacked():
 
     n_remaining = []
     for i in range(length0):
-        with est0.incoming_object(length0 - i, length1):
+        with est0.incoming_object(length0 - i, local_estimate=length1):
             for j in range(length1):
-                with est1.incoming_object(est0.emit(), length2):
+                with est1.incoming_object(est0.emit(), local_estimate=length2):
                     for k in range(length2):
                         n_remaining.append(est1.emit())
 

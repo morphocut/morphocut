@@ -1,5 +1,12 @@
 from typing import Optional
-from morphocut.core import Stream, StreamObject
+
+from morphocut.core import (
+    Node,
+    Output,
+    ReturnOutputs,
+    Stream,
+    closing_if_closable,
+)
 
 
 class _ObjectContext:
@@ -48,6 +55,7 @@ class StreamEstimator:
     def incoming_object(
         self,
         n_remaining_hint: Optional[int],
+        *,
         local_estimate: Optional[int] = None,
         n_consumed=1,
     ):
@@ -74,17 +82,21 @@ class StreamEstimator:
         n_remaining_hint = None
         if self.n_remaining_in is not None and self.global_estimate is not None:
             if self.local_estimate is not None:
-                n_remaining_hint = (
-                    round(
-                        (self.n_remaining_in - 1) * self.global_estimate
-                        + self.local_estimate
-                    )
-                    - self.n_emitted_local
+                n_remaining_hint = max(
+                    1,
+                    (
+                        round(
+                            (self.n_remaining_in - 1) * self.global_estimate
+                            + self.local_estimate
+                        )
+                        - self.n_emitted_local
+                    ),
                 )
             else:
-                n_remaining_hint = (
+                n_remaining_hint = max(
+                    1,
                     round(self.n_remaining_in * self.global_estimate)
-                    - self.n_emitted_local
+                    - self.n_emitted_local,
                 )
 
         self.n_emitted += 1
@@ -92,6 +104,15 @@ class StreamEstimator:
 
         return n_remaining_hint
 
-    def prepare_object(self, obj: StreamObject):
-        obj.n_remaining_hint = self.emit()
-        return obj
+
+@ReturnOutputs
+@Output("n_remaining_hint")
+class RemainingHint(Node):
+    """
+    Extract n_remaining_hint from an object.
+    """
+
+    def transform_stream(self, stream: Stream):
+        with closing_if_closable(stream):
+            for obj in stream:
+                yield self.prepare_output(obj, obj.n_remaining_hint)
