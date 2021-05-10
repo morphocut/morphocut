@@ -84,7 +84,7 @@ def test_StreamEstimator_non_deterministic_full_estimate():
                 n_remaining.append(est.emit())
 
     # Last estimate is 1
-    assert n_remaining[-1] == [1]
+    assert n_remaining[-1] == 1
 
 
 def test_StreamEstimator_stacked():

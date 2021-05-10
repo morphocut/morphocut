@@ -107,14 +107,11 @@ class Slice(Node):
 
     def __init__(self, *args: Optional[int]):
         super().__init__()
-        if len(args) == 1:
-            (self.stop,) = args
-        else:
-            self.start, self.stop, self.step = args
+        self.args = args
 
     def transform_stream(self, stream: Stream):
         with closing_if_closable(stream):
-            for obj in itertools.islice(stream, self.start, self.stop, self.step):
+            for obj in itertools.islice(stream, *self.args):
                 yield obj
 
 
@@ -245,7 +242,7 @@ class Unpack(Node):
         with closing_if_closable(stream):
             stream_estimator = StreamEstimator()
             for obj in stream:
-                collection = self.prepare_input(obj, "collection")
+                collection = tuple(self.prepare_input(obj, "collection"))
                 with stream_estimator.incoming_object(
                     obj.n_remaining_hint, len(collection)
                 ):
