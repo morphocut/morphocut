@@ -374,10 +374,8 @@ Stream = Iterator["StreamObject"]
 r"""A stream is an Iterator of :py:class:`StreamObject`\ s."""
 
 
-
 class EmptyPipelineStackError(Exception):
     """Raised when a node is created outside of a Pipeline context."""
-
 
 
 class Node(StreamTransformer):
@@ -761,13 +759,6 @@ class Pipeline(StreamTransformer):
         item = _pipeline_stack.pop()
 
         assert item is self
-
-    @staticmethod
-    def check_stream(stream: Optional[Stream]) -> Stream:
-        if stream is None:
-            return [StreamObject(stream_length=1)]
-
-        return stream
 
     def transform_stream(self, stream: Optional[Stream] = None) -> Stream:
         """
