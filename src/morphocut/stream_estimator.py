@@ -23,7 +23,19 @@ class _ObjectContext:
 
 
 class StreamEstimator:
-    """Estimate the number of remaining objects in the stream."""
+    """
+    Estimate the number of remaining objects in the stream.
+
+    Example:
+        .. code-block:: python
+
+            est = StreamEstimator()
+
+            for obj in stream:
+                with est.incoming_object(obj.n_remaining_hint):
+                    for ...:
+                        yield prepare_object(obj.copy(), n_remaining_hint=est.emit())
+    """
 
     def __init__(self) -> None:
         self.n_remaining_in = None
