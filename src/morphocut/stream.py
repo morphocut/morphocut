@@ -77,6 +77,7 @@ class Progress(Node):
 
                 yield obj
 
+
 # TODO: Version
 @deprecated(reason="Deprecated in favor of Progress.", version="0.2.x")
 def TQDM(*args, **kwargs):
@@ -106,9 +107,9 @@ class Slice(Node):
     def transform_stream(self, stream: Stream):
         with closing_if_closable(stream):
             for obj in itertools.islice(stream, *self.args):
-                if obj.stream_length is not None:
-                    obj.stream_length = len(
-                        range(*slice(*self.args).indices(obj.stream_length))
+                if obj.n_remaining_hint is not None:
+                    obj.n_remaining_hint = len(
+                        range(*slice(*self.args).indices(obj.n_remaining_hint))
                     )
                 yield obj
 
@@ -242,7 +243,7 @@ class Unpack(Node):
             for obj in stream:
                 collection = tuple(self.prepare_input(obj, "collection"))
                 with stream_estimator.incoming_object(
-                    obj.n_remaining_hint, len(collection)
+                    obj.n_remaining_hint, local_estimate=len(collection)
                 ):
                     for value in collection:
                         yield self.prepare_output(
