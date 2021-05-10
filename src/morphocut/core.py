@@ -371,11 +371,12 @@ RawOrVariable = Union[T, Variable[T]]
 NodeCallReturnType = Union[None, Variable, Tuple[Variable]]
 
 Stream = Iterator["StreamObject"]
-r"""A stream is an Iterable of :py:class:`StreamObject`\ s."""
+r"""A stream is an Iterator of :py:class:`StreamObject`\ s."""
+
 
 class EmptyPipelineStackError(Exception):
     """Raised when a node is created outside of a Pipeline context."""
-    pass
+
 
 class Node(StreamTransformer):
     """Base class for all stream processing nodes."""
@@ -396,7 +397,7 @@ class Node(StreamTransformer):
                     self.__class__.__name__
                 )
             ) from None
-        
+
         self.rank = pipeline_top.add_child(self)
 
     def __bind_output(self, port: "Output"):
