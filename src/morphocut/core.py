@@ -760,13 +760,6 @@ class Pipeline(StreamTransformer):
 
         assert item is self
 
-    @staticmethod
-    def check_stream(stream: Optional[Stream]) -> Stream:
-        if stream is None:
-            return [StreamObject(stream_length=1)]
-
-        return stream
-
     def transform_stream(self, stream: Optional[Stream] = None) -> Stream:
         """
         Run the stream through all nodes and return it.
