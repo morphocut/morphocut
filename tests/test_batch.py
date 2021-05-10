@@ -3,6 +3,8 @@ from morphocut.core import Call, Pipeline
 from morphocut.stream import Unpack
 import pytest
 import itertools
+from morphocut.stream_estimator import RemainingHint
+
 
 def chunks(it, size):
     it = iter(it)
@@ -13,20 +15,22 @@ def chunks(it, size):
 
         yield chunk
 
+
 @pytest.mark.parametrize(
     "seq_len",
-    [
-        5, 10, 100, 111
-    ],
+    [5, 10, 100, 111],
 )
 def test_BatchPipeline(seq_len):
     batch_size = 10
     values = list(range(seq_len))
     with Pipeline() as pipeline:
         a = Unpack(values)
+        remaining0 = RemainingHint()
         with BatchPipeline(batch_size):
             # Inside BatchPipeline, a is a Sequence
             b = Call(sum, a)
+            # remaining1 = RemainingHint()
+        remaining2 = RemainingHint()
 
     result = list(pipeline.transform_stream())
 
@@ -36,3 +40,9 @@ def test_BatchPipeline(seq_len):
     b_expected = [sum(chunk) for chunk in chunks(values, batch_size)]
 
     assert [r[b] for r in result[::batch_size]] == b_expected
+
+    # print("remaining0", [r[remaining0] for r in result])
+    # print("remaining1", [r[remaining1] for r in result])
+    # print("remaining2", [r[remaining2] for r in result])
+
+    assert [r[remaining0] for r in result] == [r[remaining2] for r in result]
