@@ -371,13 +371,11 @@ RawOrVariable = Union[T, Variable[T]]
 NodeCallReturnType = Union[None, Variable, Tuple[Variable]]
 
 Stream = Iterator["StreamObject"]
-r"""A stream is an Iterable of :py:class:`StreamObject`\ s."""
+r"""A stream is an Iterator of :py:class:`StreamObject`\ s."""
 
 
 class EmptyPipelineStackError(Exception):
     """Raised when a node is created outside of a Pipeline context."""
-
-    pass
 
 
 class Node(StreamTransformer):
