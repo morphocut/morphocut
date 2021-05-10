@@ -4,7 +4,8 @@ import itertools
 import pprint
 from queue import Queue
 from threading import Thread
-from typing import Callable, Iterable, Optional, Tuple, Union
+from typing import Callable, Collection, Iterable, Optional, Tuple, Union
+from morphocut.stream_estimator import StreamEstimator
 
 import tqdm
 from deprecated.sphinx import deprecated
@@ -64,17 +65,18 @@ class Progress(Node):
             if self.monitor_interval is not None:
                 progress.monitor_interval = self.monitor_interval
 
-            for obj in progress:
+            for n_processed, obj in enumerate(progress):
 
                 description = self.prepare_input(obj, "description")
 
                 if description:
                     progress.set_description(description)
 
-                if obj.stream_length is not None:
-                    progress.total = obj.stream_length
+                if obj.n_remaining_hint is not None:
+                    progress.total = n_processed + obj.n_remaining_hint
 
                 yield obj
+
 
 # TODO: Version
 @deprecated(reason="Deprecated in favor of Progress.", version="0.2.x")
@@ -85,6 +87,7 @@ def TQDM(*args, **kwargs):
 @deprecated(reason="Deprecated in favor of Progress.", version="0.2.x")
 def TQDM(*args, **kwargs):
     return Progress(*args, **kwargs)
+
 
 TQDM.__doc__ = Progress.__doc__
 
@@ -104,19 +107,17 @@ class Slice(Node):
 
     def __init__(self, *args: Optional[int]):
         super().__init__()
-        self.args = args
+        if len(args) == 1:
+            (self.stop,) = args
+        else:
+            self.start, self.stop, self.step = args
 
     def transform_stream(self, stream: Stream):
         with closing_if_closable(stream):
-            for obj in itertools.islice(stream, *self.args):
-                if obj.stream_length is not None:
-                    obj.stream_length = len(
-                        range(*slice(*self.args).indices(obj.stream_length))
-                    )
+            for obj in itertools.islice(stream, self.start, self.stop, self.step):
                 yield obj
 
 
-@ReturnOutputs
 class StreamBuffer(Node):
     """
     Buffer the stream.
@@ -166,7 +167,7 @@ class PrintObjects(Node):
        *args (Variable): Variables to display.
     """
 
-    def __init__(self, *args: Tuple[Variable]):
+    def __init__(self, *args: Variable):
         super().__init__()
         self.args = args
 
@@ -207,12 +208,12 @@ class Enumerate(Node):
 @Output("value")
 class Unpack(Node):
     """
-    |stream| Unpack values from an iterable into the :py:obj:`~morphocut.core.Stream`.
+    |stream| Unpack values from a collection into the :py:obj:`~morphocut.core.Stream`.
 
     The result is basically the cross-product of the stream with the iterable.
 
     Args:
-        iterable (Iterable or Variable): An iterable to unpack.
+        collection (Collection or Variable): An iterable to unpack.
 
     Returns:
        Variable: One value from the iterable.
@@ -234,19 +235,24 @@ class Unpack(Node):
         :py:class:`~morphocut.stream.Pack`
     """
 
-    def __init__(self, iterable: RawOrVariable[Iterable]):
+    def __init__(self, collection: RawOrVariable[Collection]):
         super().__init__()
-        self.iterable = iterable
+        self.collection = collection
 
     def transform_stream(self, stream: Stream):
         """Transform a stream."""
 
         with closing_if_closable(stream):
+            stream_estimator = StreamEstimator()
             for obj in stream:
-                iterable = self.prepare_input(obj, "iterable")
-
-                for value in iterable:
-                    yield self.prepare_output(obj.copy(), value)
+                collection = self.prepare_input(obj, "collection")
+                with stream_estimator.incoming_object(
+                    obj.n_remaining_hint, len(collection)
+                ):
+                    for value in collection:
+                        yield self.prepare_output(
+                            obj.copy(), value, n_remaining_hint=stream_estimator.emit()
+                        )
 
 
 @ReturnOutputs
@@ -284,15 +290,25 @@ class Pack(Node):
         self.outputs = [Variable(v.name, self) for v in self.variables]
 
     def transform_stream(self, stream: Stream):
+        stream_estimator = StreamEstimator()
+
         while True:
             packed = list(itertools.islice(stream, self.size))
 
             if not packed:
                 break
 
-            packed_values = tuple(tuple(o[v] for o in packed) for v in self.variables)
+            with stream_estimator.incoming_object(
+                packed[0].n_remaining_hint, n_consumed=len(packed)
+            ):
 
-            yield self.prepare_output(packed[0], *packed_values)
+                packed_values = tuple(
+                    tuple(o[v] for o in packed) for v in self.variables
+                )
+
+                yield self.prepare_output(
+                    packed[0], *packed_values, n_remaining_hint=stream_estimator.emit()
+                )
 
 
 class _Predicate:
@@ -303,7 +319,6 @@ class _Predicate:
         return obj[self.variable]
 
 
-@ReturnOutputs
 class Filter(Node):
     """
     |stream| Filter objects in the :py:obj:`~morphocut.core.Stream`.
@@ -348,11 +363,15 @@ class Filter(Node):
 
     def transform_stream(self, stream: Stream):
         with closing_if_closable(stream):
+            stream_estimator = StreamEstimator()
             for obj in stream:
-                if not self.predicate(obj):
-                    continue
+                with stream_estimator.incoming_object(obj.n_remaining_hint):
 
-                yield obj
+                    if not self.predicate(obj):
+                        continue
+
+                    obj.n_remaining_hint = stream_estimator.emit()
+                    yield obj
 
 
 @ReturnOutputs
