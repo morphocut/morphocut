@@ -1,22 +1,35 @@
 from queue import Queue
+from typing import List, Optional, Sequence
 
 import pytest
+import tqdm
 
 from morphocut import Pipeline
+from morphocut.core import StreamObject
 from morphocut.stream import (
-    Progress,
     Enumerate,
     Filter,
     FilterVariables,
     Pack,
     PrintObjects,
+    Progress,
     Slice,
     StreamBuffer,
     Unpack,
 )
 
 
-def test_Progress():
+def test_Progress(monkeypatch: pytest.MonkeyPatch):
+    # Monkeypatch tqdm so that we can extract tqdm instance attributes
+    tqdm_instance: List[Optional[tqdm.tqdm]] = [None]
+    tqdm_cls = tqdm.tqdm
+
+    def mock_tqdm(*args, **kwargs):
+        tqdm_instance[0] = tqdm_cls(*args, **kwargs)
+        return tqdm_instance[0]
+
+    monkeypatch.setattr(tqdm, "tqdm", mock_tqdm)
+
     # Assert that the progress bar works with stream
     with Pipeline() as pipeline:
         item = Unpack(range(10))
@@ -26,6 +39,7 @@ def test_Progress():
     result = [o[item] for o in stream]
 
     assert result == list(range(10))
+    assert tqdm_instance[0].total == 10
 
 
 def test_Slice():
@@ -53,12 +67,13 @@ def test_Slice():
 def test_StreamBuffer():
     with Pipeline() as pipeline:
         item = Unpack(range(10))
-        result = StreamBuffer(1)
+        StreamBuffer(1)
 
     stream = pipeline.transform_stream()
-    result = [o[item] for o in stream]
+    objects = [o for o in stream]
 
-    assert result == list(range(10))
+    assert objects[0].n_remaining_hint == 10
+    assert [o[item] for o in objects] == list(range(10))
 
 
 def test_Unpack():
@@ -68,10 +83,10 @@ def test_Unpack():
         value = Unpack(values)
 
     stream = pipeline.transform_stream()
+    objects = [o for o in stream]
 
-    result = [o[value] for o in stream]
-
-    assert values == result
+    assert objects[0].n_remaining_hint == 10
+    assert values == [o[value] for o in objects]
 
 
 def test_Pack():
@@ -81,11 +96,14 @@ def test_Pack():
         value = Unpack(values)
         values_packed = Pack(2, value)
 
-    stream = pipeline.transform_stream()
+    objects = [o for o in pipeline.transform_stream()]
 
-    result = [o[values_packed] for o in stream]
+    # TODO:
+    # assert objects[0].n_remaining_hint == 5
 
-    assert [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9)] == result
+    assert [(0, 1), (2, 3), (4, 5), (6, 7), (8, 9)] == [
+        o[values_packed] for o in objects
+    ]
 
 
 def test_PrintObjects(capsys):
@@ -109,6 +127,14 @@ def test_PrintObjects(capsys):
     # assert captured.out == '9'
 
 
+def last_n_remaining_hint(objects: Sequence[StreamObject]) -> Optional[int]:
+    n_remaining_hint = None
+    for obj in objects:
+        if obj.n_remaining_hint is not None:
+            n_remaining_hint = obj.n_remaining_hint
+    return n_remaining_hint
+
+
 def test_Filter():
     values = list(range(10))
 
@@ -116,11 +142,13 @@ def test_Filter():
         value = Unpack(values)
         Filter(lambda obj: obj[value] % 2 == 0)
 
-    stream = pipeline.transform_stream()
+    objects = [o for o in pipeline.transform_stream()]
 
-    result = [o[value] for o in stream]
+    assert [v for v in values if v % 2 == 0] == [o[value] for o in objects]
 
-    assert [v for v in values if v % 2 == 0] == result
+    # n_remaining_hint of last object is 1
+    n_remaining = [o.n_remaining_hint for o in objects]
+    assert n_remaining[-1] == 1
 
 
 def test_Filter_highlevel():
@@ -131,11 +159,13 @@ def test_Filter_highlevel():
         predicate = value % 2 == 0
         Filter(predicate)
 
-    stream = pipeline.transform_stream()
+    objects = [o for o in pipeline.transform_stream()]
 
-    result = [o[value] for o in stream]
+    assert [v for v in values if v % 2 == 0] == [o[value] for o in objects]
 
-    assert [v for v in values if v % 2 == 0] == result
+    # n_remaining_hint of last object is 1
+    n_remaining = [o.n_remaining_hint for o in objects]
+    assert n_remaining[-1] == 1
 
 
 def test_FilterVariables():

@@ -32,6 +32,7 @@ User Guide
    str
    file
    stream
+   filters
    stat
    parallel
    formats
@@ -39,6 +40,7 @@ User Guide
    core
    contrib
    integration
+   mjpeg_streamer
    examples
    contributing
    authors
