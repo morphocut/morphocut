@@ -439,8 +439,11 @@ class Node(StreamTransformer):
             _resolve_variable(obj, v) for v in (getattr(self, n) for n in names)
         )
 
-    def prepare_output(self, obj, *values):
+    def prepare_output(self, obj, *values, n_remaining_hint=None):
         """Update obj using the values corresponding to the output ports."""
+
+        if n_remaining_hint is not None:
+            obj.n_remaining_hint = n_remaining_hint
 
         if not self.outputs:
             if any(v is not None for v in values):
@@ -646,16 +649,20 @@ class StreamObject(abc.MutableMapping):
     """
     An object in the :py:obj:`Stream` that wraps all values.
 
+    Attributes:
+        data (dict): The data associated with this stream object.
+        n_remaining_hint (int, optional): Approximate number of remaining objects in the stream including the current object.
+
     A value can be retrieved by indexing: ``obj[var]``
     """
 
-    __slots__ = ["data", "stream_length"]
+    __slots__ = ["data", "n_remaining_hint"]
 
-    def __init__(self, data: Dict = None, stream_length=None):
+    def __init__(self, data: Dict = None, n_remaining_hint: Optional[int] = None):
         if data is None:
             data = {}
         self.data = data
-        self.stream_length = stream_length
+        self.n_remaining_hint = n_remaining_hint
 
     def copy(self) -> "StreamObject":
         """Create a shallow copy."""
@@ -697,7 +704,7 @@ def check_stream(stream: Optional[Stream]) -> Stream:
     """Ensure that `stream` is a valid stream."""
 
     if stream is None:
-        return iter([StreamObject()])
+        return iter([StreamObject(n_remaining_hint=1)])
     return stream
 
 
