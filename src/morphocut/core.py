@@ -700,6 +700,11 @@ class StreamObject(abc.MutableMapping):
 
         return {k: self[v] for k, v in kwargs.items()}
 
+    def child(self, child_id: Optional[str] = None):
+        """Create a shallow copy."""
+
+        return StreamObject(self.data.copy(), n_remaining_hint=self.n_remaining_hint)
+
 
 def check_stream(stream: Optional[Stream]) -> Stream:
     """Ensure that `stream` is a valid stream."""
