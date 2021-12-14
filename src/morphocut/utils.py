@@ -1,11 +1,33 @@
 import itertools
 from typing import Any, Iterator, Tuple, Union
 
-from morphocut.core import Stream, StreamObject, Variable, resolve_variable
+from morphocut.core import (
+    Stream,
+    StreamObject,
+    resolve_variable,
+    RawOrVariable,
+    overload,
+)
+
+T = TypeVar("T")
+
+
+@overload
+def stream_groupby(
+    stream: Stream, by: RawOrVariable[T]
+) -> Iterator[Tuple[T, Iterator[StreamObject]]]:
+    ...
+
+
+@overload
+def stream_groupby(
+    stream: Stream, by: Tuple[RawOrVariable[T]]
+) -> Iterator[Tuple[Tuple[T], Iterator[StreamObject]]]:
+    ...
 
 
 def stream_groupby(
-    stream: Stream, by=Union[Variable, Tuple[Variable]]
+    stream: Stream, by=Union[RawOrVariable[T], Tuple[RawOrVariable[T]]]
 ) -> Iterator[Tuple[Any, Iterator[StreamObject]]]:
     """
     Split a stream into sub-streams by key.
