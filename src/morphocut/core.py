@@ -27,7 +27,7 @@ _pipeline_stack = []  # type: List[Pipeline] # pylint: disable=invalid-name
 class StreamTransformer(ABC):
     """ABC for stream transformers like Pipeline and Node."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.id = "{:x}".format(id(self))
 
     @abstractmethod
@@ -381,7 +381,7 @@ class EmptyPipelineStackError(Exception):
 class Node(StreamTransformer):
     """Base class for all stream processing nodes."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
         # Bind outputs to self
@@ -518,6 +518,9 @@ class Node(StreamTransformer):
         return "{}()".format(self.__class__.__name__)
 
 
+NodeType = TypeVar("NodeType", bound=Type[Node])
+
+
 class Output:
     """
     Define an Output of a Node.
@@ -544,7 +547,7 @@ class Output:
     def __repr__(self):
         return '{}("{}", {})'.format(self.__class__.__name__, self.name, self.node_cls)
 
-    def __call__(self, cls):
+    def __call__(self, cls: NodeType) -> NodeType:
         """Add this output to the list of a nodes outputs."""
 
         if not issubclass(cls, Node):
@@ -564,7 +567,7 @@ class Output:
         return cls
 
 
-def ReturnOutputs(node_cls):
+def ReturnOutputs(node_cls: Type[Node]):
     """Turn Node into a function returning Output variables."""
     if not issubclass(node_cls, Node):
         raise ValueError("This decorator is meant to be applied to a subclass of Node.")
