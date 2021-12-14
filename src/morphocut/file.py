@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Iterable, Set, Union
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
+from morphocut.core import Stream
+from morphocut.stream_estimator import StreamEstimator
 
 __all__ = ["Find", "Glob"]
 
@@ -27,7 +29,11 @@ class Find(Node):
     """
 
     def __init__(
-        self, root: RawOrVariable[Union[str, Path]], extensions: Iterable, sort=False, verbose=False
+        self,
+        root: RawOrVariable[Union[str, Path]],
+        extensions: Iterable,
+        sort=False,
+        verbose=False,
     ):
         super().__init__()
 
@@ -83,20 +89,40 @@ class Glob(Node):
     """
 
     def __init__(
-        self, pathname: RawOrVariable[str], recursive: RawOrVariable[bool] = False
+        self,
+        pathname: RawOrVariable[str],
+        recursive: RawOrVariable[bool] = False,
+        prefetch=False,
     ):
         super().__init__()
 
         self.pathname = pathname
         self.recursive = recursive
+        self.prefetch = prefetch
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: Stream):
         with closing_if_closable(stream):
+
+            est = StreamEstimator()
+
             for obj in stream:
                 pathname, recursive = self.prepare_input(obj, ("pathname", "recursive"))
 
                 # Convert to str to allow Path objects in Python 3.5
                 pathname = str(pathname)
 
-                for path in glob.iglob(pathname, recursive=recursive):
-                    yield self.prepare_output(obj.copy(), path)
+                matches = glob.iglob(pathname, recursive=recursive)
+
+                local_estimate = None
+                if self.prefetch:
+                    matches = list(matches)
+                    local_estimate = len(matches)
+                    print(f"{local_estimate} matches for {pathname}")
+
+                with est.incoming_object(
+                    obj.n_remaining_hint, local_estimate=local_estimate
+                ):
+                    for path in matches:
+                        yield self.prepare_output(
+                            obj.child(), path, n_remaining_hint=est.emit()
+                        )
