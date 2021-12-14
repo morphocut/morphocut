@@ -1,7 +1,8 @@
 import itertools
 from typing import Optional, Sequence, Union
 
-from morphocut.core import Pipeline, Stream, StreamObject, Variable
+from morphocut.core import Pipeline, Stream, StreamObject, Variable, check_stream
+from morphocut.utils import stream_groupby
 
 
 class Batch(tuple):
@@ -18,7 +19,7 @@ class BatchPipeline(Pipeline):
         batch_size,
         *,
         parent: Optional["Pipeline"] = None,
-        groupby: Union[None, Variable, Sequence[Variable]] = None
+        groupby: Union[None, Variable, Sequence[Variable]] = None,
     ):
         super().__init__(parent=parent)
 
@@ -26,6 +27,10 @@ class BatchPipeline(Pipeline):
             groupby = tuple(groupby)
         elif isinstance(groupby, Variable):
             groupby = (groupby,)
+
+        # Ensure that all groupby fields are variables
+        if groupby is not None and False in (isinstance(k, Variable) for k in groupby):
+            raise ValueError("All groupby fields need to be Variables.")
 
         self.batch_size = batch_size
         self.groupby: Optional[Tuple[Variable]] = groupby  # type: ignore
@@ -44,29 +49,23 @@ class BatchPipeline(Pipeline):
             Stream: An iterable of stream objects.
         """
 
-        stream = self.check_stream(stream)
+        stream = check_stream(stream)
 
         stream = self._pack(stream)
 
         for child in self.children:  # type: StreamTransformer
             stream = child.transform_stream(stream)
+            assert stream is not None, f"{child!r}.transform_stream returned None"
 
         stream = self._unpack(stream)
 
         return stream
 
-    def _keyfunc(self, obj):
-        if self.groupby is None:
-            return None
-
-        return tuple(obj[k] for k in self.groupby)
-
     def _pack(self, stream: Stream) -> Stream:
-        for key, group in itertools.groupby(stream, self._keyfunc):  # type: ignore
-            key: tuple
-
+        for key, group in stream_groupby(stream, self.groupby):
             while True:
                 batch = tuple(itertools.islice(group, self.batch_size))
+
                 if not batch:
                     break
 

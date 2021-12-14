@@ -1,13 +1,7 @@
 import itertools
-from typing import Any, Iterator, Tuple, Union
+from typing import Any, Iterator, Tuple, Union, overload, TypeVar
 
-from morphocut.core import (
-    Stream,
-    StreamObject,
-    resolve_variable,
-    RawOrVariable,
-    overload,
-)
+from morphocut.core import RawOrVariable, Stream, StreamObject, resolve_variable
 
 T = TypeVar("T")
 
