@@ -84,11 +84,6 @@ def TQDM(*args, **kwargs):
     return Progress(*args, **kwargs)
 
 
-@deprecated(reason="Deprecated in favor of Progress.", version="0.2.x")
-def TQDM(*args, **kwargs):
-    return Progress(*args, **kwargs)
-
-
 TQDM.__doc__ = Progress.__doc__
 
 
