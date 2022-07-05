@@ -15,6 +15,8 @@ Added
 
 - Added `StreamEstimator` to estimate the remaining length of a stream. (#79)
 
+- Added `utils.stream_groupby`: Split a stream into sub-streams by key.
+
 Changed
 ~~~~~~~
 
