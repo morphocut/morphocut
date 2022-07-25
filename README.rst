@@ -4,6 +4,10 @@ MorphoCut
 .. image:: https://img.shields.io/pypi/v/morphocut.svg?style=flat
     :alt: PyPI
     :target: https://pypi.org/project/morphocut/
+    
+.. image:: https://img.shields.io/pypi/pyversions/morphocut
+    :alt: PyPI - Python Version
+    :target: https://pypi.org/project/morphocut/
 
 .. image:: https://github.com/morphocut/morphocut/workflows/CI/badge.svg
     :alt: CI
