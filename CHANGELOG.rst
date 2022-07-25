@@ -44,3 +44,4 @@ Fixed
 ~~~~~
 
 - ValueError: 'version' argument is required in Sphinx directives #80
+- UnknownArchiveError: Close EcoTaxa archives (#88)
