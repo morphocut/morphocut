@@ -20,7 +20,7 @@ setup(
     include_package_data=True,
     install_requires=[
         "numpy",
-        "scikit-image>=0.16.0",
+        "scikit-image>=0.19",
         "pandas",
         "tqdm",
         "scipy",
