@@ -81,7 +81,7 @@ def test_filter_scalar_centered_is_symmetric(filter_cls):
     responses = [obj[response] for obj in objs]
     responses_r = [obj[response_r] for obj in objs]
 
-    print(responses)
+    # print(responses)
 
     assert responses == responses_r[::-1]
 
@@ -97,8 +97,8 @@ def test_filter_numpy(filter_cls, shape):
 
     responses = [obj[response] for obj in p.transform_stream()]
 
-    print(values)
-    print(responses)
+    # print(values)
+    # print(responses)
 
     assert len(responses) == len(values)
 
