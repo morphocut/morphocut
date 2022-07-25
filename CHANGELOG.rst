@@ -17,6 +17,8 @@ Added
 
 - Added `utils.stream_groupby`: Split a stream into sub-streams by key.
 
+- Added support for Python 3.9 and 3.10 (#87).
+
 Changed
 ~~~~~~~
 
@@ -35,6 +37,8 @@ Removed
 ~~~~~~~
 
 - Drop `import_optional_dependency` copied over from pandas.
+
+- Dropped support for Python 3.6 (#87).
 
 Fixed
 ~~~~~
