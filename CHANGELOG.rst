@@ -24,6 +24,8 @@ Changed
 
 - Make `pandas` and `tqdm` a hard dependency.
 
+- Require scikit-image>=0.19 (#86)
+
 Deprecated
 ~~~~~~~~~~
 
