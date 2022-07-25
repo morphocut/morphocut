@@ -41,6 +41,8 @@ setup(
             "sphinx_rtd_theme",
             "sphinxcontrib-programoutput",
             "sphinx-autodoc-typehints>=1.10.0",
+            # See https://github.com/morphocut/morphocut/issues/89
+            "Jinja2<3.1",
         ],
     },
     entry_points={},
