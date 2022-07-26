@@ -41,6 +41,7 @@ User Guide
    contrib
    integration
    mjpeg_streamer
+   utils
    examples
    contributing
    authors
