@@ -10,7 +10,7 @@ FlowCam
     :members:
 
 RaspberryPi
--------
+-----------
 
 .. automodule:: morphocut.integration.raspi
     :members:
