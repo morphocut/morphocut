@@ -1,10 +1,14 @@
 from typing import Optional
 
 
-class _IncomingObjectContex:
-    def __init__(self, estimator: "StreamEstimator", n_consumed) -> None:
+class _ConsumedObjectContext:
+    def __init__(
+        self, estimator: "StreamEstimator", n_consumed: int, est_n_emit: Optional[float]
+    ) -> None:
         self.estimator = estimator
         self.n_consumed = n_consumed
+        self.est_n_emit = est_n_emit
+
         self.n_emitted = 0
 
     def __enter__(self):
@@ -16,8 +20,8 @@ class _IncomingObjectContex:
         estimator.n_consumed += self.n_consumed
         estimator.n_emitted += self.n_emitted
 
-        # Update global estimate
-        estimator.global_estimate = estimator.n_emitted / estimator.n_consumed
+        # Update global rate estimate
+        estimator.rate = estimator.n_emitted / estimator.n_consumed
 
         if estimator.n_remaining_in is not None:
             # Decrease number of remaining inputs
@@ -29,30 +33,29 @@ class _IncomingObjectContex:
         """
 
         n_remaining_hint = None
+
         if (
             self.estimator.n_remaining_in is not None
-            and self.estimator.global_estimate is not None
+            and self.estimator.rate is not None
         ):
-            if self.estimator.local_estimate is not None:
-                n_remaining_hint = max(
-                    1,
-                    (
-                        round(
-                            (self.estimator.n_remaining_in - 1)
-                            * self.estimator.global_estimate
-                            + self.estimator.local_estimate
-                        )
-                        - self.n_emitted
-                    ),
+            if self.est_n_emit is not None:
+                # We know how many objects we will emit:
+                # Use precise calculation.
+                n_remaining_hint = round(
+                    (self.estimator.n_remaining_in - self.n_consumed)
+                    * self.estimator.rate
+                    + self.est_n_emit
+                    - self.n_emitted
                 )
             else:
-                n_remaining_hint = max(
-                    1,
-                    round(
-                        self.estimator.n_remaining_in * self.estimator.global_estimate
-                    )
-                    - self.n_emitted,
+                # We don't know how many objects we will emit:
+                # Use global rate estimate.
+                n_remaining_hint = round(
+                    self.estimator.n_remaining_in * self.estimator.rate - self.n_emitted
                 )
+
+        if n_remaining_hint is not None:
+            n_remaining_hint = max(1, n_remaining_hint)
 
         self.n_emitted += 1
 
@@ -61,7 +64,10 @@ class _IncomingObjectContex:
 
 class StreamEstimator:
     """
-    Estimate the number of remaining objects in the stream.
+    Record how many objects are consumed and emitted and calculate the rate.
+
+    This should be used in `StreamTransformers` that alter the number of objects in the stream
+    to update the estimate the number of remaining objects.
 
     Example:
         .. code-block:: python
@@ -71,7 +77,7 @@ class StreamEstimator:
             for obj in stream:
                 # We're expecting 10 emitted objects for every consumed object:
                 local_estimate = 10
-                with est.consume(obj.n_remaining_hint, local_estimate=local_estimate) as incoming:
+                with est.consume(obj.n_remaining_hint, est_n_emit=local_estimate) as incoming:
                     for _ in range(10):
                         yield self.prepare_output(
                             obj.copy(), value, n_remaining_hint=incoming.emit()
@@ -82,14 +88,13 @@ class StreamEstimator:
         self.n_remaining_in = None
         self.n_consumed = 0
         self.n_emitted = 0
-        self.global_estimate: Optional[float] = None
-        self.local_estimate: Optional[int] = None
+        self.rate: Optional[float] = None
 
     def consume(
         self,
         n_remaining_hint: Optional[int],
         *,
-        local_estimate: Optional[int] = None,
+        est_n_emit: Optional[float] = None,
         n_consumed=1,
     ):
         """Context manager for an incoming object."""
@@ -98,8 +103,7 @@ class StreamEstimator:
             # Set n_remaining to a new estimate
             self.n_remaining_in = n_remaining_hint
 
-        self.local_estimate = local_estimate
-        if self.global_estimate is None:
-            self.global_estimate = local_estimate
+        if self.rate is None and est_n_emit is not None:
+            self.rate = est_n_emit / n_consumed
 
-        return _IncomingObjectContex(self, n_consumed)
+        return _ConsumedObjectContext(self, n_consumed, est_n_emit)
