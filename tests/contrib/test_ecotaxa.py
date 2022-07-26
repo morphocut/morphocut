@@ -1,3 +1,5 @@
+import tarfile
+import zipfile
 from numpy.testing import assert_equal
 
 from morphocut import Call, Pipeline
@@ -11,7 +13,7 @@ import pytest
 
 @pytest.mark.parametrize("ext", [".tar", ".zip"])
 def test_ecotaxa(tmp_path, ext):
-    archive_fn = tmp_path / ("ecotaxa" + ext)
+    archive_fn = str(tmp_path / ("ecotaxa" + ext))
     print(archive_fn)
 
     # Create an archive
@@ -32,7 +34,13 @@ def test_ecotaxa(tmp_path, ext):
             sample_meta={"foo": 3},
         )
 
+    # Execute pipeline and collect results
     result = [o.to_dict(meta=meta, image=image) for o in p.transform_stream()]
+
+    if ext == ".zip":
+        assert zipfile.is_zipfile(archive_fn), f"{archive_fn} is not a zip file"
+    elif ext == ".tar":
+        assert tarfile.is_tarfile(archive_fn), f"{archive_fn} is not a tar file"
 
     # Read the archive
     with Pipeline() as p:

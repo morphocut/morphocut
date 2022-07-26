@@ -19,9 +19,12 @@ Added
 
 - Added `utils.stream_groupby`: Split a stream into sub-streams by key.
 
+- Added support for Python 3.9 and 3.10 (#87).
+
 - Added `StreamObject.child`.
 
 - Added `HDF5Writer`.
+
 
 Changed
 ~~~~~~~
@@ -30,7 +33,10 @@ Changed
 
 - Make `pandas` and `tqdm` a hard dependency.
 
+- Require scikit-image>=0.19 (#86)
+
 - Implemented `n_remaining_hint` in file.
+
 
 Deprecated
 ~~~~~~~~~~
@@ -43,7 +49,10 @@ Removed
 
 - Drop `import_optional_dependency` copied over from pandas.
 
+- Dropped support for Python 3.6 (#87).
+
 Fixed
 ~~~~~
 
 - ValueError: 'version' argument is required in Sphinx directives #80
+- UnknownArchiveError: Close EcoTaxa archives (#88)

@@ -113,6 +113,9 @@ class TarArchive(Archive):
         self._tar = tarfile.open(archive_fn, mode)
         self._members = None
 
+    def close(self):
+        self._tar.close()
+
     def read_member(self, member_fn):
         return self._tar.extractfile(self._resolve_member(member_fn))
 
@@ -166,6 +169,9 @@ class ZipArchive(Archive):
             return self._zip.writestr(member_fn, fileobj_or_bytes)
 
         self._zip.writestr(member_fn, fileobj_or_bytes.read())
+
+    def close(self):
+        self._zip.close()
 
 
 @ReturnOutputs

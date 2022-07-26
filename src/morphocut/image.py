@@ -23,7 +23,7 @@ class ThresholdConst(Node):
 
     Args:
         image (np.ndarray or Variable): Image for which the mask is to be calculated.
-        threshold (Number or Variable): Threshold. Image intensities less than this will be `True` in the 
+        threshold (Number or Variable): Threshold. Image intensities less than this will be `True` in the
             result.
 
     Returns:
@@ -102,9 +102,9 @@ class RegionProperties(
         self._image = super().image
 
         if self._intensity_image is not None:
-            self._intensity_image = super().intensity_image
+            self._image_intensity = super().image_intensity
         else:
-            self._intensity_image = None
+            self._image_intensity = None
 
     @property
     def image(self):
@@ -112,9 +112,9 @@ class RegionProperties(
 
     @property
     def intensity_image(self):
-        if self._intensity_image is None:
+        if self._image_intensity is None:
             raise AttributeError("No intensity image specified.")
-        return self._intensity_image
+        return self._image_intensity
 
 
 @ReturnOutputs
@@ -131,9 +131,9 @@ class FindRegions(Node):
     Args:
         mask (np.ndarray or Variable): Mask of a given image.
         image (np.ndarray or Variable): An image whose mask we have to find region with.
-        min_area (int): Minimum area of the region. If the area of our prop/region is 
+        min_area (int): Minimum area of the region. If the area of our prop/region is
             smaller than our min_area then it will discard it.
-        max_area (int): Maximum area of the region. If the area of our prop/region is 
+        max_area (int): Maximum area of the region. If the area of our prop/region is
             bigger than our max_area then it will discard it.
         padding (int): Size of the slices/regions of our image.
         warn_empty (bool or str or Variable): Warn for empty images (default false).
@@ -422,4 +422,3 @@ class RGB2Gray(Node):
             result = dtype.convert(result, image.dtype)
 
         return result
-
