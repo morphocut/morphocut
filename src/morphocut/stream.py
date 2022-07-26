@@ -4,8 +4,8 @@ import itertools
 import pprint
 from queue import Queue
 from threading import Thread
-from typing import Callable, Collection, Iterable, Optional, Tuple, Union
-from morphocut.stream_estimator import StreamEstimator
+from typing import Callable, Collection, Optional, Union
+from morphocut.utils import StreamEstimator
 
 import tqdm
 from deprecated.sphinx import deprecated

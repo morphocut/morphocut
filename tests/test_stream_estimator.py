@@ -1,7 +1,7 @@
 import itertools
 import random
 
-from morphocut.stream_estimator import StreamEstimator
+from morphocut.utils import StreamEstimator
 
 
 def test_StreamEstimator_no_estimate():
