@@ -4,8 +4,8 @@ import itertools
 import pprint
 from queue import Queue
 from threading import Thread
-from typing import Callable, Collection, Iterable, Optional, Tuple, Union
-from morphocut.stream_estimator import StreamEstimator
+from typing import Callable, Collection, Optional, Union
+from morphocut.utils import StreamEstimator
 
 import tqdm
 from deprecated.sphinx import deprecated
@@ -242,12 +242,12 @@ class Unpack(Node):
             stream_estimator = StreamEstimator()
             for obj in stream:
                 collection = tuple(self.prepare_input(obj, "collection"))
-                with stream_estimator.incoming_object(
-                    obj.n_remaining_hint, local_estimate=len(collection)
-                ):
+                with stream_estimator.consume(
+                    obj.n_remaining_hint, est_n_emit=len(collection)
+                ) as incoming:
                     for value in collection:
                         yield self.prepare_output(
-                            obj.copy(), value, n_remaining_hint=stream_estimator.emit()
+                            obj.copy(), value, n_remaining_hint=incoming.emit()
                         )
 
 
@@ -294,16 +294,16 @@ class Pack(Node):
             if not packed:
                 break
 
-            with stream_estimator.incoming_object(
+            with stream_estimator.consume(
                 packed[0].n_remaining_hint, n_consumed=len(packed)
-            ):
+            ) as incoming:
 
                 packed_values = tuple(
                     tuple(o[v] for o in packed) for v in self.variables
                 )
 
                 yield self.prepare_output(
-                    packed[0], *packed_values, n_remaining_hint=stream_estimator.emit()
+                    packed[0], *packed_values, n_remaining_hint=incoming.emit()
                 )
 
 
@@ -361,12 +361,12 @@ class Filter(Node):
         with closing_if_closable(stream):
             stream_estimator = StreamEstimator()
             for obj in stream:
-                with stream_estimator.incoming_object(obj.n_remaining_hint):
+                with stream_estimator.consume(obj.n_remaining_hint) as incoming:
 
                     if not self.predicate(obj):
                         continue
 
-                    obj.n_remaining_hint = stream_estimator.emit()
+                    obj.n_remaining_hint = incoming.emit()
                     yield obj
 
 
