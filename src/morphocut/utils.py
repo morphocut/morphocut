@@ -1,3 +1,5 @@
+"""Utilities"""
+
 import itertools
 from typing import Any, Iterator, Tuple, Union, overload, TypeVar
 
