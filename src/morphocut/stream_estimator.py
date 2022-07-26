@@ -8,7 +8,7 @@ class _IncomingObjectContex:
         self.n_emitted = 0
 
     def __enter__(self):
-        pass
+        return self
 
     def __exit__(self, *args):
         estimator = self.estimator

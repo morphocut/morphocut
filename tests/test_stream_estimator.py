@@ -11,9 +11,9 @@ def test_StreamEstimator_no_estimate():
 
     n_remaining = []
     for i in range(stream_length):
-        with est.incoming_object(None):
+        with est.consume(None) as incoming:
             for j in range(multiplier):
-                n_remaining.append(est.emit())
+                n_remaining.append(incoming.emit())
 
     # No estimates are available
     assert n_remaining == [None for _ in range(stream_length * multiplier)]
@@ -28,9 +28,9 @@ def test_StreamEstimator_global_estimate():
 
     n_remaining = []
     for i in range(stream_length):
-        with est.incoming_object(stream_length - i):
+        with est.consume(stream_length - i) as incoming:
             for j in range(multiplier):
-                n_remaining.append(est.emit())
+                n_remaining.append(incoming.emit())
 
     # Estimates are available after first incoming object is fully processed
     assert n_remaining == [
@@ -48,9 +48,9 @@ def test_StreamEstimator_full_estimate():
 
     n_remaining = []
     for i in range(stream_length):
-        with est.incoming_object(stream_length - i, multiplier):
+        with est.consume(stream_length - i, local_estimate=multiplier) as incoming:
             for j in range(multiplier):
-                n_remaining.append(est.emit())
+                n_remaining.append(incoming.emit())
 
     # Estimates are available
     assert n_remaining == [n_total - i for i in range(n_total)]
@@ -63,12 +63,12 @@ def test_StreamEstimator_non_deterministic_global_estimate():
 
     n_remaining = []
     for i in range(stream_length):
-        with est.incoming_object(stream_length - i):
+        with est.consume(stream_length - i) as incoming:
             local_mult = random.randint(1, 10)
             print("local_mult", local_mult)
             print("global_estimate", est.global_estimate)
             for j in range(local_mult):
-                n_remaining.append(est.emit())
+                n_remaining.append(incoming.emit())
 
 
 def test_StreamEstimator_non_deterministic_full_estimate():
@@ -79,9 +79,9 @@ def test_StreamEstimator_non_deterministic_full_estimate():
     n_remaining = []
     for i in range(stream_length):
         local_mult = random.randint(1, 10)
-        with est.incoming_object(stream_length - i, local_mult):
+        with est.consume(stream_length - i, local_estimate=local_mult) as incoming:
             for j in range(local_mult):
-                n_remaining.append(est.emit())
+                n_remaining.append(incoming.emit())
 
     # Last estimate is 1
     assert n_remaining[-1] == 1
@@ -98,11 +98,11 @@ def test_StreamEstimator_stacked():
 
     n_remaining = []
     for i in range(length0):
-        with est0.incoming_object(length0 - i, length1):
+        with est0.consume(length0 - i, local_estimate=length1) as incoming0:
             for j in range(length1):
-                with est1.incoming_object(est0.emit(), length2):
+                with est1.consume(incoming0.emit(), local_estimate=length2) as incoming1:
                     for k in range(length2):
-                        n_remaining.append(est1.emit())
+                        n_remaining.append(incoming1.emit())
 
     # Estimates are available
     assert n_remaining == [n_total - i for i in range(n_total)]
