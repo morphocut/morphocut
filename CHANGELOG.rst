@@ -7,7 +7,7 @@ Changelog
 Added
 ~~~~~
 
-- Added `batch.BatchPipeline`: Combine consecutive objects into a batch.
+- Added `batch.BatchPipeline`: Combine consecutive objects into a batch. (#92)
 
 - Added `mjpeg_streamer.MJPEGStreamer`: Stream images via HTTP (e.g. to the Browser). (#75)
 
