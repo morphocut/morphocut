@@ -385,3 +385,15 @@ class FilterVariables(Node):
         with closing_if_closable(stream):
             for obj in stream:
                 yield StreamObject({k: v for k, v in obj.items() if k in self.keys})
+
+@ReturnOutputs
+@Output("n_remaining_hint")
+class RemainingHint(Node):
+    """
+    Extract n_remaining_hint from an object.
+    """
+
+    def transform_stream(self, stream: Stream):
+        with closing_if_closable(stream):
+            for obj in stream:
+                yield self.prepare_output(obj, obj.n_remaining_hint)
