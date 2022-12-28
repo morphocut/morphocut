@@ -32,6 +32,7 @@ User Guide
    str
    file
    stream
+   batch
    filters
    stat
    parallel
