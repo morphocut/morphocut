@@ -1,0 +1,11 @@
+name: morphocut
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3
+  - scikit-image
+  # PyTorch
+  - pytorch
+  - cpuonly
