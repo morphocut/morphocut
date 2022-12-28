@@ -40,6 +40,7 @@ User Guide
    profiling
    core
    contrib
+   torch
    integration
    mjpeg_streamer
    utils

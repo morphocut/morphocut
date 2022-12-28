@@ -40,6 +40,14 @@ class PyTorch(Node):
         output_key (optional): If the module has multiple outputs, output_key selects one of them.
         pin_memory (bool, optional): Use pinned memory for faster CPU-GPU transfer.
             Only applicable for CUDA devices.
+
+    Example:
+        .. code-block:: python
+
+            module = ...
+            with Pipeline() as pipeline:
+                input = ...
+                output = PyTorch(module, input)
     """
 
     def __init__(
