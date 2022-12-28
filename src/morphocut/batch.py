@@ -63,7 +63,6 @@ class BatchPipeline(Pipeline):
 
     def _pack(self, stream: Stream) -> Stream:
         for key, group in stream_groupby(stream, self.groupby):
-            key: tuple
 
             while True:
                 batch = tuple(itertools.islice(group, self.batch_size))

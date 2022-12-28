@@ -659,7 +659,9 @@ class StreamObject(abc.MutableMapping):
 
     __slots__ = ["data", "n_remaining_hint"]
 
-    def __init__(self, data: Dict = None, n_remaining_hint: Optional[int] = None):
+    def __init__(
+        self, data: Optional[Dict] = None, n_remaining_hint: Optional[int] = None
+    ):
         if data is None:
             data = {}
         self.data = data
@@ -667,7 +669,7 @@ class StreamObject(abc.MutableMapping):
 
     def copy(self) -> "StreamObject":
         """Create a shallow copy."""
-        return StreamObject(self.data.copy())
+        return StreamObject(self.data.copy(), n_remaining_hint=self.n_remaining_hint)
 
     @staticmethod
     def _as_key(obj):
