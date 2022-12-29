@@ -20,6 +20,7 @@ import pandas as pd
 import PIL.Image
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
+from morphocut.utils import stream_groupby
 
 T = TypeVar("T")
 MaybeTuple = Union[T, Tuple[T]]
@@ -180,7 +181,7 @@ class EcotaxaWriter(Node):
     Create an archive of images and metadata that is importable to EcoTaxa.
 
     Args:
-        archive_fn (str): Location of the output file.
+        archive_fn (str, Variable): Location of the output file.
         fnames_images (Tuple, Variable, or a list thereof):
             Tuple of ``(filename, image)`` or a list of such tuples.
             ``filename`` is the name in the archive. ``image`` is a NumPy array.
@@ -222,7 +223,7 @@ class EcotaxaWriter(Node):
 
     def __init__(
         self,
-        archive_fn: str,
+        archive_fn: RawOrVariable[str],
         fnames_images: MaybeList[RawOrVariable[Tuple[str, ...]]],
         meta: Optional[RawOrVariable[Mapping]] = None,
         object_meta: Optional[RawOrVariable[Mapping]] = None,
@@ -255,82 +256,92 @@ class EcotaxaWriter(Node):
     def transform_stream(self, stream):
         pil_extensions = PIL.Image.registered_extensions()
 
-        with closing_if_closable(stream), Archive(self.archive_fn, "w") as archive:
-            dataframe = []
-            i = 0
-            for obj in stream:
-                (
-                    fnames_images,
-                    meta,
-                    object_meta,
-                    acq_meta,
-                    process_meta,
-                    sample_meta,
-                ) = self.prepare_input(
-                    obj,
-                    (
-                        "fnames_images",
-                        "meta",
-                        "object_meta",
-                        "acq_meta",
-                        "process_meta",
-                        "sample_meta",
-                    ),
-                )
+        with closing_if_closable(stream):
+            for archive_fn, substream in stream_groupby(stream, self.archive_fn):
+                with Archive(archive_fn, "w") as archive:
+                    dataframe = []
+                    i = 0
+                    for obj in substream:
+                        (
+                            fnames_images,
+                            meta,
+                            object_meta,
+                            acq_meta,
+                            process_meta,
+                            sample_meta,
+                        ) = self.prepare_input(
+                            obj,
+                            (
+                                "fnames_images",
+                                "meta",
+                                "object_meta",
+                                "acq_meta",
+                                "process_meta",
+                                "sample_meta",
+                            ),
+                        )
 
-                if meta is None:
-                    meta = {}
+                        if meta is None:
+                            meta = {}
 
-                if object_meta is not None:
-                    meta.update(("object_" + k, v) for k, v in object_meta.items())
+                        if object_meta is not None:
+                            meta.update(
+                                ("object_" + k, v) for k, v in object_meta.items()
+                            )
 
-                if acq_meta is not None:
-                    meta.update(("acq_" + k, v) for k, v in acq_meta.items())
+                        if acq_meta is not None:
+                            meta.update(("acq_" + k, v) for k, v in acq_meta.items())
 
-                if process_meta is not None:
-                    meta.update(("process_" + k, v) for k, v in process_meta.items())
+                        if process_meta is not None:
+                            meta.update(
+                                ("process_" + k, v) for k, v in process_meta.items()
+                            )
 
-                if sample_meta is not None:
-                    meta.update(("sample_" + k, v) for k, v in sample_meta.items())
+                        if sample_meta is not None:
+                            meta.update(
+                                ("sample_" + k, v) for k, v in sample_meta.items()
+                            )
 
-                for img_rank, (fname, img) in enumerate(fnames_images, start=1):
-                    img_ext = os.path.splitext(fname)[1]
-                    pil_format = pil_extensions[img_ext]
+                        for img_rank, (fname, img) in enumerate(fnames_images, start=1):
+                            img_ext = os.path.splitext(fname)[1]
+                            pil_format = pil_extensions[img_ext]
 
-                    img = PIL.Image.fromarray(img)
-                    img_fp = io.BytesIO()
-                    try:
-                        img.save(img_fp, format=pil_format)
-                    except:
-                        print(f"Error writing {fname}")
-                        raise
+                            img = PIL.Image.fromarray(img)
+                            img_fp = io.BytesIO()
+                            try:
+                                img.save(img_fp, format=pil_format)
+                            except:
+                                print(f"Error writing {fname}")
+                                raise
 
-                    archive.write_member(fname, img_fp.getvalue())
+                            archive.write_member(fname, img_fp.getvalue())
 
-                    dataframe.append(
-                        {**meta, "img_file_name": fname, "img_rank": img_rank}
+                            dataframe.append(
+                                {**meta, "img_file_name": fname, "img_rank": img_rank}
+                            )
+
+                        yield obj
+
+                        i += 1
+
+                    dataframe = pd.DataFrame(dataframe)
+
+                    # Insert types into header
+                    type_header = [dtype_to_ecotaxa(dt) for dt in dataframe.dtypes]
+                    dataframe.columns = pd.MultiIndex.from_tuples(
+                        list(zip(dataframe.columns, type_header))
                     )
 
-                yield obj
+                    archive.write_member(
+                        self.meta_fn,
+                        io.BytesIO(
+                            dataframe.to_csv(
+                                sep="\t", encoding="utf-8", index=False
+                            ).encode()
+                        ),
+                    )
 
-                i += 1
-
-            dataframe = pd.DataFrame(dataframe)
-
-            # Insert types into header
-            type_header = [dtype_to_ecotaxa(dt) for dt in dataframe.dtypes]
-            dataframe.columns = pd.MultiIndex.from_tuples(
-                list(zip(dataframe.columns, type_header))
-            )
-
-            archive.write_member(
-                self.meta_fn,
-                io.BytesIO(
-                    dataframe.to_csv(sep="\t", encoding="utf-8", index=False).encode()
-                ),
-            )
-
-            print("Wrote {:,d} objects to {}.".format(i, self.archive_fn))
+                    print("Wrote {:,d} objects to {}.".format(i, archive_fn))
 
 
 @ReturnOutputs
