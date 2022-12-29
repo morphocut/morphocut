@@ -7,6 +7,10 @@ Changelog
 Added
 ~~~~~
 
+- Added `torch.PyTorch`: Apply a PyTorch module. (#95)
+
+- Added `batch.BatchPipeline`: Combine consecutive objects into a batch. (#92)
+
 - Added `mjpeg_streamer.MJPEGStreamer`: Stream images via HTTP (e.g. to the Browser). (#75)
 
 - Added `integration.raspi.PiCameraReader`: Read frames from the Raspberry Pi's camera. (#75)

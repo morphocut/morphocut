@@ -32,6 +32,7 @@ User Guide
    str
    file
    stream
+   batch
    filters
    stat
    parallel
@@ -39,6 +40,7 @@ User Guide
    profiling
    core
    contrib
+   torch
    integration
    mjpeg_streamer
    utils
