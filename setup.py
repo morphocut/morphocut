@@ -33,6 +33,8 @@ setup(
             "pytest",
             "pytest-cov",
             "timer-cm",
+            # Coverage
+            "codecov",
             # Optional dependencies
             "parse",
         ],
