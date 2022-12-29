@@ -6,6 +6,8 @@ channels:
 dependencies:
   - python=3
   - scikit-image
+  # Development
+  - codecov
   # PyTorch
   - pytorch
   - cpuonly

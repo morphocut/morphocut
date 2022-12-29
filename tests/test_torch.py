@@ -31,7 +31,7 @@ class MyModule(torch.nn.Module):
     [None, "cpu"],
 )
 @pytest.mark.parametrize(
-    "queue_size",
+    "n_parallel",
     [0, 2],
 )
 @pytest.mark.parametrize(
@@ -42,7 +42,7 @@ class MyModule(torch.nn.Module):
     "output_key",
     [None, "foo"],
 )
-def test_PyTorch(device, queue_size, batch, output_key):
+def test_PyTorch(device, n_parallel, batch, output_key):
     module = MyModule(output_key)
 
     with Pipeline() as p:
@@ -55,7 +55,7 @@ def test_PyTorch(device, queue_size, batch, output_key):
                 input,
                 is_batch=batch,
                 device=device,
-                queue_size=queue_size,
+                n_parallel=n_parallel,
                 output_key=output_key,
             )
 
