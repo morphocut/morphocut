@@ -52,7 +52,7 @@ class PyTorch(Node):
 
     def __init__(
         self,
-        module: torch.nn.Module,
+        module: "torch.nn.Module",
         input: RawOrVariable,
         device=None,
         n_parallel=0,
