@@ -26,6 +26,8 @@ Added
 Changed
 ~~~~~~~
 
+- EcotaxaWriter: Allow Variables for `archive_fn`. (#100)
+
 - Use `UnavailableObject` instead of `import_optional_dependency`.
 
 - Make `pandas` and `tqdm` a hard dependency.
