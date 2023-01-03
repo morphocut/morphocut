@@ -13,11 +13,13 @@ import pytest
 
 @pytest.mark.parametrize("ext", [".tar", ".zip"])
 def test_ecotaxa(tmp_path, ext):
-    archive_fn = str(tmp_path / ("ecotaxa" + ext))
-    print(archive_fn)
+    archive_pat = str(tmp_path / ("ecotaxa_{:d}" + ext))
+    archive_fns = [archive_pat.format(i) for i in range(2)]
+    print(archive_fns)
 
     # Create an archive
     with Pipeline() as p:
+        archive_fn = Unpack(archive_fns)
         i = Unpack(range(10))
 
         meta = Call(dict, i=i, foo="Sömé UTF-8 ſtríng…")
@@ -37,13 +39,15 @@ def test_ecotaxa(tmp_path, ext):
     # Execute pipeline and collect results
     result = [o.to_dict(meta=meta, image=image) for o in p.transform_stream()]
 
-    if ext == ".zip":
-        assert zipfile.is_zipfile(archive_fn), f"{archive_fn} is not a zip file"
-    elif ext == ".tar":
-        assert tarfile.is_tarfile(archive_fn), f"{archive_fn} is not a tar file"
+    for archive_fn in archive_fns:
+        if ext == ".zip":
+            assert zipfile.is_zipfile(archive_fn), f"{archive_fn} is not a zip file"
+        elif ext == ".tar":
+            assert tarfile.is_tarfile(archive_fn), f"{archive_fn} is not a tar file"
 
     # Read the archive
     with Pipeline() as p:
+        archive_fn = Unpack(archive_fns)
         image, meta = EcotaxaReader(archive_fn)
 
     roundtrip_result = [o.to_dict(meta=meta, image=image) for o in p.transform_stream()]
