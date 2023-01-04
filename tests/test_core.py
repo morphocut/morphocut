@@ -1,7 +1,6 @@
 import itertools
 import operator
 
-import numpy as np
 import pytest
 
 from morphocut.core import (
@@ -181,3 +180,17 @@ def test_VariableOperationsSpecial():
     assert obj[d1_3] == [2, 3]
 
     assert f_value not in obj.values()
+
+
+def test_Pipeline():
+    with Pipeline() as p:
+        a = Const("a")
+        with Pipeline():
+            b = Const("b")
+
+    locals_hashes = set(v.hash for v in p.locals())
+
+    # a is a local of p
+    assert a.hash in locals_hashes
+    # b is also a local of p
+    assert b.hash in locals_hashes

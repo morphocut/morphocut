@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List, Tuple, Union
+from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, Union
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
 from morphocut._optional import UnavailableObject
@@ -59,6 +59,7 @@ class PyTorch(Node):
         is_batch=True,
         output_key=None,
         pin_memory=False,
+        transform: Optional[Callable] = None,
     ):
         super().__init__()
 
@@ -79,26 +80,37 @@ class PyTorch(Node):
         self.is_batch = is_batch
         self.output_key = output_key
         self.pin_memory = pin_memory
+        self.transform = transform
 
     def transform_stream(self, stream):
         @buffered_generator(self.n_parallel)
         def output_gen():
+            non_blocking = self.n_parallel and self.pin_memory
             with torch.no_grad(), closing_if_closable(stream):
                 for obj in stream:
                     input = self.prepare_input(obj, "input")
 
+                    is_batch = self.is_batch
+
                     # Assemble batch
                     if isinstance(input, Batch):
+                        if self.transform is not None:
+                            input = [self.transform(inp) for inp in input]
+
                         input = (
-                            _stack_pin(input)
-                            if self.n_parallel and self.pin_memory
-                            else torch.stack(input)
+                            _stack_pin(input) if non_blocking else torch.stack(input)
                         )
-                    elif not self.is_batch:
-                        input = torch.as_tensor(input).unsqueeze(0)
+                        is_batch = True
+                    else:
+                        if self.transform is not None:
+                            input = self.transform(input)
+                        input = torch.as_tensor(input)
+
+                    if not is_batch:
+                        input = input.unsqueeze(0)
 
                     if self.device is not None:
-                        input = input.to(self.device, non_blocking=False)  # type: ignore
+                        input = input.to(self.device, non_blocking=non_blocking)  # type: ignore
 
                     output = self.model(input)
 

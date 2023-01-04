@@ -15,14 +15,8 @@ def assert_shape(arr, shape):
 
 
 def test_TiledPipeline():
-    images = [
-        # skimage.data.camera(),
-        skimage.data.coins()
-    ]
-    names = [
-        # "camera",
-        "coins"
-    ]
+    images = [skimage.data.camera(), skimage.data.coins()]
+    names = ["camera", "coins"]
 
     with Pipeline() as p:
         image = Unpack(images)
@@ -31,7 +25,9 @@ def test_TiledPipeline():
             image_copy = image.copy()
             Call(assert_shape, image, (128, 128))
             Call(assert_shape, mask, (128, 128))
-            pass
+            mask2 = image > 128
+
+        Call(assert_shape, mask2, image.shape[:2])
 
         # Call(np.testing.assert_equal, image, image_copy)
 

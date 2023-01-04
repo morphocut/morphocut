@@ -326,12 +326,18 @@ class ImageReader(Node):
         fp (file or Variable): A filename (string), pathlib.Path object or file object.
     """
 
-    def __init__(self, fp: RawOrVariable):
+    def __init__(self, fp: RawOrVariable, mode=None):
         super().__init__()
         self.fp = fp
+        self.mode = mode
 
     def transform(self, fp):
-        return np.array(PIL.Image.open(fp))
+        img = PIL.Image.open(fp)
+
+        if self.mode is not None:
+            img = img.convert(self.mode)
+
+        return np.array(img)
 
 
 @ReturnOutputs

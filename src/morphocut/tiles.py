@@ -1,5 +1,5 @@
 import itertools
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Mapping, Optional, Tuple
 from morphocut import Pipeline
 from morphocut.core import Node, Stream, StreamTransformer, Variable, check_stream
 import numpy as np
@@ -30,6 +30,7 @@ class TiledPipeline(Pipeline):
         *variables: Variable[np.ndarray],
         tile_stride: Optional[Tuple] = None,
         pad=True,
+        pad_kwargs: Optional[Mapping] = None,
     ):
         super().__init__()
 
@@ -40,6 +41,8 @@ class TiledPipeline(Pipeline):
         self.tile_stride = tile_stride
         self.variables = variables
         self.pad = pad
+
+        self.pad_kwargs = pad_kwargs or {}
 
         self._placeholders = [Variable(f"{v.name}_old", self) for v in variables]
         self._slice_padding = Variable("_slice_padding", self)
@@ -70,19 +73,6 @@ class TiledPipeline(Pipeline):
         stream = self._untile_all(stream)
 
         return stream
-
-    def locals(self) -> Tuple[Variable]:
-        """Variables created in the scope of this Pipeline."""
-
-        _locals: List[Variable] = []
-
-        for child in self.children:
-            child: StreamTransformer
-
-            if isinstance(child, Node):
-                _locals.extend(child.outputs)
-
-        return tuple(_locals)
 
     def _gen_slices_padding_1d(self, arr_shape, tile_shape, tile_stride):
         pad = ((tile_shape - arr_shape) % tile_stride) // 2 if self.pad else 0
@@ -115,7 +105,7 @@ class TiledPipeline(Pipeline):
                     obj_new[p] = obj[v]
 
                     # Store sliced and padded version
-                    obj_new[v] = np.pad(obj[v][slice], padding)
+                    obj_new[v] = np.pad(obj[v][slice], padding, **self.pad_kwargs)
                 obj_new[self._slice_padding] = slice, padding
                 yield obj_new
 

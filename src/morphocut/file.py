@@ -93,12 +93,14 @@ class Glob(Node):
         pathname: RawOrVariable[str],
         recursive: RawOrVariable[bool] = False,
         prefetch=False,
+        sorted=False,
     ):
         super().__init__()
 
         self.pathname = pathname
         self.recursive = recursive
         self.prefetch = prefetch
+        self.sorted = sorted
 
     def transform_stream(self, stream: Stream):
         with closing_if_closable(stream):
@@ -114,10 +116,13 @@ class Glob(Node):
                 matches = glob.iglob(pathname, recursive=recursive)
 
                 est_n_emit = None
-                if self.prefetch:
-                    matches = list(matches)
+                if self.prefetch or self.sorted:
+                    if self.sorted:
+                        matches = sorted(matches)
+                    else:
+                        matches = list(matches)
                     est_n_emit = len(matches)
-                    print(f"{est_n_emit} matches for {pathname}")
+                    print(f"{est_n_emit:,d} matches for {pathname}")
 
                 with est.consume(
                     obj.n_remaining_hint, est_n_emit=est_n_emit
