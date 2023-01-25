@@ -12,7 +12,7 @@ from morphocut.str import Format
 from morphocut.stream import TQDM
 
 import_path = "../tests/data/flowcam"
-export_path = "/tmp/flowcam"
+export_path = "../tmp/flowcam"
 
 os.makedirs(export_path, exist_ok=True)
 
