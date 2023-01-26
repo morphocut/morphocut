@@ -33,7 +33,7 @@ class BatchPipeline(Pipeline):
             raise ValueError("All groupby fields need to be Variables.")
 
         self.batch_size = batch_size
-        self.groupby: Optional[Tuple[Variable]] = groupby  # type: ignore
+        self.groupby: Optional[tuple[Variable]] = groupby  # type: ignore
 
         self._n_remaining_hint_field = id(object())
 
