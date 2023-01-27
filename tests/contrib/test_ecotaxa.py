@@ -13,16 +13,16 @@ import pytest
 
 @pytest.mark.parametrize("ext", [".tar", ".zip"])
 def test_ecotaxa(tmp_path, ext):
-    archive_pat = str(tmp_path / ("ecotaxa_{:d}" + ext))
-    archive_fns = [archive_pat.format(i) for i in range(2)]
-    print(archive_fns)
+    archive_fn = str(tmp_path / ("ecotaxa" + ext))
+    print(archive_fn)
 
     # Create an archive
     with Pipeline() as p:
-        archive_fn = Unpack(archive_fns)
         i = Unpack(range(10))
 
-        meta = Call(dict, i=i, foo="Sömé UTF-8 ſtríng…")
+        object_id = Format("foo{:d}", i)
+
+        meta = Call(dict, object_id=object_id, i=i, foo="Sömé UTF-8 ſtríng…")
         image = BinaryBlobs()
         image_name = Format("image_{}.png", i)
 
@@ -39,22 +39,20 @@ def test_ecotaxa(tmp_path, ext):
     # Execute pipeline and collect results
     result = [o.to_dict(meta=meta, image=image) for o in p.transform_stream()]
 
-    for archive_fn in archive_fns:
-        if ext == ".zip":
-            assert zipfile.is_zipfile(archive_fn), f"{archive_fn} is not a zip file"
-        elif ext == ".tar":
-            assert tarfile.is_tarfile(archive_fn), f"{archive_fn} is not a tar file"
+    if ext == ".zip":
+        assert zipfile.is_zipfile(archive_fn), f"{archive_fn} is not a zip file"
+    elif ext == ".tar":
+        assert tarfile.is_tarfile(archive_fn), f"{archive_fn} is not a tar file"
 
     # Read the archive
     with Pipeline() as p:
-        archive_fn = Unpack(archive_fns)
-        image, meta = EcotaxaReader(archive_fn)
+        obj = EcotaxaReader(archive_fn)
 
-    roundtrip_result = [o.to_dict(meta=meta, image=image) for o in p.transform_stream()]
+    roundtrip_result = [o.to_dict(obj=obj) for o in p.transform_stream()]
 
     for meta_field in ("i", "foo"):
         assert [o["meta"][meta_field] for o in result] == [
-            o["meta"][meta_field] for o in roundtrip_result
+            o["obj"].meta[meta_field] for o in roundtrip_result
         ]
 
     for i, prefix in enumerate(("object_", "acq_", "process_", "sample_")):
@@ -62,4 +60,6 @@ def test_ecotaxa(tmp_path, ext):
             i for _ in roundtrip_result
         ]
 
-    assert_equal([o["image"] for o in result], [o["image"] for o in roundtrip_result])
+    assert_equal(
+        [o["image"] for o in result], [o["obj"].image for o in roundtrip_result]
+    )

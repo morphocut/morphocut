@@ -13,14 +13,28 @@ import os.path
 import pathlib
 import tarfile
 import zipfile
-from typing import IO, List, Mapping, Optional, Tuple, TypeVar, Union
+from abc import ABC, abstractproperty
+from shutil import copyfileobj
+from typing import (
+    IO,
+    BinaryIO,
+    Callable,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 import numpy as np
 import pandas as pd
+import PIL
 import PIL.Image
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
-from morphocut.utils import stream_groupby
+from morphocut.core import Stream
+from morphocut.utils import StreamEstimator, stream_groupby
 
 T = TypeVar("T")
 MaybeTuple = Union[T, Tuple[T]]
@@ -38,9 +52,17 @@ def dtype_to_ecotaxa(dtype):
     return "[t]"
 
 
+class MemberNotFoundError(Exception):
+    pass
+
+
+class UnknownArchiveError(Exception):
+    pass
+
+
 class Archive:
     """
-    A generic archive reader for ZIP and TAR archives.
+    A generic archive reader and writer for ZIP and TAR archives.
     """
 
     extensions: List[str] = []
@@ -53,14 +75,14 @@ class Archive:
                 if subclass.is_readable(archive_fn):
                     return super(Archive, subclass).__new__(subclass)
 
-            raise ValueError("No handler found to read {}".format(archive_fn))
+            raise UnknownArchiveError(f"No handler found to read {archive_fn}")
 
         if mode[0] in ("a", "w", "x"):
             for subclass in cls.__subclasses__():
                 if any(archive_fn.endswith(ext) for ext in subclass.extensions):
                     return super(Archive, subclass).__new__(subclass)
 
-            raise ValueError("No handler found to write {}".format(archive_fn))
+            raise UnknownArchiveError(f"No handler found to write {archive_fn}")
 
     @staticmethod
     def is_readable(archive_fn) -> bool:
@@ -70,9 +92,15 @@ class Archive:
         raise NotImplementedError()
 
     def read_member(self, member_fn) -> IO:
+        """
+        Raises:
+            MemberNotFoundError if a member was not found
+        """
         raise NotImplementedError()
 
-    def write_member(self, member_fn, fileobj_or_bytes: Union[IO, bytes]):
+    def write_member(
+        self, member_fn, fileobj_or_bytes: Union[IO, bytes], compress_hint=True
+    ):
         raise NotImplementedError()
 
     def find(self, pattern) -> List[str]:
@@ -129,10 +157,15 @@ class TarArchive(Archive):
     def _resolve_member(self, member):
         if isinstance(member, tarfile.TarInfo):
             return member
+
         self._load_members()
+        assert self._members is not None
+
         return self._members[member]
 
-    def write_member(self, member_fn: str, fileobj_or_bytes: Union[IO, bytes]):
+    def write_member(
+        self, member_fn: str, fileobj_or_bytes: Union[IO, bytes], compress_hint=True
+    ):
         if isinstance(fileobj_or_bytes, bytes):
             fileobj_or_bytes = io.BytesIO(fileobj_or_bytes)
 
@@ -162,17 +195,34 @@ class ZipArchive(Archive):
         return self._zip.namelist()
 
     def read_member(self, member):
-        return self._zip.open(member)
+        try:
+            return self._zip.open(member)
+        except KeyError as exc:
+            raise MemberNotFoundError(f"{member} not in {self._zip.filename}") from exc
 
-    def write_member(self, member_fn: str, fileobj_or_bytes: Union[IO, bytes]):
+    def write_member(
+        self, member_fn: str, fileobj_or_bytes: Union[IO, bytes], compress_hint=True
+    ):
+        compress_type = zipfile.ZIP_DEFLATED if compress_hint else zipfile.ZIP_STORED
         # TODO: Optimize for on-disk files and BytesIO (.getvalue())
         if isinstance(fileobj_or_bytes, bytes):
-            return self._zip.writestr(member_fn, fileobj_or_bytes)
+            return self._zip.writestr(
+                member_fn, fileobj_or_bytes, compress_type=compress_type
+            )
 
-        self._zip.writestr(member_fn, fileobj_or_bytes.read())
+        self._zip.writestr(
+            member_fn, fileobj_or_bytes.read(), compress_type=compress_type
+        )
 
     def close(self):
         self._zip.close()
+
+
+def split_path(path: str) -> Tuple[str, str]:
+    if "/" in path:
+        head, tail = path.rsplit("/", 1)
+        return head, tail
+    return "", path
 
 
 @ReturnOutputs
@@ -181,7 +231,7 @@ class EcotaxaWriter(Node):
     Create an archive of images and metadata that is importable to EcoTaxa.
 
     Args:
-        archive_fn (str, Variable): Location of the output file.
+        archive_fn (str): Location of the output file.
         fnames_images (Tuple, Variable, or a list thereof):
             Tuple of ``(filename, image)`` or a list of such tuples.
             ``filename`` is the name in the archive. ``image`` is a NumPy array.
@@ -230,7 +280,7 @@ class EcotaxaWriter(Node):
         acq_meta: Optional[RawOrVariable[Mapping]] = None,
         process_meta: Optional[RawOrVariable[Mapping]] = None,
         sample_meta: Optional[RawOrVariable[Mapping]] = None,
-        meta_fn: str = "ecotaxa_export.tsv",
+        meta_fn: RawOrVariable[str] = "ecotaxa_export.tsv",
         store_types: bool = True,
     ):
         super().__init__()
@@ -253,110 +303,222 @@ class EcotaxaWriter(Node):
         self.meta_fn = meta_fn
         self.store_types = store_types
 
+    @classmethod
+    def _prepare_images(
+        cls, fnames_images, archive: Archive, pil_extensions, meta_prefix, meta
+    ):
+        for img_rank, (fname, img) in enumerate(fnames_images, start=1):
+            if isinstance(img, io.IOBase):
+                img_fp = img
+                # Rewind
+            elif isinstance(img, np.ndarray):
+                img_ext = os.path.splitext(fname)[1]
+                pil_format = pil_extensions[img_ext]
+
+                img = PIL.Image.fromarray(img)
+                img_fp = io.BytesIO()
+                try:
+                    img.save(img_fp, format=pil_format)
+                except:
+                    print(f"EcotaxaWriter: Error writing {fname}")
+                    raise
+            else:
+                raise ValueError(f"Unexpected image type:", type(img))
+
+            # Do not compress image files as already compressed
+            img_fp.seek(0)
+            archive.write_member(meta_prefix + fname, img_fp, compress_hint=False)
+
+            yield {
+                **meta,
+                "img_file_name": fname,
+                "img_rank": img_rank,
+            }
+
     def transform_stream(self, stream):
+        PIL.Image.init()
         pil_extensions = PIL.Image.registered_extensions()
 
         with closing_if_closable(stream):
-            for archive_fn, substream in stream_groupby(stream, self.archive_fn):
+            for archive_fn, archive_group in stream_groupby(stream, by=self.archive_fn):
+                i = 0
                 with Archive(archive_fn, "w") as archive:
-                    dataframe = []
-                    i = 0
-                    for obj in substream:
-                        (
-                            fnames_images,
-                            meta,
-                            object_meta,
-                            acq_meta,
-                            process_meta,
-                            sample_meta,
-                        ) = self.prepare_input(
-                            obj,
+                    for meta_fn, meta_group in stream_groupby(
+                        archive_group, by=self.meta_fn
+                    ):
+                        meta_fn: str
+                        dataframe = []
+                        meta_prefix = split_path(meta_fn)[0]
+                        if meta_prefix:
+                            meta_prefix = meta_prefix + "/"
+
+                        for obj in meta_group:
                             (
-                                "fnames_images",
-                                "meta",
-                                "object_meta",
-                                "acq_meta",
-                                "process_meta",
-                                "sample_meta",
-                            ),
+                                fnames_images,
+                                meta,
+                                object_meta,
+                                acq_meta,
+                                process_meta,
+                                sample_meta,
+                            ) = self.prepare_input(
+                                obj,
+                                (
+                                    "fnames_images",
+                                    "meta",
+                                    "object_meta",
+                                    "acq_meta",
+                                    "process_meta",
+                                    "sample_meta",
+                                ),
+                            )  # type: ignore
+
+                            if meta is None:
+                                meta = {}
+
+                            if object_meta is not None:
+                                meta.update(
+                                    ("object_" + k, v) for k, v in object_meta.items()
+                                )
+
+                            if acq_meta is not None:
+                                meta.update(
+                                    ("acq_" + k, v) for k, v in acq_meta.items()
+                                )
+
+                            if process_meta is not None:
+                                meta.update(
+                                    ("process_" + k, v) for k, v in process_meta.items()
+                                )
+
+                            if sample_meta is not None:
+                                meta.update(
+                                    ("sample_" + k, v) for k, v in sample_meta.items()
+                                )
+
+                            if fnames_images:
+                                # Metadata and images: Store image and repeat meta for each individual image
+                                dataframe.extend(
+                                    self._prepare_images(
+                                        fnames_images,
+                                        archive,
+                                        pil_extensions,
+                                        meta_prefix,
+                                        meta,
+                                    )
+                                )
+                            else:
+                                # Only metadata: Write only meta
+                                dataframe.append(meta)
+
+                            yield obj
+
+                            i += 1
+
+                        dataframe = pd.DataFrame(dataframe)
+
+                        if dataframe.size:
+                            # Insert types into header
+                            type_header = [
+                                dtype_to_ecotaxa(dt) for dt in dataframe.dtypes
+                            ]
+                            dataframe.columns = pd.MultiIndex.from_tuples(
+                                list(zip(dataframe.columns, type_header))
+                            )
+
+                            archive.write_member(
+                                meta_fn,
+                                io.BytesIO(
+                                    dataframe.to_csv(
+                                        sep="\t", encoding="utf-8", index=False
+                                    ).encode()
+                                ),
+                            )
+
+                        print(
+                            f"EcotaxaWriter: Wrote {len(dataframe):,d} entries to {meta_fn}."
                         )
 
-                        if meta is None:
-                            meta = {}
+                print(f"EcotaxaWriter: Wrote {i:,d} objects to {archive_fn}.")
 
-                        if object_meta is not None:
-                            meta.update(
-                                ("object_" + k, v) for k, v in object_meta.items()
-                            )
 
-                        if acq_meta is not None:
-                            meta.update(("acq_" + k, v) for k, v in acq_meta.items())
+class EcotaxaObject:
+    __slots__ = ["meta", "_image_data", "index_fn", "archive_fn", "default_mode"]
 
-                        if process_meta is not None:
-                            meta.update(
-                                ("process_" + k, v) for k, v in process_meta.items()
-                            )
+    def __init__(
+        self, meta, image_data, archive_fn=None, index_fn=None, default_mode=None
+    ):
+        self.meta = meta
+        self._image_data = image_data
+        self.archive_fn = archive_fn
+        self.index_fn = index_fn
+        self.default_mode = default_mode
 
-                        if sample_meta is not None:
-                            meta.update(
-                                ("sample_" + k, v) for k, v in sample_meta.items()
-                            )
+    @property
+    def image(self):
+        return self.get_image()
 
-                        for img_rank, (fname, img) in enumerate(fnames_images, start=1):
-                            img_ext = os.path.splitext(fname)[1]
-                            pil_format = pil_extensions[img_ext]
+    @property
+    def image_data(self):
+        return self.get_image_data()
 
-                            img = PIL.Image.fromarray(img)
-                            img_fp = io.BytesIO()
-                            try:
-                                img.save(img_fp, format=pil_format)
-                            except:
-                                print(f"Error writing {fname}")
-                                raise
+    @property
+    def object_id(self):
+        return self.meta.get("object_id", "<unidentified object>")
 
-                            archive.write_member(fname, img_fp.getvalue())
+    def get_image_data(self, img_rank=None):
+        if img_rank is None:
+            return next(iter(self._image_data.values()))
+        else:
+            try:
+                return self._image_data[img_rank]
+            except KeyError:
+                print(
+                    f"Unknown rank {img_rank}. Available:",
+                    list(self._image_data.keys()),
+                )
+                raise
 
-                            dataframe.append(
-                                {**meta, "img_file_name": fname, "img_rank": img_rank}
-                            )
+    def get_image(self, img_rank=None, mode=None):
+        """
+        Get an image for the object.
 
-                        yield obj
+        Args:
+            img_rank: Rank of the image. (Default: The first one.)
+            mode: Mode to load the image.
+                See `PIL Modes <https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes>`_.
+        """
 
-                        i += 1
+        data = self.get_image_data(img_rank)
 
-                    dataframe = pd.DataFrame(dataframe)
+        if mode is None:
+            mode = self.default_mode
 
-                    # Insert types into header
-                    type_header = [dtype_to_ecotaxa(dt) for dt in dataframe.dtypes]
-                    dataframe.columns = pd.MultiIndex.from_tuples(
-                        list(zip(dataframe.columns, type_header))
-                    )
-
-                    archive.write_member(
-                        self.meta_fn,
-                        io.BytesIO(
-                            dataframe.to_csv(
-                                sep="\t", encoding="utf-8", index=False
-                            ).encode()
-                        ),
-                    )
-
-                    print("Wrote {:,d} objects to {}.".format(i, archive_fn))
+        try:
+            image = PIL.Image.open(data)
+            if mode is not None:
+                image = image.convert(mode)
+            return np.array(image)
+        except PIL.UnidentifiedImageError:
+            head = data.getvalue()[:20]
+            print(f"Error reading {self.object_id}: {head}")
+            raise
 
 
 @ReturnOutputs
-@Output("image")
-@Output("meta")
+@Output("object")
 class EcotaxaReader(Node):
     """
     |stream| Read an archive of images and metadata that is importable to EcoTaxa.
 
     Args:
         archive_fn (str, Variable): Location of the archive file.
-        img_rank (int, Variable, or a tuple thereof, optional): One or more image ranks.
+        query (str, Variable, optional): A query string to select a subset of the data.
+            See :py:meth:`pandas.DataFrame.query`.
+        prepare_data (callable, optional): A function that receives a :py:class:`pandas.DataFrame`
+            and returns a modified version.
 
     Returns:
-        (image, meta): A tuple of image(s) and metadata.
+        object: A :class:`EcotaxaObject` that allows to access image(s) and metadata.
 
     To read multiple image ranks, provide a tuple of ints as ``img_rank``.
     The first output will then be a tuple of images.
@@ -379,43 +541,175 @@ class EcotaxaReader(Node):
     def __init__(
         self,
         archive_fn: RawOrVariable[str],
-        img_rank: MaybeTuple[RawOrVariable[int]] = 1,
+        *,
+        query: RawOrVariable[Optional[str]] = None,
+        prepare_data: Optional[Callable[["pd.DataFrame"], "pd.DataFrame"]] = None,
+        verbose=False,
+        keep_going=False,
+        print_summary=False,
+        encoding="utf-8",
+        index_pattern="*ecotaxa_*",
+        columns: Optional[List] = None,
+        image_default_mode=None,
     ):
         super().__init__()
         self.archive_fn = archive_fn
-        self.img_rank = img_rank
+        self.query = query
+        self.prepare_data = prepare_data
+        self.verbose = verbose
+        self.keep_going = keep_going
+        self.print_summary = print_summary
+        self.encoding = encoding
+        self.index_pattern = index_pattern
+        self.columns = columns
+        self.image_default_mode = image_default_mode
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: Stream):
+        n_indices_received = 0
+        n_indices_processed = 0
+        n_objects_received = 0
+
+        n_objects_read = 0
+
+        messages = []
+
+        if self.columns is not None:
+            usecols = lambda c: any(fnmatch.fnmatch(c, p) for p in self.columns)
+        else:
+            usecols = None
+
         with closing_if_closable(stream):
+            stream_estimator = StreamEstimator()
             for obj in stream:
-                archive_fn, img_rank = self.prepare_input(
-                    obj, ("archive_fn", "img_rank")
-                )
+                archive_fn, query = self.prepare_input(obj, ("archive_fn", "query"))
 
-                with Archive(archive_fn) as archive:
-                    index_fns = archive.find("*ecotaxa_*")
+                if self.verbose:
+                    print(f"EcotaxaReader: Processing archive {archive_fn}...")
 
-                    for index_fn in index_fns:
-                        index_base = os.path.dirname(index_fn)
-                        with archive.read_member(index_fn) as index_fp:
-                            dataframe = pd.read_csv(
-                                index_fp, sep="\t", low_memory=False
-                            )
-                            dataframe = self._fix_types(dataframe)
+                try:
+                    archive = Archive(archive_fn)
+                except UnknownArchiveError as exc:
+                    if self.keep_going:
+                        print(exc)
+                        messages.append(str(exc))
+                        continue
+                    raise
 
-                            for _, row in dataframe.iterrows():
-                                image_fn = os.path.join(
-                                    index_base, row["img_file_name"]
+                with archive:
+                    index_fns = sorted(archive.find(self.index_pattern))
+
+                    with stream_estimator.consume(
+                        obj.n_remaining_hint, est_n_emit=len(index_fns)
+                    ) as incoming_archive:
+
+                        n_indices_received += len(index_fns)
+
+                        archive_estimator = StreamEstimator()
+
+                        for index_fn in index_fns:
+                            if self.verbose:
+                                print(f"EcotaxaReader: Processing index {index_fn}...")
+
+                            index_base = os.path.dirname(index_fn)
+
+                            n_indices_processed += 1
+
+                            with archive.read_member(index_fn) as index_fp:
+                                dataframe = pd.read_csv(
+                                    index_fp,
+                                    sep="\t",
+                                    low_memory=False,
+                                    encoding=self.encoding,
+                                    usecols=usecols,
                                 )
+                                dataframe = self._fix_types(dataframe)
 
-                                with archive.read_member(image_fn) as image_fp:
-                                    image = np.array(PIL.Image.open(image_fp))
+                                if self.prepare_data is not None:
+                                    dataframe = self.prepare_data(dataframe)
 
-                                yield self.prepare_output(
-                                    obj.copy(), image, row.to_dict()
-                                )
+                                if "img_rank" not in dataframe.columns:
+                                    dataframe["img_rank"] = 1
 
-    def _fix_types(self, dataframe):
+                                if "object_id" not in dataframe.columns:
+                                    raise ValueError(
+                                        f"object_id missing in {archive_fn}/{index_fn}\n"
+                                        f"Columns: {dataframe.columns}"
+                                    )
+
+                                if "img_file_name" not in dataframe.columns:
+                                    raise ValueError(
+                                        f"img_file_name missing in {archive_fn}/{index_fn}\n"
+                                        f"Columns: {dataframe.columns}"
+                                    )
+
+                                if query is not None:
+                                    dataframe = dataframe.query(query)
+
+                                dataframe_by_object_id = dataframe.groupby("object_id")
+
+                                with archive_estimator.consume(
+                                    incoming_archive.emit(),
+                                    est_n_emit=len(dataframe_by_object_id),
+                                ) as incoming_index:
+
+                                    index_estimator = StreamEstimator()
+
+                                    n_objects_received += len(dataframe_by_object_id)
+
+                                    for (object_id, group) in dataframe_by_object_id:
+                                        with index_estimator.consume(
+                                            incoming_index.emit(), est_n_emit=1
+                                        ) as incoming_object:
+
+                                            try:
+                                                image_data = {
+                                                    row["img_rank"]: self._load_image(
+                                                        archive,
+                                                        index_base,
+                                                        row["img_file_name"],
+                                                    )
+                                                    for _, row in group.iterrows()
+                                                }
+                                            except MemberNotFoundError as exc:
+                                                if self.keep_going:
+                                                    print(exc)
+                                                    messages.append(str(exc))
+                                                    continue
+                                                raise
+
+                                            meta = group.iloc[0].to_dict()
+
+                                            yield self.prepare_output(
+                                                obj.copy(),
+                                                EcotaxaObject(
+                                                    meta=meta,
+                                                    image_data=image_data,
+                                                    index_fn=index_fn,
+                                                    default_mode=self.image_default_mode,
+                                                    archive_fn=archive_fn,
+                                                ),
+                                                n_remaining_hint=incoming_object.emit(),
+                                            )
+
+                                            n_objects_read += 1
+
+                if self.print_summary:
+                    print(f"EcotaxaReader: Read {n_objects_read} objects.")
+                    if messages:
+                        print("EcotaxaReader: Messages")
+                        for msg in messages:
+                            print(msg)
+
+    @staticmethod
+    def _load_image(archive: Archive, index_base, image_fn):
+        image_fn = os.path.join(index_base, image_fn)
+        image_data = io.BytesIO()
+        with archive.read_member(image_fn) as image_fp:
+            copyfileobj(image_fp, image_data)
+        return image_data
+
+    @staticmethod
+    def _fix_types(dataframe):
         first_row = dataframe.iloc[0]
 
         num_cols = []
