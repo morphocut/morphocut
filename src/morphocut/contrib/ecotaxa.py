@@ -7,41 +7,21 @@ Read and write EcoTaxa archives.
 
 .. _EcoTaxa: https://ecotaxa.obs-vlfr.fr/
 """
-from abc import ABC, abstractproperty
 import fnmatch
 import io
 import os.path
 import pathlib
 import tarfile
 import zipfile
-from shutil import copyfileobj
-from typing import (
-    IO,
-    BinaryIO,
-    Callable,
-    List,
-    Mapping,
-    Optional,
-    Tuple,
-    TypeVar,
-    Union,
-)
-from morphocut.utils import StreamEstimator
-from morphocut.utils import stream_groupby
+from typing import IO, List, Mapping, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 import pandas as pd
-import PIL.Image
 import PIL
+import PIL.Image
 
-from morphocut import (
-    Node,
-    Output,
-    RawOrVariable,
-    ReturnOutputs,
-    closing_if_closable,
-)
-from morphocut.core import Pipeline, Stream
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
+from morphocut.utils import stream_groupby
 
 T = TypeVar("T")
 MaybeTuple = Union[T, Tuple[T]]
@@ -164,7 +144,10 @@ class TarArchive(Archive):
     def _resolve_member(self, member):
         if isinstance(member, tarfile.TarInfo):
             return member
+
         self._load_members()
+        assert self._members is not None
+
         return self._members[member]
 
     def write_member(
@@ -227,9 +210,6 @@ def split_path(path: str) -> Tuple[str, str]:
         head, tail = path.rsplit("/", 1)
         return head, tail
     return "", path
-
-    def close(self):
-        self._zip.close()
 
 
 @ReturnOutputs
@@ -446,11 +426,6 @@ class EcotaxaWriter(Node):
                         )
 
                 print(f"EcotaxaWriter: Wrote {i:,d} objects to {archive_fn}.")
-
-
-            )
-
-            print("Wrote {:,d} objects to {}.".format(i, self.archive_fn))
 
 
 @ReturnOutputs
