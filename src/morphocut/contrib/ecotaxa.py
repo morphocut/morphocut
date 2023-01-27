@@ -13,7 +13,19 @@ import os.path
 import pathlib
 import tarfile
 import zipfile
-from typing import IO, List, Mapping, Optional, Tuple, TypeVar, Union
+from abc import ABC, abstractproperty
+from shutil import copyfileobj
+from typing import (
+    IO,
+    BinaryIO,
+    Callable,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 import numpy as np
 import pandas as pd
@@ -21,7 +33,8 @@ import PIL
 import PIL.Image
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
-from morphocut.utils import stream_groupby
+from morphocut.core import Stream
+from morphocut.utils import StreamEstimator, stream_groupby
 
 T = TypeVar("T")
 MaybeTuple = Union[T, Tuple[T]]
@@ -428,19 +441,22 @@ class EcotaxaWriter(Node):
                 print(f"EcotaxaWriter: Wrote {i:,d} objects to {archive_fn}.")
 
 
+
 @ReturnOutputs
-@Output("image")
-@Output("meta")
+@Output("object")
 class EcotaxaReader(Node):
     """
     |stream| Read an archive of images and metadata that is importable to EcoTaxa.
 
     Args:
         archive_fn (str, Variable): Location of the archive file.
-        img_rank (int, Variable, or a tuple thereof, optional): One or more image ranks.
+        query (str, Variable, optional): A query string to select a subset of the data.
+            See :py:meth:`pandas.DataFrame.query`.
+        prepare_data (callable, optional): A function that receives a :py:class:`pandas.DataFrame`
+            and returns a modified version.
 
     Returns:
-        (image, meta): A tuple of image(s) and metadata.
+        object: A :class:`EcotaxaObject` that allows to access image(s) and metadata.
 
     To read multiple image ranks, provide a tuple of ints as ``img_rank``.
     The first output will then be a tuple of images.
@@ -463,43 +479,178 @@ class EcotaxaReader(Node):
     def __init__(
         self,
         archive_fn: RawOrVariable[str],
-        img_rank: MaybeTuple[RawOrVariable[int]] = 1,
+        *,
+        query: RawOrVariable[Optional[str]] = None,
+        prepare_data: Optional[Callable[["pd.DataFrame"], "pd.DataFrame"]] = None,
+        verbose=False,
+        keep_going=False,
+        print_summary=False,
+        encoding="utf-8",
+        index_pattern="*ecotaxa_*",
+        columns: Optional[List] = None,
+        image_default_mode=None,
     ):
         super().__init__()
         self.archive_fn = archive_fn
-        self.img_rank = img_rank
+        self.query = query
+        self.prepare_data = prepare_data
+        self.verbose = verbose
+        self.keep_going = keep_going
+        self.print_summary = print_summary
+        self.encoding = encoding
+        self.index_pattern = index_pattern
+        self.columns = columns
+        self.image_default_mode = image_default_mode
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: Stream):
+        n_indices_received = 0
+        n_indices_processed = 0
+        n_objects_received = 0
+
+        n_objects_read = 0
+
+        messages = []
+
+        if self.columns is not None:
+            usecols = lambda c: any(fnmatch.fnmatch(c, p) for p in self.columns)
+        else:
+            usecols = None
+
         with closing_if_closable(stream):
+            stream_estimator = StreamEstimator()
             for obj in stream:
-                archive_fn, img_rank = self.prepare_input(
-                    obj, ("archive_fn", "img_rank")
-                )
+                archive_fn, query = self.prepare_input(obj, ("archive_fn", "query"))
 
-                with Archive(archive_fn) as archive:
-                    index_fns = archive.find("*ecotaxa_*")
+                if self.verbose:
+                    print(f"EcotaxaReader: Processing archive {archive_fn}...")
 
-                    for index_fn in index_fns:
-                        index_base = os.path.dirname(index_fn)
-                        with archive.read_member(index_fn) as index_fp:
-                            dataframe = pd.read_csv(
-                                index_fp, sep="\t", low_memory=False
-                            )
-                            dataframe = self._fix_types(dataframe)
+                try:
+                    archive = Archive(archive_fn)
+                except UnknownArchiveError as exc:
+                    if self.keep_going:
+                        print(exc)
+                        messages.append(str(exc))
+                        continue
+                    raise
 
-                            for _, row in dataframe.iterrows():
-                                image_fn = os.path.join(
-                                    index_base, row["img_file_name"]
+                with archive:
+                    index_fns = sorted(archive.find(self.index_pattern))
+
+                    with stream_estimator.consume(
+                        obj.n_remaining_hint, est_n_emit=len(index_fns)
+                    ) as incoming_archive:
+
+                        n_indices_received += len(index_fns)
+
+                        archive_estimator = StreamEstimator()
+
+                        for index_fn in index_fns:
+                            if self.verbose:
+                                print(f"EcotaxaReader: Processing index {index_fn}...")
+
+                            index_base = os.path.dirname(index_fn)
+
+                            n_indices_processed += 1
+
+                            with archive.read_member(index_fn) as index_fp:
+                                dataframe = pd.read_csv(
+                                    index_fp,
+                                    sep="\t",
+                                    low_memory=False,
+                                    encoding=self.encoding,
+                                    usecols=usecols,
                                 )
+                                dataframe = self._fix_types(dataframe)
 
-                                with archive.read_member(image_fn) as image_fp:
-                                    image = np.array(PIL.Image.open(image_fp))
+                                if self.prepare_data is not None:
+                                    dataframe = self.prepare_data(dataframe)
 
-                                yield self.prepare_output(
-                                    obj.copy(), image, row.to_dict()
-                                )
+                                if "img_rank" not in dataframe.columns:
+                                    dataframe["img_rank"] = 1
 
-    def _fix_types(self, dataframe):
+                                if "object_id" not in dataframe.columns:
+                                    raise ValueError(
+                                        f"object_id missing in {archive_fn}/{index_fn}\n"
+                                        f"Columns: {dataframe.columns}"
+                                    )
+
+                                if "img_file_name" not in dataframe.columns:
+                                    raise ValueError(
+                                        f"img_file_name missing in {archive_fn}/{index_fn}\n"
+                                        f"Columns: {dataframe.columns}"
+                                    )
+
+                                if query is not None:
+                                    dataframe = dataframe.query(query)
+
+                                dataframe_by_object_id = dataframe.groupby("object_id")
+
+                                with archive_estimator.consume(
+                                    incoming_archive.emit(),
+                                    est_n_emit=len(dataframe_by_object_id),
+                                ) as incoming_index:
+
+                                    index_estimator = StreamEstimator()
+
+                                    n_objects_received += len(dataframe_by_object_id)
+
+                                    for (object_id, group) in dataframe_by_object_id:
+                                        with index_estimator.consume(
+                                            incoming_index.emit(), est_n_emit=1
+                                        ) as incoming_object:
+
+                                            try:
+                                                image_data = {
+                                                    row["img_rank"]: self._load_image(
+                                                        archive,
+                                                        index_base,
+                                                        row["img_file_name"],
+                                                    )
+                                                    for _, row in group.iterrows()
+                                                }
+                                            except MemberNotFoundError as exc:
+                                                if self.keep_going:
+                                                    print(exc)
+                                                    messages.append(str(exc))
+                                                    continue
+                                                raise
+
+                                            meta = group.iloc[0].to_dict()
+
+                                            # Include input metadata
+                                            meta["morphocut_input_archive"] = archive_fn
+                                            meta["morphocut_input_index"] = index_fn
+
+                                            yield self.prepare_output(
+                                                obj.copy(),
+                                                EcotaxaObject(
+                                                    meta=meta,
+                                                    image_data=image_data,
+                                                    index_fn=index_fn,
+                                                    default_mode=self.image_default_mode,
+                                                ),
+                                                n_remaining_hint=incoming_object.emit(),
+                                            )
+
+                                            n_objects_read += 1
+
+                if self.print_summary:
+                    print(f"EcotaxaReader: Read {n_objects_read} objects.")
+                    if messages:
+                        print("EcotaxaReader: Messages")
+                        for msg in messages:
+                            print(msg)
+
+    @staticmethod
+    def _load_image(archive: Archive, index_base, image_fn):
+        image_fn = os.path.join(index_base, image_fn)
+        image_data = io.BytesIO()
+        with archive.read_member(image_fn) as image_fp:
+            copyfileobj(image_fp, image_data)
+        return image_data
+
+    @staticmethod
+    def _fix_types(dataframe):
         first_row = dataframe.iloc[0]
 
         num_cols = []
