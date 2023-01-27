@@ -7,19 +7,41 @@ Read and write EcoTaxa archives.
 
 .. _EcoTaxa: https://ecotaxa.obs-vlfr.fr/
 """
+from abc import ABC, abstractproperty
 import fnmatch
 import io
 import os.path
 import pathlib
 import tarfile
 import zipfile
-from typing import IO, List, Mapping, Optional, Tuple, TypeVar, Union
+from shutil import copyfileobj
+from typing import (
+    IO,
+    BinaryIO,
+    Callable,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
+from morphocut.utils import StreamEstimator
+from morphocut.utils import stream_groupby
 
 import numpy as np
 import pandas as pd
 import PIL.Image
+import PIL
 
-from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
+from morphocut import (
+    Node,
+    Output,
+    RawOrVariable,
+    ReturnOutputs,
+    closing_if_closable,
+)
+from morphocut.core import Pipeline, Stream
 
 T = TypeVar("T")
 MaybeTuple = Union[T, Tuple[T]]
@@ -37,9 +59,17 @@ def dtype_to_ecotaxa(dtype):
     return "[t]"
 
 
+class MemberNotFoundError(Exception):
+    pass
+
+
+class UnknownArchiveError(Exception):
+    pass
+
+
 class Archive:
     """
-    A generic archive reader for ZIP and TAR archives.
+    A generic archive reader and writer for ZIP and TAR archives.
     """
 
     extensions: List[str] = []
@@ -52,14 +82,14 @@ class Archive:
                 if subclass.is_readable(archive_fn):
                     return super(Archive, subclass).__new__(subclass)
 
-            raise ValueError("No handler found to read {}".format(archive_fn))
+            raise UnknownArchiveError(f"No handler found to read {archive_fn}")
 
         if mode[0] in ("a", "w", "x"):
             for subclass in cls.__subclasses__():
                 if any(archive_fn.endswith(ext) for ext in subclass.extensions):
                     return super(Archive, subclass).__new__(subclass)
 
-            raise ValueError("No handler found to write {}".format(archive_fn))
+            raise UnknownArchiveError(f"No handler found to write {archive_fn}")
 
     @staticmethod
     def is_readable(archive_fn) -> bool:
@@ -69,9 +99,15 @@ class Archive:
         raise NotImplementedError()
 
     def read_member(self, member_fn) -> IO:
+        """
+        Raises:
+            MemberNotFoundError if a member was not found
+        """
         raise NotImplementedError()
 
-    def write_member(self, member_fn, fileobj_or_bytes: Union[IO, bytes]):
+    def write_member(
+        self, member_fn, fileobj_or_bytes: Union[IO, bytes], compress_hint=True
+    ):
         raise NotImplementedError()
 
     def find(self, pattern) -> List[str]:
@@ -131,7 +167,9 @@ class TarArchive(Archive):
         self._load_members()
         return self._members[member]
 
-    def write_member(self, member_fn: str, fileobj_or_bytes: Union[IO, bytes]):
+    def write_member(
+        self, member_fn: str, fileobj_or_bytes: Union[IO, bytes], compress_hint=True
+    ):
         if isinstance(fileobj_or_bytes, bytes):
             fileobj_or_bytes = io.BytesIO(fileobj_or_bytes)
 
@@ -161,14 +199,34 @@ class ZipArchive(Archive):
         return self._zip.namelist()
 
     def read_member(self, member):
-        return self._zip.open(member)
+        try:
+            return self._zip.open(member)
+        except KeyError as exc:
+            raise MemberNotFoundError(f"{member} not in {self._zip.filename}") from exc
 
-    def write_member(self, member_fn: str, fileobj_or_bytes: Union[IO, bytes]):
+    def write_member(
+        self, member_fn: str, fileobj_or_bytes: Union[IO, bytes], compress_hint=True
+    ):
+        compress_type = zipfile.ZIP_DEFLATED if compress_hint else zipfile.ZIP_STORED
         # TODO: Optimize for on-disk files and BytesIO (.getvalue())
         if isinstance(fileobj_or_bytes, bytes):
-            return self._zip.writestr(member_fn, fileobj_or_bytes)
+            return self._zip.writestr(
+                member_fn, fileobj_or_bytes, compress_type=compress_type
+            )
 
-        self._zip.writestr(member_fn, fileobj_or_bytes.read())
+        self._zip.writestr(
+            member_fn, fileobj_or_bytes.read(), compress_type=compress_type
+        )
+
+    def close(self):
+        self._zip.close()
+
+
+def split_path(path: str) -> Tuple[str, str]:
+    if "/" in path:
+        head, tail = path.rsplit("/", 1)
+        return head, tail
+    return "", path
 
     def close(self):
         self._zip.close()
@@ -222,14 +280,14 @@ class EcotaxaWriter(Node):
 
     def __init__(
         self,
-        archive_fn: str,
+        archive_fn: RawOrVariable[str],
         fnames_images: MaybeList[RawOrVariable[Tuple[str, ...]]],
         meta: Optional[RawOrVariable[Mapping]] = None,
         object_meta: Optional[RawOrVariable[Mapping]] = None,
         acq_meta: Optional[RawOrVariable[Mapping]] = None,
         process_meta: Optional[RawOrVariable[Mapping]] = None,
         sample_meta: Optional[RawOrVariable[Mapping]] = None,
-        meta_fn: str = "ecotaxa_export.tsv",
+        meta_fn: RawOrVariable[str] = "ecotaxa_export.tsv",
         store_types: bool = True,
     ):
         super().__init__()
@@ -252,82 +310,144 @@ class EcotaxaWriter(Node):
         self.meta_fn = meta_fn
         self.store_types = store_types
 
+    @classmethod
+    def _prepare_images(
+        cls, fnames_images, archive: Archive, pil_extensions, meta_prefix, meta
+    ):
+        for img_rank, (fname, img) in enumerate(fnames_images, start=1):
+            if isinstance(img, io.IOBase):
+                img_fp = img
+                # Rewind
+            elif isinstance(img, np.ndarray):
+                img_ext = os.path.splitext(fname)[1]
+                pil_format = pil_extensions[img_ext]
+
+                img = PIL.Image.fromarray(img)
+                img_fp = io.BytesIO()
+                try:
+                    img.save(img_fp, format=pil_format)
+                except:
+                    print(f"EcotaxaWriter: Error writing {fname}")
+                    raise
+            else:
+                raise ValueError(f"Unexpected image type:", type(img))
+
+            # Do not compress image files as already compressed
+            img_fp.seek(0)
+            archive.write_member(meta_prefix + fname, img_fp, compress_hint=False)
+
+            yield {
+                **meta,
+                "img_file_name": fname,
+                "img_rank": img_rank,
+            }
+
     def transform_stream(self, stream):
+        PIL.Image.init()
         pil_extensions = PIL.Image.registered_extensions()
 
-        with closing_if_closable(stream), Archive(self.archive_fn, "w") as archive:
-            dataframe = []
-            i = 0
-            for obj in stream:
-                (
-                    fnames_images,
-                    meta,
-                    object_meta,
-                    acq_meta,
-                    process_meta,
-                    sample_meta,
-                ) = self.prepare_input(
-                    obj,
-                    (
-                        "fnames_images",
-                        "meta",
-                        "object_meta",
-                        "acq_meta",
-                        "process_meta",
-                        "sample_meta",
-                    ),
-                )
+        with closing_if_closable(stream):
+            for archive_fn, archive_group in stream_groupby(stream, by=self.archive_fn):
+                i = 0
+                with Archive(archive_fn, "w") as archive:
+                    for meta_fn, meta_group in stream_groupby(
+                        archive_group, by=self.meta_fn
+                    ):
+                        meta_fn: str
+                        dataframe = []
+                        meta_prefix = split_path(meta_fn)[0]
+                        if meta_prefix:
+                            meta_prefix = meta_prefix + "/"
 
-                if meta is None:
-                    meta = {}
+                        for obj in meta_group:
+                            (
+                                fnames_images,
+                                meta,
+                                object_meta,
+                                acq_meta,
+                                process_meta,
+                                sample_meta,
+                            ) = self.prepare_input(
+                                obj,
+                                (
+                                    "fnames_images",
+                                    "meta",
+                                    "object_meta",
+                                    "acq_meta",
+                                    "process_meta",
+                                    "sample_meta",
+                                ),
+                            )  # type: ignore
 
-                if object_meta is not None:
-                    meta.update(("object_" + k, v) for k, v in object_meta.items())
+                            if meta is None:
+                                meta = {}
 
-                if acq_meta is not None:
-                    meta.update(("acq_" + k, v) for k, v in acq_meta.items())
+                            if object_meta is not None:
+                                meta.update(
+                                    ("object_" + k, v) for k, v in object_meta.items()
+                                )
 
-                if process_meta is not None:
-                    meta.update(("process_" + k, v) for k, v in process_meta.items())
+                            if acq_meta is not None:
+                                meta.update(
+                                    ("acq_" + k, v) for k, v in acq_meta.items()
+                                )
 
-                if sample_meta is not None:
-                    meta.update(("sample_" + k, v) for k, v in sample_meta.items())
+                            if process_meta is not None:
+                                meta.update(
+                                    ("process_" + k, v) for k, v in process_meta.items()
+                                )
 
-                for img_rank, (fname, img) in enumerate(fnames_images, start=1):
-                    img_ext = os.path.splitext(fname)[1]
-                    pil_format = pil_extensions[img_ext]
+                            if sample_meta is not None:
+                                meta.update(
+                                    ("sample_" + k, v) for k, v in sample_meta.items()
+                                )
 
-                    img = PIL.Image.fromarray(img)
-                    img_fp = io.BytesIO()
-                    try:
-                        img.save(img_fp, format=pil_format)
-                    except:
-                        print(f"Error writing {fname}")
-                        raise
+                            if fnames_images:
+                                # Metadata and images: Store image and repeat meta for each individual image
+                                dataframe.extend(
+                                    self._prepare_images(
+                                        fnames_images,
+                                        archive,
+                                        pil_extensions,
+                                        meta_prefix,
+                                        meta,
+                                    )
+                                )
+                            else:
+                                # Only metadata: Write only meta
+                                dataframe.append(meta)
 
-                    archive.write_member(fname, img_fp.getvalue())
+                            yield obj
 
-                    dataframe.append(
-                        {**meta, "img_file_name": fname, "img_rank": img_rank}
-                    )
+                            i += 1
 
-                yield obj
+                        dataframe = pd.DataFrame(dataframe)
 
-                i += 1
+                        if dataframe.size:
+                            # Insert types into header
+                            type_header = [
+                                dtype_to_ecotaxa(dt) for dt in dataframe.dtypes
+                            ]
+                            dataframe.columns = pd.MultiIndex.from_tuples(
+                                list(zip(dataframe.columns, type_header))
+                            )
 
-            dataframe = pd.DataFrame(dataframe)
+                            archive.write_member(
+                                meta_fn,
+                                io.BytesIO(
+                                    dataframe.to_csv(
+                                        sep="\t", encoding="utf-8", index=False
+                                    ).encode()
+                                ),
+                            )
 
-            # Insert types into header
-            type_header = [dtype_to_ecotaxa(dt) for dt in dataframe.dtypes]
-            dataframe.columns = pd.MultiIndex.from_tuples(
-                list(zip(dataframe.columns, type_header))
-            )
+                        print(
+                            f"EcotaxaWriter: Wrote {len(dataframe):,d} entries to {meta_fn}."
+                        )
 
-            archive.write_member(
-                self.meta_fn,
-                io.BytesIO(
-                    dataframe.to_csv(sep="\t", encoding="utf-8", index=False).encode()
-                ),
+                print(f"EcotaxaWriter: Wrote {i:,d} objects to {archive_fn}.")
+
+
             )
 
             print("Wrote {:,d} objects to {}.".format(i, self.archive_fn))
