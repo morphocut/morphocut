@@ -1,6 +1,9 @@
 """Utilities"""
 
+import functools
 import itertools
+import queue
+import threading
 from typing import Any, Iterator, Optional, Tuple, TypeVar, Union, overload
 
 from morphocut.core import RawOrVariable, Stream, StreamObject, resolve_variable
@@ -150,3 +153,35 @@ class StreamEstimator:
             self.rate = est_n_emit / n_consumed
 
         return _ConsumedObjectContext(self, n_consumed, est_n_emit)
+
+
+def buffered_generator(buf_size: int):
+    def wrap(gen):
+        # Don't do multithreading if nothing should be buffered
+        if buf_size == 0:
+            return gen
+
+        @functools.wraps(gen)
+        def wrapper(*args, **kwargs):
+            q = queue.Queue(buf_size)
+            _sentinel = object()
+
+            def fill_queue():
+                for item in gen(*args, **kwargs):
+                    q.put(item)
+
+                q.put(_sentinel)
+
+            threading.Thread(target=fill_queue, daemon=True).start()
+
+            while True:
+                item = q.get()
+
+                if item is _sentinel:
+                    return
+
+                yield item
+
+        return wrapper
+
+    return wrap

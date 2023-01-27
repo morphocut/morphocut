@@ -45,7 +45,7 @@ def dtype_to_ecotaxa(dtype):
     try:
         if np.issubdtype(dtype, np.number):
             return "[f]"
-    except TypeError:
+    except TypeError:  # pragma: no cover
         print(type(dtype))
         raise
 
@@ -94,7 +94,7 @@ class Archive:
     def read_member(self, member_fn) -> IO:
         """
         Raises:
-            MemberNotFoundError if a member was not found
+            MemberNotFoundError: if a member was not found
         """
         raise NotImplementedError()
 
@@ -109,7 +109,7 @@ class Archive:
     def members(self) -> List[str]:
         raise NotImplementedError()
 
-    def close(self):
+    def close(self):  # pragma: no cover
         pass
 
     def __enter__(self):
@@ -319,7 +319,7 @@ class EcotaxaWriter(Node):
                 img_fp = io.BytesIO()
                 try:
                     img.save(img_fp, format=pil_format)
-                except:
+                except:  # pragma: no cover
                     print(f"EcotaxaWriter: Error writing {fname}")
                     raise
             else:
@@ -442,11 +442,24 @@ class EcotaxaWriter(Node):
 
 
 class EcotaxaObject:
-    __slots__ = ["meta", "_image_data", "index_fn", "default_mode"]
+    """
+    Attributes:
+        meta (Mapping): Object metadata
+        index_fn (str, optional): Source index filename inside the archive.
+        archive_fn (str, optional): Sourche archive filename.
+        default_mode (str, optional): Default mode for image loading.
+                See `PIL Modes <https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes>`_.
 
-    def __init__(self, meta, image_data, index_fn, default_mode=None):
+    """
+
+    __slots__ = ["meta", "_image_data", "index_fn", "archive_fn", "default_mode"]
+
+    def __init__(
+        self, meta, image_data, archive_fn=None, index_fn=None, default_mode=None
+    ):
         self.meta = meta
         self._image_data = image_data
+        self.archive_fn = archive_fn
         self.index_fn = index_fn
         self.default_mode = default_mode
 
@@ -515,7 +528,7 @@ class EcotaxaReader(Node):
             and returns a modified version.
 
     Returns:
-        object: A :class:`EcotaxaObject` that allows to access image(s) and metadata.
+        object: An :class:`EcotaxaObject` that allows to access image(s) and metadata.
 
     To read multiple image ranks, provide a tuple of ints as ``img_rank``.
     The first output will then be a tuple of images.
@@ -531,7 +544,7 @@ class EcotaxaReader(Node):
         .. code-block:: python
 
             with Pipeline() as p:
-                image, meta = EcotaxaReader("path/to/archive.zip")
+                obj = EcotaxaReader("path/to/archive.zip")
             p.transform_stream()
     """
 
@@ -633,12 +646,6 @@ class EcotaxaReader(Node):
                                         f"Columns: {dataframe.columns}"
                                     )
 
-                                if "img_file_name" not in dataframe.columns:
-                                    raise ValueError(
-                                        f"img_file_name missing in {archive_fn}/{index_fn}\n"
-                                        f"Columns: {dataframe.columns}"
-                                    )
-
                                 if query is not None:
                                     dataframe = dataframe.query(query)
 
@@ -658,27 +665,28 @@ class EcotaxaReader(Node):
                                             incoming_index.emit(), est_n_emit=1
                                         ) as incoming_object:
 
-                                            try:
-                                                image_data = {
-                                                    row["img_rank"]: self._load_image(
-                                                        archive,
-                                                        index_base,
-                                                        row["img_file_name"],
-                                                    )
-                                                    for _, row in group.iterrows()
-                                                }
-                                            except MemberNotFoundError as exc:
-                                                if self.keep_going:
-                                                    print(exc)
-                                                    messages.append(str(exc))
-                                                    continue
-                                                raise
+                                            if "img_file_name" in dataframe.columns:
+                                                try:
+                                                    image_data = {
+                                                        row[
+                                                            "img_rank"
+                                                        ]: self._load_image(
+                                                            archive,
+                                                            index_base,
+                                                            row["img_file_name"],
+                                                        )
+                                                        for _, row in group.iterrows()
+                                                    }
+                                                except MemberNotFoundError as exc:
+                                                    if self.keep_going:
+                                                        print(exc)
+                                                        messages.append(str(exc))
+                                                        continue
+                                                    raise
+                                            else:
+                                                image_data = {}
 
                                             meta = group.iloc[0].to_dict()
-
-                                            # Include input metadata
-                                            meta["morphocut_input_archive"] = archive_fn
-                                            meta["morphocut_input_index"] = index_fn
 
                                             yield self.prepare_output(
                                                 obj.copy(),
@@ -687,6 +695,7 @@ class EcotaxaReader(Node):
                                                     image_data=image_data,
                                                     index_fn=index_fn,
                                                     default_mode=self.image_default_mode,
+                                                    archive_fn=archive_fn,
                                                 ),
                                                 n_remaining_hint=incoming_object.emit(),
                                             )
