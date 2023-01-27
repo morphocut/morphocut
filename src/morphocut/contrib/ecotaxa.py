@@ -94,7 +94,7 @@ class Archive:
     def read_member(self, member_fn) -> IO:
         """
         Raises:
-            MemberNotFoundError if a member was not found
+            MemberNotFoundError: if a member was not found
         """
         raise NotImplementedError()
 
@@ -442,6 +442,16 @@ class EcotaxaWriter(Node):
 
 
 class EcotaxaObject:
+    """
+    Attributes:
+        meta (Mapping): Object metadata
+        index_fn (str, optional): Source index filename inside the archive.
+        archive_fn (str, optional): Sourche archive filename.
+        default_mode (str, optional): Default mode for image loading.
+                See `PIL Modes <https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes>`_.
+
+    """
+
     __slots__ = ["meta", "_image_data", "index_fn", "archive_fn", "default_mode"]
 
     def __init__(
@@ -518,7 +528,7 @@ class EcotaxaReader(Node):
             and returns a modified version.
 
     Returns:
-        object: A :class:`EcotaxaObject` that allows to access image(s) and metadata.
+        object: An :class:`EcotaxaObject` that allows to access image(s) and metadata.
 
     To read multiple image ranks, provide a tuple of ints as ``img_rank``.
     The first output will then be a tuple of images.
@@ -534,7 +544,7 @@ class EcotaxaReader(Node):
         .. code-block:: python
 
             with Pipeline() as p:
-                image, meta = EcotaxaReader("path/to/archive.zip")
+                obj = EcotaxaReader("path/to/archive.zip")
             p.transform_stream()
     """
 

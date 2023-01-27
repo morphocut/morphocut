@@ -26,6 +26,8 @@ Added
 Changed
 ~~~~~~~
 
+- EcotaxaReader: Return EcotaxaObject. (#102)
+
 - EcotaxaWriter: Allow Variables for `archive_fn`. (#100)
 
 - Use `UnavailableObject` instead of `import_optional_dependency`.
