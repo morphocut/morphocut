@@ -3,7 +3,7 @@ import zipfile
 from numpy.testing import assert_equal
 
 from morphocut import Call, Pipeline
-from morphocut.contrib.ecotaxa import EcotaxaReader, EcotaxaWriter
+from morphocut.contrib.ecotaxa import Archive, EcotaxaReader, EcotaxaWriter
 from morphocut.str import Format
 from morphocut.stream import Unpack
 from tests.helpers import BinaryBlobs
@@ -12,7 +12,8 @@ import pytest
 
 
 @pytest.mark.parametrize("ext", [".tar", ".zip"])
-def test_ecotaxa(tmp_path, ext):
+@pytest.mark.parametrize("with_images", [True, False])
+def test_ecotaxa(tmp_path, ext, with_images):
     archive_fn = str(tmp_path / ("ecotaxa" + ext))
     print(archive_fn)
 
@@ -26,9 +27,11 @@ def test_ecotaxa(tmp_path, ext):
         image = BinaryBlobs()
         image_name = Format("image_{}.png", i)
 
+        fnames_images = (image_name, image) if with_images else []
+
         EcotaxaWriter(
             archive_fn,
-            (image_name, image),
+            fnames_images,
             meta,
             object_meta={"foo": 0},
             acq_meta={"foo": 1},
@@ -60,6 +63,7 @@ def test_ecotaxa(tmp_path, ext):
             i for _ in roundtrip_result
         ]
 
-    assert_equal(
-        [o["image"] for o in result], [o["obj"].image for o in roundtrip_result]
-    )
+    if with_images:
+        assert_equal(
+            [o["image"] for o in result], [o["obj"].image for o in roundtrip_result]
+        )

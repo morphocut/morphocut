@@ -45,7 +45,7 @@ def dtype_to_ecotaxa(dtype):
     try:
         if np.issubdtype(dtype, np.number):
             return "[f]"
-    except TypeError:
+    except TypeError:  # pragma: no cover
         print(type(dtype))
         raise
 
@@ -109,7 +109,7 @@ class Archive:
     def members(self) -> List[str]:
         raise NotImplementedError()
 
-    def close(self):
+    def close(self):  # pragma: no cover
         pass
 
     def __enter__(self):
@@ -319,7 +319,7 @@ class EcotaxaWriter(Node):
                 img_fp = io.BytesIO()
                 try:
                     img.save(img_fp, format=pil_format)
-                except:
+                except:  # pragma: no cover
                     print(f"EcotaxaWriter: Error writing {fname}")
                     raise
             else:
@@ -646,12 +646,6 @@ class EcotaxaReader(Node):
                                         f"Columns: {dataframe.columns}"
                                     )
 
-                                if "img_file_name" not in dataframe.columns:
-                                    raise ValueError(
-                                        f"img_file_name missing in {archive_fn}/{index_fn}\n"
-                                        f"Columns: {dataframe.columns}"
-                                    )
-
                                 if query is not None:
                                     dataframe = dataframe.query(query)
 
@@ -671,21 +665,26 @@ class EcotaxaReader(Node):
                                             incoming_index.emit(), est_n_emit=1
                                         ) as incoming_object:
 
-                                            try:
-                                                image_data = {
-                                                    row["img_rank"]: self._load_image(
-                                                        archive,
-                                                        index_base,
-                                                        row["img_file_name"],
-                                                    )
-                                                    for _, row in group.iterrows()
-                                                }
-                                            except MemberNotFoundError as exc:
-                                                if self.keep_going:
-                                                    print(exc)
-                                                    messages.append(str(exc))
-                                                    continue
-                                                raise
+                                            if "img_file_name" in dataframe.columns:
+                                                try:
+                                                    image_data = {
+                                                        row[
+                                                            "img_rank"
+                                                        ]: self._load_image(
+                                                            archive,
+                                                            index_base,
+                                                            row["img_file_name"],
+                                                        )
+                                                        for _, row in group.iterrows()
+                                                    }
+                                                except MemberNotFoundError as exc:
+                                                    if self.keep_going:
+                                                        print(exc)
+                                                        messages.append(str(exc))
+                                                        continue
+                                                    raise
+                                            else:
+                                                image_data = {}
 
                                             meta = group.iloc[0].to_dict()
 
