@@ -441,6 +441,65 @@ class EcotaxaWriter(Node):
                 print(f"EcotaxaWriter: Wrote {i:,d} objects to {archive_fn}.")
 
 
+class EcotaxaObject:
+    __slots__ = ["meta", "_image_data", "index_fn", "default_mode"]
+
+    def __init__(self, meta, image_data, index_fn, default_mode=None):
+        self.meta = meta
+        self._image_data = image_data
+        self.index_fn = index_fn
+        self.default_mode = default_mode
+
+    @property
+    def image(self):
+        return self.get_image()
+
+    @property
+    def image_data(self):
+        return self.get_image_data()
+
+    @property
+    def object_id(self):
+        return self.meta.get("object_id", "<unidentified object>")
+
+    def get_image_data(self, img_rank=None):
+        if img_rank is None:
+            return next(iter(self._image_data.values()))
+        else:
+            try:
+                return self._image_data[img_rank]
+            except KeyError:
+                print(
+                    f"Unknown rank {img_rank}. Available:",
+                    list(self._image_data.keys()),
+                )
+                raise
+
+    def get_image(self, img_rank=None, mode=None):
+        """
+        Get an image for the object.
+
+        Args:
+            img_rank: Rank of the image. (Default: The first one.)
+            mode: Mode to load the image.
+                See `PIL Modes <https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes>`_.
+        """
+
+        data = self.get_image_data(img_rank)
+
+        if mode is None:
+            mode = self.default_mode
+
+        try:
+            image = PIL.Image.open(data)
+            if mode is not None:
+                image = image.convert(mode)
+            return np.array(image)
+        except PIL.UnidentifiedImageError:
+            head = data.getvalue()[:20]
+            print(f"Error reading {self.object_id}: {head}")
+            raise
+
 
 @ReturnOutputs
 @Output("object")
