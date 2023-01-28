@@ -1,5 +1,5 @@
 import itertools
-from typing import Optional, Sequence, Union
+from typing import Optional, Sequence, Union, Tuple
 
 from morphocut.core import Pipeline, Stream, StreamObject, Variable, check_stream
 from morphocut.utils import stream_groupby
@@ -33,7 +33,7 @@ class BatchPipeline(Pipeline):
             raise ValueError("All groupby fields need to be Variables.")
 
         self.batch_size = batch_size
-        self.groupby: Optional[tuple[Variable]] = groupby  # type: ignore
+        self.groupby: Optional[Tuple[Variable]] = groupby  # type: ignore
 
         self._n_remaining_hint_field = id(object())
 

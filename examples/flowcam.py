@@ -12,9 +12,11 @@ from morphocut.str import Format
 from morphocut.stream import TQDM
 
 import_path = "../tests/data/flowcam"
-export_path = "../tmp/flowcam"
 
-os.makedirs(export_path, exist_ok=True)
+file_path = __file__
+file_name = os.path.basename(file_path)
+out_folder = file_name.split('.')[0] + "_out"
+os.makedirs(out_folder, exist_ok=True)
 
 if __name__ == "__main__":
     print("Processing images under {}...".format(import_path))
@@ -54,7 +56,7 @@ if __name__ == "__main__":
         # Write each object to an EcoTaxa archive.
         # Here, three different versions are written. Remove what you do not need.
         EcotaxaWriter(
-            os.path.join(export_path, "export.zip"),
+            os.path.join(out_folder, "export.zip"),
             [
                 # The original RGB image
                 (Format("{object_id}.jpg", object_id=object_id), img),

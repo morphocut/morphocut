@@ -102,7 +102,7 @@ class RegionProperties(
         self._image = super().image
 
         if self._intensity_image is not None:
-            self._image_intensity = super().intensity_image
+            self._image_intensity = super().image_intensity
         else:
             self._image_intensity = None
 
