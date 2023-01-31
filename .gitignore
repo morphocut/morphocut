@@ -16,4 +16,4 @@ docs/inventory/
 .coverage.*
 .venv/
 coverage.xml
-*_out/
+examples/*_out
