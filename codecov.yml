@@ -5,7 +5,6 @@ codecov:
     # Avoid "Missing base report"
     # https://docs.codecov.io/docs/comparing-commits
     allow_coverage_offsets: true
-
     require_ci_to_pass: false
 comment:
   layout: "reach, diff, flags, files"
