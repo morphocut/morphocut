@@ -424,5 +424,14 @@ class RGB2Gray(Node):
 
         if self.keep_dtype:
             result = dtype.convert(result, image.dtype)
-
         return result
+
+    @ReturnOutputs
+    @Output("image")
+    class ImageCaption(node):
+        def transform(self,image):
+            image_with_caption = ImageDraw.text(image, '{}mm'.format(self.scale_size))
+            return image_with_caption
+
+
+
