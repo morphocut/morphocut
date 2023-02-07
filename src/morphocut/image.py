@@ -10,7 +10,7 @@ import skimage.measure
 from skimage.color import gray2rgb, rgb2gray
 from skimage.util import dtype
 
-from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable,object_scale
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
 
 
 @ReturnOutputs
@@ -428,7 +428,7 @@ class RGB2Gray(Node):
 
     @ReturnOutputs
     @Output("image")
-    class ImageCaption(node):
+    class ImageCaption(Node):
         def transform(self,image):
             image_with_caption = ImageDraw.text(image, '{}mm'.format(self.scale_size))
             return image_with_caption
