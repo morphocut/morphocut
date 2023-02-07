@@ -10,7 +10,7 @@ import skimage.measure
 from skimage.color import gray2rgb, rgb2gray
 from skimage.util import dtype
 
-from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
+from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable,object_scale
 
 
 @ReturnOutputs
@@ -310,6 +310,10 @@ class ImageStats(Node):
         mean_max = np.mean(self.max)
         print("Absolute: ", min(self.min), max(self.max))
         print("Average: ", mean_min, mean_max)
+
+        ImageDraw.text(image, '{}mm'.format(self.scale_size), fill=None, font=None, anchor=None, spacing=4, align='left', direction=None,
+                       features=None, language=None, stroke_width=0, stroke_fill=None, embedded_color=False)
+
 
 
 @ReturnOutputs
