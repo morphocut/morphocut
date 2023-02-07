@@ -76,7 +76,6 @@ class ObjectScale(NodeBase):
         cv2.putText(image, '{}mm'.format(self.scale_size), (5, (image.shape[0] + scale_y) - 5), cv2.FONT_HERSHEY_SIMPLEX,
                     0.25, (0, 0, 0), lineType=cv2.LINE_AA)
 
-
         return {
             "image": image
         }
