@@ -42,6 +42,9 @@ class StreamTransformer(ABC):
                 return True
         return NotImplemented
 
+    def get_output(self) -> "NodeCallReturnType":
+        return None
+
 
 @contextmanager
 def closing_if_closable(stream):
@@ -174,6 +177,9 @@ class Variable(Generic[T]):
 
     def __repr__(self):
         return self.__str__()
+
+    def __call__(self, *args, **kwargs):
+        return Call(self, *args, **kwargs)
 
     # Attribute access
     def __getattr__(self, name):
@@ -406,6 +412,9 @@ class Node(StreamTransformer):
 
         return variable
 
+    def get_output(self) -> NodeCallReturnType:
+        return self()
+
     def __call__(self) -> NodeCallReturnType:
         """Return outputs."""
 
@@ -518,7 +527,7 @@ class Node(StreamTransformer):
         return "{}()".format(self.__class__.__name__)
 
 
-NodeType = TypeVar("NodeType", bound=Type[Node])
+TNodeType = TypeVar("TNodeType", bound=Type[Node])
 
 
 class Output:
@@ -547,7 +556,7 @@ class Output:
     def __repr__(self):
         return '{}("{}", {})'.format(self.__class__.__name__, self.name, self.node_cls)
 
-    def __call__(self, cls: NodeType) -> NodeType:
+    def __call__(self, cls: TNodeType) -> TNodeType:
         """Add this output to the list of a nodes outputs."""
 
         if not issubclass(cls, Node):
@@ -567,14 +576,16 @@ class Output:
         return cls
 
 
-def ReturnOutputs(node_cls: Type[Node]):
+def ReturnOutputs(node_cls: Type[StreamTransformer]):
     """Turn Node into a function returning Output variables."""
-    if not issubclass(node_cls, Node):
-        raise ValueError("This decorator is meant to be applied to a subclass of Node.")
+    if not issubclass(node_cls, StreamTransformer):
+        raise ValueError(
+            "This decorator is meant to be applied to a subclass of StreamTransformer."
+        )
 
     @wraps(node_cls)
     def wrapper(*args, **kwargs) -> NodeCallReturnType:
-        return node_cls(*args, **kwargs)()
+        return node_cls(*args, **kwargs).get_output()
 
     wrapper._node_cls = node_cls
     wrapper.__mro__ = node_cls.__mro__
@@ -702,11 +713,6 @@ class StreamObject(abc.MutableMapping):
 
         return {k: self[v] for k, v in kwargs.items()}
 
-    def child(self, child_id: Optional[str] = None):
-        """Create a shallow copy."""
-
-        return StreamObject(self.data.copy(), n_remaining_hint=self.n_remaining_hint)
-
 
 def check_stream(stream: Optional[Stream]) -> Stream:
     """Ensure that `stream` is a valid stream."""
@@ -812,6 +818,9 @@ class Pipeline(StreamTransformer):
 
     def __str__(self):
         return "Pipeline([{}])".format(", ".join(str(n) for n in self.children))
+
+    def get_output(self) -> NodeCallReturnType:
+        return self.children[-1].get_output()
 
 
 @ReturnOutputs

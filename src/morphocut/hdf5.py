@@ -1,5 +1,5 @@
 from typing_extensions import Literal
-from typing import Any, IO, List, Mapping, Tuple, TypeVar, Union
+from typing import Any, IO, List, Mapping, Optional, Tuple, TypeVar, Union
 from morphocut.core import Stream
 
 import numpy as np
@@ -54,10 +54,9 @@ class HDF5Writer(Node):
         dataset_mode: RawOrVariable[Literal["create", "append", "extend"]] = "create",
         compression=None,
         verbose=False,
+        chuck_size: Optional[int] = None,
     ):
         super().__init__()
-
-        assert dataset_mode == "extend"
 
         self.file_name = file_name
         self.data = data
@@ -65,6 +64,7 @@ class HDF5Writer(Node):
         self.dataset_mode = dataset_mode
         self.compression = compression
         self.verbose = verbose
+        self.chuck_size = chuck_size
 
     def _transform_stream_extend(self, stream: Stream):
         with h5py.File(self.file_name, self.file_mode) as h5, closing_if_closable(
@@ -101,7 +101,7 @@ class HDF5Writer(Node):
                             dset,
                             shape=initial_shape,
                             maxshape=(None,) + data_shape,
-                            chunks=(batch_size,) + data_shape,
+                            chunks=(self.chuck_size or batch_size,) + data_shape,
                             dtype=dtype,
                             compression=self.compression,
                         )
@@ -130,8 +130,75 @@ class HDF5Writer(Node):
 
                 dataset.resize(offsets[name], axis=0)
 
+    def _transform_stream_append(self, stream: Stream):
+        with h5py.File(self.file_name, self.file_mode) as h5, closing_if_closable(
+            stream
+        ):
+            datasets: Mapping[str, h5py.Dataset] = {}
+
+            # Offsets per dataset
+            offsets: Mapping[str, int] = {}
+
+            chuck_size = self.chuck_size or 1024
+
+            for obj in stream:
+                data: Mapping[str, Any] = self.prepare_input(obj, "data")  # type: ignore
+
+                for dset, value in data.items():
+                    if dset not in datasets:
+                        if isinstance(value, str):
+                            data_shape = tuple()
+                            dtype = h5py.string_dtype()
+                        else:
+                            value = np.array(value)
+                            data_shape = value.shape
+                            dtype = value.dtype
+
+                        initial_shape = (chuck_size,) + data_shape
+
+                        if self.verbose:
+                            print(
+                                f"Creating dataset {dset}: {initial_shape}, dtype = {dtype}"
+                            )
+
+                        datasets[dset] = h5.create_dataset(
+                            dset,
+                            shape=initial_shape,
+                            maxshape=(None,) + data_shape,
+                            chunks=(chuck_size,) + data_shape,
+                            dtype=dtype,
+                            compression=self.compression,
+                        )
+                        offsets[dset] = 0
+
+                    if offsets[dset] + 1 > datasets[dset].shape[0]:
+                        new_length = datasets[dset].shape[0] * 2
+                        if self.verbose:
+                            print(
+                                f"Resizing dataset {dset} to new length: {new_length:,d}"
+                            )
+
+                        datasets[dset].resize(new_length, axis=0)
+
+                    datasets[dset][offsets[dset]] = value
+
+                    offsets[dset] += 1
+
+                yield obj
+
+            for name, dataset in datasets.items():
+                if self.verbose:
+                    print(
+                        f"Truncating dataset {name} to actual length: {offsets[name]:,d}"
+                    )
+
+                dataset.resize(offsets[name], axis=0)
+
     def transform_stream(self, stream):
         if self.dataset_mode == "extend":
             return self._transform_stream_extend(stream)
-        else:
-            raise ValueError(f"Unknown dataset mode: {self.dataset_mode}")
+
+        if self.dataset_mode == "append":
+            return self._transform_stream_append(stream)
+
+        raise ValueError(f"Unknown dataset mode: {self.dataset_mode}")

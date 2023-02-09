@@ -515,6 +515,239 @@ class EcotaxaObject:
 
 
 @ReturnOutputs
+@Output("arch")
+class _ArchiveOpener(Node):
+    def __init__(
+        self,
+        archive_fn: RawOrVariable[str],
+        *,
+        query: RawOrVariable[Optional[str]] = None,
+        prepare_data: Optional[Callable[["pd.DataFrame"], "pd.DataFrame"]] = None,
+        verbose=False,
+        keep_going=False,
+        print_summary=False,
+        encoding="utf-8",
+        index_pattern="*ecotaxa_*",
+        columns: Optional[List] = None,
+    ):
+        super().__init__()
+
+        self.archive_fn = archive_fn
+        self.query = query
+        self.prepare_data = prepare_data
+        self.verbose = verbose
+        self.keep_going = keep_going
+        self.print_summary = print_summary
+        self.encoding = encoding
+        self.index_pattern = index_pattern
+        self.columns = columns
+
+    @staticmethod
+    def _fix_types(dataframe):
+        first_row = dataframe.iloc[0]
+
+        num_cols = []
+        for c, v in first_row.items():
+            if v == "[f]":
+                num_cols.append(c)
+            elif v == "[t]":
+                continue
+            else:
+                # If the first row contains other values than [f] or [t],
+                # it is not a type header and the dataframe doesn't need to be changed.
+                return dataframe
+
+        dataframe = dataframe.iloc[1:].copy()
+
+        dataframe[num_cols] = dataframe[num_cols].apply(
+            pd.to_numeric, errors="coerce", axis=1
+        )
+
+        return dataframe
+
+    def transform_stream(self, stream: Stream) -> Stream:
+
+        messages = []
+
+        if self.columns is not None:
+            usecols = lambda c: any(fnmatch.fnmatch(c, p) for p in self.columns)
+        else:
+            usecols = None
+
+        stream_estimator = StreamEstimator()
+
+        with closing_if_closable(stream):
+            for obj in stream:
+                archive_fn, query = self.prepare_input(obj, ("archive_fn", "query"))
+
+                if self.verbose:
+                    print(f"EcotaxaReader: Processing archive {archive_fn}...")
+
+                try:
+                    archive = Archive(archive_fn)
+                except UnknownArchiveError as exc:
+                    if self.keep_going:
+                        print(exc)
+                        messages.append(str(exc))
+                        continue
+                    raise
+
+                with archive:
+                    index_fns = sorted(archive.find(self.index_pattern))
+
+                    with stream_estimator.consume(
+                        obj.n_remaining_hint, est_n_emit=len(index_fns)
+                    ) as incoming:
+
+                        for index_fn in index_fns:
+                            if self.verbose:
+                                print(f"EcotaxaReader: Processing index {index_fn}...")
+
+                            index_base = os.path.dirname(index_fn)
+
+                            with archive.read_member(index_fn) as index_fp:
+                                dataframe = pd.read_csv(
+                                    index_fp,
+                                    sep="\t",
+                                    low_memory=False,
+                                    encoding=self.encoding,
+                                    usecols=usecols,
+                                )
+                                dataframe = self._fix_types(dataframe)
+
+                                if self.prepare_data is not None:
+                                    dataframe = self.prepare_data(dataframe)
+
+                                if "img_rank" not in dataframe.columns:
+                                    dataframe["img_rank"] = 1
+
+                                if "object_id" not in dataframe.columns:
+                                    raise ValueError(
+                                        f"object_id missing in {archive_fn}/{index_fn}\n"
+                                        f"Columns: {dataframe.columns}"
+                                    )
+
+                                if "img_file_name" not in dataframe.columns:
+                                    raise ValueError(
+                                        f"img_file_name missing in {archive_fn}/{index_fn}\n"
+                                        f"Columns: {dataframe.columns}"
+                                    )
+
+                                if query is not None:
+                                    dataframe = dataframe.query(query)
+
+                                dataframe_by_object_id = dataframe.groupby("object_id")
+
+                                yield self.prepare_output(
+                                    obj.copy(),
+                                    (
+                                        archive_fn,
+                                        archive,
+                                        index_fn,
+                                        index_base,
+                                        dataframe_by_object_id,
+                                    ),
+                                    n_remaining_hint=incoming.emit(),
+                                )
+
+            if self.print_summary:
+                if messages:
+                    print("EcotaxaReader: Messages")
+                    for msg in messages:
+                        print(msg)
+
+
+class _ImageLoader:
+    def __init__(self, archive: Archive) -> None:
+        self.archive = archive
+
+    def load(self, index_base, image_fn) -> IO:
+        image_fn = os.path.join(index_base, image_fn)
+        image_data = io.BytesIO()
+        with self.archive.read_member(image_fn) as image_fp:
+            copyfileobj(image_fp, image_data)
+        return image_data
+
+
+@ReturnOutputs
+@Output("object")
+class _ArchiveObjectReader(Node):
+    def __init__(self, arch, *, keep_going, print_summary, image_default_mode) -> None:
+        super().__init__()
+        self.arch = arch
+
+        self.keep_going = keep_going
+        self.print_summary = print_summary
+        self.image_default_mode = image_default_mode
+
+    def transform_stream(self, stream: Stream) -> Stream:
+        messages = []
+
+        stream_estimator = StreamEstimator()
+
+        # Total number of objects read
+        n_objects_read = 0
+
+        with closing_if_closable(stream):
+            for obj in stream:
+                (
+                    archive_fn,
+                    archive,
+                    index_fn,
+                    index_base,
+                    dataframe_by_object_id,
+                ) = self.prepare_input(obj, "arch")
+
+                with stream_estimator.consume(
+                    obj.n_remaining_hint, est_n_emit=len(dataframe_by_object_id)
+                ) as incoming:
+
+                    image_loader = _ImageLoader(archive)
+
+                    for i, (object_id, group) in enumerate(dataframe_by_object_id):
+
+                        try:
+                            image_data = {
+                                row["img_rank"]: image_loader.load(
+                                    index_base, row["img_file_name"]
+                                )
+                                for _, row in group.iterrows()
+                            }
+                        except Exception as exc:
+                            if self.keep_going:
+                                print(exc)
+                                messages.append(str(exc))
+                                continue
+                            raise
+
+                        meta = group.iloc[0].to_dict()
+
+                        # Include input metadata
+                        meta["morphocut_input_archive"] = archive_fn
+                        meta["morphocut_input_index"] = index_fn
+
+                        yield self.prepare_output(
+                            obj.copy(),
+                            EcotaxaObject(
+                                meta=meta,
+                                image_data=image_data,
+                                index_fn=index_fn,
+                                default_mode=self.image_default_mode,
+                            ),
+                            n_remaining_hint=incoming.emit(),
+                        )
+
+                        n_objects_read += 1
+
+            if self.print_summary:
+                print(f"EcotaxaReader: Read {n_objects_read} objects.")
+                if messages:
+                    print("EcotaxaReader: Messages")
+                    for msg in messages:
+                        print(msg)
+
+
+@ReturnOutputs
 @Output("object")
 class EcotaxaReader(Node):
     """

@@ -7,7 +7,7 @@ from typing import Iterable, Set, Union
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
 from morphocut.core import Stream
-from morphocut.stream_estimator import StreamEstimator
+from morphocut.utils import StreamEstimator
 
 __all__ = ["Find", "Glob"]
 
@@ -119,10 +119,10 @@ class Glob(Node):
                     local_estimate = len(matches)
                     print(f"{local_estimate} matches for {pathname}")
 
-                with est.incoming_object(
-                    obj.n_remaining_hint, local_estimate=local_estimate
-                ):
+                with est.consume(
+                    obj.n_remaining_hint, est_n_emit=local_estimate
+                ) as incoming:
                     for path in matches:
                         yield self.prepare_output(
-                            obj.child(), path, n_remaining_hint=est.emit()
+                            obj.copy(), path, n_remaining_hint=incoming.emit()
                         )

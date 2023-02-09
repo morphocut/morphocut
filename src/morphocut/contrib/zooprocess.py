@@ -60,7 +60,7 @@ def regionprop2zooprocess(prop):
         # The length of the outside boundary of the object
         "perim.": prop.perimeter,
         # major/minor
-        "elongation": np.divide(prop.major_axis_length, prop.minor_axis_length),
+        "elongation": np.divide(prop.major_axis_length, prop.minor_axis_length + 1e-6),
         # max-min
         "range": prop.max_intensity - prop.min_intensity,
         # perim/area_exc
@@ -68,7 +68,7 @@ def regionprop2zooprocess(prop):
         # perim/major
         "perimmajor": prop.perimeter / prop.major_axis_length,
         # (4 ∗ π ∗ Area_exc)/perim 2
-        "circex": np.divide(4 * np.pi * prop.area, prop.perimeter ** 2),
+        "circex": np.divide(4 * np.pi * prop.area, prop.perimeter ** 2 + 1e-6),
         # Angle between the primary axis and a line parallel to the x-axis of the image
         "angle": prop.orientation / np.pi * 180 + 90,
         # # X coordinate of the top left point of the image
@@ -119,6 +119,7 @@ class CalculateZooProcessFeatures(Node):
     def __init__(
         self,
         regionprops: RawOrVariable,
+        *,
         meta: Optional[RawOrVariable[dict]] = None,
         prefix: Optional[RawOrVariable[str]] = None,
     ):

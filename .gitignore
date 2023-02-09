@@ -15,4 +15,6 @@ docs/inventory/
 *.code-workspace
 .coverage.*
 .venv/
+experiments/*
 coverage.xml
+*.tmp

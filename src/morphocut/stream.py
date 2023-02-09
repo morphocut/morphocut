@@ -53,24 +53,24 @@ class Progress(Node):
         Output: Description|███████████████████████| [00:00, 2434.24it/s]
     """
 
-    def __init__(
-        self, description: Optional[RawOrVariable[str]] = None, monitor_interval=None
-    ):
+    def __init__(self, *args, monitor_interval=None, **kwargs):
         super().__init__()
-        self.description = description
+        self.args = args
         self.monitor_interval = monitor_interval
+        self.kwargs = kwargs
 
     def transform_stream(self, stream: Stream):
-        with closing_if_closable(stream), tqdm.tqdm(stream) as progress:
+        with closing_if_closable(stream), tqdm.tqdm(stream, **self.kwargs) as progress:
             if self.monitor_interval is not None:
                 progress.monitor_interval = self.monitor_interval
 
             for n_processed, obj in enumerate(progress):
+                args = self.prepare_input(obj, "args")
 
-                description = self.prepare_input(obj, "description")
+                description = " ".join(str(a) for a in args)
 
                 if description:
-                    progress.set_description(description)
+                    progress.set_description(description, refresh=False)
 
                 if obj.n_remaining_hint is not None:
                     progress.total = n_processed + obj.n_remaining_hint
@@ -124,32 +124,55 @@ class StreamBuffer(Node):
     This allows continued processing while I/O bound Nodes wait for data.
     """
 
-    _sentinel = object()
-
-    def __init__(self, maxsize: int):
+    def __init__(self, maxsize: int, name=None):
         super().__init__()
-        self.queue = Queue(maxsize)
 
-    def _fill_queue(self, stream: Stream):
-        try:
-            with closing_if_closable(stream):
-                for obj in stream:
-                    self.queue.put(obj)
-        finally:
-            self.queue.put(self._sentinel)
+        self.maxsize = maxsize
+        self.name = name
 
     def transform_stream(self, stream: Stream):
-        thread = Thread(target=self._fill_queue, args=(stream,), daemon=True)
+        _sentinel = object()
+
+        if self.name is not None:
+            bar = tqdm.tqdm(
+                total=self.maxsize,
+                desc=self.name,
+                bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt}",
+            )
+        else:
+            bar = None
+
+        queue = Queue(self.maxsize)
+
+        def _fill_queue(self):
+            try:
+                with closing_if_closable(stream):
+                    for obj in stream:
+                        queue.put(obj)
+
+                        if bar is not None:
+                            bar.n = queue.qsize()
+                            bar.update(0)
+            finally:
+                queue.put(_sentinel)
+
+        thread = Thread(target=_fill_queue, args=(stream,), daemon=True)
         thread.start()
 
         while True:
-            obj = self.queue.get()
-            if obj == self._sentinel:
+            obj = queue.get()
+            if obj == _sentinel:
                 break
+            if bar is not None:
+                bar.n = queue.qsize()
+                bar.update(0)
+
             yield obj
 
         # Join filler
         thread.join()
+
+        bar.close()
 
 
 @ReturnOutputs

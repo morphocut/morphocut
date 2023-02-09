@@ -161,7 +161,8 @@ class ExponentialSmoothingFilter(Node):
 
     Parameters:
         value (RawOrVariable): Values to smooth.
-        alpha (float): Decaying factor, ``0 <= alpha <= 1``.
+        alpha (float): Rate of adjustment ``0 <= alpha <= 1``.
+            Smaller values lead to more smoothing.
 
     Returns:
         Variable: Smoothed ``value``.

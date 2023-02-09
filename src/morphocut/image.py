@@ -7,6 +7,8 @@ import scipy.ndimage as ndi
 import skimage.exposure
 import skimage.io
 import skimage.measure
+import skimage.segmentation
+import skimage.util
 from skimage.color import gray2rgb, rgb2gray
 from skimage.util import dtype
 
@@ -96,7 +98,9 @@ class RegionProperties(
     on the available region properties.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, max_label=0, **kwargs):
+        self.max_label = max_label
+
         super().__init__(*args, **kwargs)
 
         self._image = super().image
@@ -115,6 +119,52 @@ class RegionProperties(
         if self._image_intensity is None:
             raise AttributeError("No intensity image specified.")
         return self._image_intensity
+
+
+def _enlarge_slice(slices, padding):
+    return tuple(slice(max(0, s.start - padding), s.stop + padding) for s in slices)
+
+
+def filter_objects_by_size(arr, min_size=None, max_size=None):
+    """Remove objects smaller than or larger than the specified size.
+    Expects arr to be an array with labeled objects, and removes objects
+    smaller than min_size.
+    Works in-place.
+
+    Based on skimage.morphology.remove_small_objects.
+    """
+    if not np.issubdtype(arr.dtype, np.integer):
+        raise TypeError(
+            "Only integer image types are supported. " "Got %s." % arr.dtype
+        )
+
+    if min_size is None and max_size is None:  # shortcut for efficiency
+        return arr
+
+    try:
+        component_sizes = np.bincount(arr.ravel())
+    except ValueError:
+        raise ValueError(
+            "Negative value labels are not supported. Try "
+            "relabeling the input with `scipy.ndimage.label` or "
+            "`skimage.morphology.label`."
+        )
+
+    if min_size is not None:
+        too_small = component_sizes < min_size
+        too_small_mask = too_small[arr]
+        arr[too_small_mask] = 0
+
+    if max_size is not None:
+        too_large = component_sizes > max_size
+        too_large_mask = too_large[arr]
+        arr[too_large_mask] = 0
+
+    # Relabel image to obtain consecutive labels and correct max_label
+    arr, fw_map, _ = skimage.segmentation.relabel_sequential(arr)
+    max_label = fw_map.out_values.max()
+
+    return arr, max_label
 
 
 @ReturnOutputs
@@ -167,36 +217,45 @@ class FindRegions(Node):
         self.padding = padding
         self.warn_empty = warn_empty
 
-    @staticmethod
-    def _enlarge_slice(slices, padding):
-        return tuple(slice(max(0, s.start - padding), s.stop + padding) for s in slices)
-
     def transform_stream(self, stream):
         with closing_if_closable(stream):
             for obj in stream:
                 mask, image = self.prepare_input(obj, ("mask", "image"))
+                mask: np.ndarray
+                image: np.ndarray
 
-                labels, nlabels = skimage.measure.label(mask, return_num=True)
+                if mask.dtype == bool:
+                    labels, max_label = skimage.measure.label(mask, return_num=True)
+                elif np.issubdtype(mask.dtype, np.integer):
+                    labels = mask
+                    max_label = labels.max()
+                else:
+                    raise TypeError(
+                        "Only bool or integer image types are supported. "
+                        "Got %s." % mask.dtype
+                    )
 
-                objects = ndi.find_objects(labels, nlabels)
-                for i, slices in enumerate(objects):
+                if self.min_area is not None or self.max_area is not None:
+                    # Remove too large and too small objects
+                    labels, max_label = filter_objects_by_size(
+                        labels, min_size=self.min_area, max_size=self.max_area
+                    )
+
+                objects = ndi.find_objects(labels, max_label)
+                for l, slices in enumerate(objects, start=1):
                     if slices is None:
                         continue
 
                     if self.padding:
-                        slices = self._enlarge_slice(slices, self.padding)
+                        slices = _enlarge_slice(slices, self.padding)
 
-                    props = RegionProperties(slices, i + 1, labels, image, True)
-
-                    if self.min_area is not None and props.area < self.min_area:
-                        continue
-
-                    if self.max_area is not None and props.area > self.max_area:
-                        continue
+                    props = RegionProperties(
+                        slices, l, labels, image, True, max_label=max_label
+                    )
 
                     yield self.prepare_output(obj.copy(), props)
 
-                if nlabels == 0:
+                if max_label == 0:
                     if self.warn_empty is not False:
                         warn_empty = self.prepare_input(obj, "warn_empty")
                         if not isinstance(warn_empty, str):
@@ -226,15 +285,30 @@ class ImageProperties(Node):
             # regionsprops: A skimage.measure.regionsprops object.
     """
 
-    def __init__(self, mask: RawOrVariable, image: RawOrVariable = None):
+    def __init__(
+        self, mask: RawOrVariable, image: RawOrVariable = None, shrink=False, padding=0
+    ):
         super().__init__()
 
         self.mask = mask
         self.image = image
+        self.shrink = shrink
+        self.padding = padding
 
     def transform(self, mask: np.ndarray, image: np.ndarray):
+        if self.shrink:
+            rows = np.any(mask, axis=1)
+            cols = np.any(mask, axis=0)
+            rmin, rmax = np.where(rows)[0][[0, -1]]
+            cmin, cmax = np.where(cols)[0][[0, -1]]
+            slices = (slice(rmin, rmax + 1), slice(cmin, cmax + 1))
+
+            if self.padding:
+                slices = _enlarge_slice(slices, self.padding)
+        else:
+            slices = (tuple(slice(0, s) for s in mask.shape),)  # Whole mask
         return RegionProperties(
-            tuple(slice(0, s) for s in mask.shape),  # Whole mask
+            slices,
             True,  # Where mask == True
             mask,
             image,
@@ -346,18 +420,25 @@ class ImageWriter(Node):
     Args:
         fp (file or Variable): A filename (string), pathlib.Path object or file object.
         image (np.ndarray or Variable): Image that is to be saved into a given directory.
+        convert (bool, optional): Convert image to ubyte.
         **kwargs: Arguments for :py:meth:`PIL.Image.Image.save`.
     """
 
-    def __init__(self, fp: RawOrVariable, image: RawOrVariable, **kwargs):
+    def __init__(
+        self, fp: RawOrVariable, image: RawOrVariable, convert=False, **kwargs
+    ):
         super().__init__()
         self.fp = fp
         self.image = image
+        self.convert = convert
         self.kwargs = kwargs
 
     def transform(self, fp, image):
-        img = PIL.Image.fromarray(image)
-        img.save(fp, **self.kwargs)
+        if self.convert:
+            image = skimage.util.img_as_ubyte(image)
+
+        pil_image = PIL.Image.fromarray(image)
+        pil_image.save(fp, **self.kwargs)
 
 
 @ReturnOutputs
@@ -384,6 +465,11 @@ class Gray2RGB(Node):
         self.keep_dtype = keep_dtype
 
     def transform(self, image):
+        dims = np.squeeze(image).ndim
+        if dims == 3 and image.shape[2] == 3:
+            # image is already RGB
+            return image
+
         result = gray2rgb(image)
 
         if self.keep_dtype:
@@ -407,14 +493,19 @@ class RGB2Gray(Node):
             but with the channel dimension removed and dtype=float.
     """
 
-    def __init__(self, image: RawOrVariable[np.ndarray], keep_dtype=False):
+    def __init__(
+        self, image: RawOrVariable[np.ndarray], keep_dtype=False, strict=False
+    ):
         super().__init__()
         self.image = image
         self.keep_dtype = keep_dtype
+        self.strict = strict
 
     def transform(self, image: np.ndarray):
-        if len(image.shape) != 3:
-            raise ValueError("image.shape != 3 in {!r}".format(self))
+        dims = np.squeeze(image).ndim
+        if not self.strict and dims == 2:
+            # image is already single-channel
+            return image
 
         result = rgb2gray(image)
 

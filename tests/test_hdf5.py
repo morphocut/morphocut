@@ -3,11 +3,9 @@ import itertools
 import h5py
 import pytest
 
-from morphocut.batch import BatchPipeline
-from morphocut.core import Call, Pipeline
+from morphocut.core import Pipeline
 from morphocut.hdf5 import HDF5Writer
 from morphocut.stream import Unpack
-from morphocut.stream_estimator import RemainingHint
 import itertools
 
 
