@@ -1,6 +1,7 @@
 from contextlib import nullcontext
 from typing import TYPE_CHECKING
-from morphocut.batch import BatchPipeline
+from morphocut.batch import BatchedPipeline
+
 
 import pytest
 
@@ -31,10 +32,6 @@ class MyModule(torch.nn.Module):
     [None, "cpu"],
 )
 @pytest.mark.parametrize(
-    "n_parallel",
-    [0, 2],
-)
-@pytest.mark.parametrize(
     "batch",
     [True, False],
 )
@@ -42,20 +39,19 @@ class MyModule(torch.nn.Module):
     "output_key",
     [None, "foo"],
 )
-def test_PyTorch(device, n_parallel, batch, output_key):
+def test_PyTorch(device, batch, output_key):
     module = MyModule(output_key)
 
     with Pipeline() as p:
         input = Unpack([torch.tensor([float(i)]) for i in range(100)])
 
-        block = BatchPipeline(2) if batch else nullcontext(p)
+        block = BatchedPipeline(2) if batch else nullcontext(p)
         with block:
             result = PyTorch(
                 module,
                 input,
                 is_batch=batch,
                 device=device,
-                n_parallel=n_parallel,
                 output_key=output_key,
             )
 

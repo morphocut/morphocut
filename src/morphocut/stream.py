@@ -61,7 +61,9 @@ class Progress(Node):
         self.monitor_interval = monitor_interval
 
     def transform_stream(self, stream: Stream):
-        with closing_if_closable(stream), tqdm.tqdm(stream) as progress:
+        with closing_if_closable(stream), tqdm.tqdm(
+            stream, unit_scale=True
+        ) as progress:
             if self.monitor_interval is not None:
                 progress.monitor_interval = self.monitor_interval
 
@@ -385,6 +387,7 @@ class FilterVariables(Node):
         with closing_if_closable(stream):
             for obj in stream:
                 yield StreamObject({k: v for k, v in obj.items() if k in self.keys})
+
 
 @ReturnOutputs
 @Output("n_remaining_hint")
