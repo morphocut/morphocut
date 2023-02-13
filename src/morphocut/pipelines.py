@@ -1,7 +1,6 @@
 import concurrent.futures
 import os
 import threading
-import traceback
 from typing import Callable, List, Optional, Tuple, Union
 import queue
 
@@ -88,6 +87,40 @@ class MergeNodesPipeline(Pipeline):
                         self.on_error(exc, *on_error_args)
                         continue
                     raise
+
+
+class AggregateErrorsPipeline(MergeNodesPipeline):
+    def transform_stream(self, stream: Optional[Stream] = None) -> Stream:
+        stream = check_stream(stream)
+
+        buffer: List[StreamObject] = []
+        errors = []
+        first_exc: None | Exception = None
+
+        with closing_if_closable(stream):
+            for obj in stream:
+                try:
+                    # Try to transform object. If any child fails, save error and continue
+                    buffer.append(self.transform_object(obj))
+                except Exception as exc:
+                    if first_exc is None:
+                        first_exc = exc
+                    if self.on_error is not None:
+                        on_error_args = resolve_variable(obj, self.on_error_args)
+                        errors.append(self.on_error(exc, *on_error_args))
+                    else:
+                        errors.append(f"{type(exc).__name__}: {exc}")
+
+        if errors:
+            assert isinstance(first_exc, Exception)
+
+            print()
+            for error in errors:
+                print(error)
+            print()
+            raise first_exc
+
+        yield from buffer
 
 
 class DataParallelPipeline(MergeNodesPipeline):
