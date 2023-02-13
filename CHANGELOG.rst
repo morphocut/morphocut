@@ -53,3 +53,4 @@ Fixed
 
 - ValueError: 'version' argument is required in Sphinx directives #80
 - UnknownArchiveError: Close EcoTaxa archives (#88)
+- wrongly reported n_remaining_hint in Progress after Slice (#105)
