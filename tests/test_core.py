@@ -33,6 +33,12 @@ class TestNode(Node):
     def transform(self, a, b, c):
         return a, b, c
 
+def test_Pipeline():
+    with Pipeline() as pipeline:
+        with Pipeline():
+            pass
+
+    assert len(pipeline.children) == 1
 
 def test_Node():
     # Assert that Node checks for the existence of a pipeline
@@ -49,6 +55,8 @@ def test_Node():
     # Assert that parameters and outputs are passed as expected
     with Pipeline() as pipeline:
         a, b, c = TestNode(1, 2, 3)
+
+    assert len(pipeline.children) == 1
 
     obj, *_ = list(pipeline.transform_stream())
     assert obj[a] == 1
