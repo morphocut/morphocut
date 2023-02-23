@@ -1,4 +1,8 @@
-from typing import Iterator, List, Tuple, Union
+from typing import Iterator, List, Sequence, Tuple, Union
+
+import numpy as np
+import numpy.lib.mixins
+
 from morphocut.core import (
     Node,
     RawOrVariable,
@@ -7,10 +11,7 @@ from morphocut.core import (
     Variable,
     closing_if_closable,
 )
-from morphocut.utils import StreamEstimator
-import numpy.lib.mixins
-import numpy as np
-import scipy.sparse
+from morphocut.utils import StreamEstimator, stream_groupby
 
 
 class Region(numpy.lib.mixins.NDArrayOperatorsMixin):
@@ -290,131 +291,173 @@ class Frame:
 
         return whole_frame.array
 
+    def _merge_regions(self, max_distance) -> "Frame":
+        # Merge regions separated by <= max_distance
+        # NB: Merged regions might overlap afterwards
+        def _validate_bounds(
+            self, arrays: Tuple[Region | np.ndarray, ...]
+        ) -> Tuple[range, ...]:
+            # Validate shapes
+            for ax in self.axes:
+                if not all(arr.shape[ax] == arrays[0].shape[ax] for arr in arrays[1:]):
+                    raise ValueError(
+                        f"Arrays do not match in dimension {ax}: {[arr.shape[ax] for arr in arrays]}"
+                    )
+
+            anchored_arrays = [arr for arr in arrays if isinstance(arr, Region)]
+
+            # Validate bounding key
+            for ax in self.axes:
+                if not all(
+                    arr.key[ax] == arrays[0].key[ax] for arr in anchored_arrays[1:]
+                ):
+                    raise ValueError(
+                        f"Arrays do not match in bounding range {ax}: {[arr.shape[ax] for arr in anchored_arrays]}"
+                    )
+
+            return tuple(anchored_arrays[0].key[ax] for ax in self.axes)
+
+        def _range_dist(self, r0: range, r1: range) -> int:
+            start = max(r0.start, r1.start)
+            stop = min(r0.stop, r1.stop)
+
+            return max(0, start - stop)
+
+        def _label_bounds(self, bounds) -> Tuple[int, np.ndarray]:
+            if self.max_dist is None:
+                # All bounds are part of the same cluster
+                return 1, np.zeros(len(bounds))
+
+            # Extracted connected components
+            adjacency = scipy.sparse.dok_array((len(bounds),) * 2, dtype=bool)
+            for i in range(len(bounds)):
+                for j in range(i + 1, len(bounds)):
+                    if (
+                        np.linalg.norm(
+                            [
+                                self._range_dist(bi, bj)
+                                for bi, bj in zip(bounds[i], bounds[j])
+                            ]
+                        )
+                        <= self.max_dist
+                    ):
+                        adjacency[i, j] = 1
+
+            (
+                n_components,
+                labels,
+            ) = scipy.sparse.csgraph.connected_components(adjacency, directed=False)
+
+            return n_components, labels
+
+        # Validate and calculate bounds
+        bounds = [_validate_bounds(arrays) for arrays in group_arrays]
+
+        # Label connected components
+        n_components, labels = _label_bounds(bounds)
+
+        frame = Frame(self.fill_value, self.shape, self.dtype, self.empty_none)
+
+        # TODO: for each label extract bounding box and paste into new frame
+
+        return frame
+
+
+def _validate_multiparameter(value, n_inputs, name, nested_sequence=False):
+    if isinstance(value, Sequence) and (
+        not nested_sequence or isinstance(value[0], Sequence)
+    ):
+        if len(value) != n_inputs:
+            raise ValueError(
+                f"{name} has a unexpected length: {len(value)} vs. {n_inputs}"
+            )
+        return value
+
+    return (value,) * n_inputs
+
 
 @ReturnOutputs
-class ClusterStitch(Node):
+class Stitch(Node):
+    """
+    Stitch regions onto frames.
+    """
+
     def __init__(
-        self, *arrays: RawOrVariable[Region], groupby, max_dist=None, axes=(0, 1)
+        self,
+        *inputs: RawOrVariable[np.ndarray],
+        groupby,
+        offset,
+        fill_value=0,
+        shape: None | Tuple[None | int, ...] = None,
+        dtype=None,
+        empty_none=False,
     ) -> None:
         super().__init__()
 
-        self.arrays = arrays
+        self.inputs = inputs
         self.groupby = groupby
-        self.max_dist = max_dist
-        self.axes = axes
+        self.offset = offset
+
+        n_inputs = len(inputs)
+
+        self.fill_value = _validate_multiparameter(fill_value, n_inputs, "fill_value")
+        self.shape = _validate_multiparameter(
+            shape, n_inputs, "shape", nested_sequence=True
+        )
+        self.dtype = _validate_multiparameter(dtype, n_inputs, "dtype")
+        self.empty_none = _validate_multiparameter(empty_none, n_inputs, "empty_none")
 
         # Variable number of outputs
         self.outputs = [
             Variable(arg.name if isinstance(arg, Variable) else f"stichted{i}", self)
-            for i, arg in enumerate(arrays)
+            for i, arg in enumerate(inputs)
         ]
-
-    def _validate_bounds(
-        self, arrays: Tuple[Region | np.ndarray, ...]
-    ) -> Tuple[range, ...]:
-        # Validate shapes
-        for ax in self.axes:
-            if not all(arr.shape[ax] == arrays[0].shape[ax] for arr in arrays[1:]):
-                raise ValueError(
-                    f"Arrays do not match in dimension {ax}: {[arr.shape[ax] for arr in arrays]}"
-                )
-
-        anchored_arrays = [arr for arr in arrays if isinstance(arr, Region)]
-
-        # Validate bounding key
-        for ax in self.axes:
-            if not all(arr.key[ax] == arrays[0].key[ax] for arr in anchored_arrays[1:]):
-                raise ValueError(
-                    f"Arrays do not match in bounding range {ax}: {[arr.shape[ax] for arr in anchored_arrays]}"
-                )
-
-        return tuple(anchored_arrays[0].key[ax] for ax in self.axes)
-
-    def _range_dist(self, r0: range, r1: range) -> int:
-        start = max(r0.start, r1.start)
-        stop = min(r0.stop, r1.stop)
-
-        return max(0, start - stop)
-
-    def _label_bounds(self, bounds) -> Tuple[int, np.ndarray]:
-        if self.max_dist is None:
-            # All bounds are part of the same cluster
-            return 1, np.zeros(len(bounds))
-
-        # Extracted connected components
-        adjacency = scipy.sparse.dok_array((len(bounds),) * 2, dtype=bool)
-        for i in range(len(bounds)):
-            for j in range(i + 1, len(bounds)):
-                if (
-                    np.linalg.norm(
-                        [
-                            self._range_dist(bi, bj)
-                            for bi, bj in zip(bounds[i], bounds[j])
-                        ]
-                    )
-                    <= self.max_dist
-                ):
-                    adjacency[i, j] = 1
-
-        (
-            n_components,
-            labels,
-        ) = scipy.sparse.csgraph.connected_components(adjacency, directed=False)
-
-        return n_components, labels
 
     def transform_stream(self, stream: Stream) -> Stream:
         with closing_if_closable(stream):
             stream_estimator = StreamEstimator()
 
             for _, group in stream_groupby(stream, self.groupby):
+                # self.fill_value, self.shape, self.dtype, self.empty_none can be single or sequence (individual for each input)
+                frames = [
+                    Frame(fv, s, dt, en)
+                    for fv, s, dt, en in zip(
+                        self.fill_value, self.shape, self.dtype, self.empty_none
+                    )
+                ]
+
                 group = list(group)
 
                 with stream_estimator.consume(
                     group[0].n_remaining_hint, est_n_emit=1, n_consumed=len(group)
                 ) as incoming_group:
 
-                    # Extract all arrays of the group
-                    group_arrays: Tuple[Tuple[Region]] = tuple(
-                        self.prepare_input(obj, "arrays") for obj in group
-                    )
-                    group_arrays = tuple(zip(*group_arrays))
+                    for obj in group:
+                        inputs, offset = self.prepare_input(obj, ("inputs", "offset"))
 
-                    # Validate and calculate bounds
-                    bounds = [self._validate_bounds(arrays) for arrays in group_arrays]
+                        if isinstance(offset, int):
+                            offset = (offset,)
 
-                    # Label connected components
-                    n_components, labels = self._label_bounds(bounds)
+                        key_len = len(offset)
 
-                    for l in range(n_components):
-                        indices = (labels == l).nonzero()[0]
-                        label_arrays = [group_arrays[i] for i in indices]
-                        label_bounds = [bounds[i] for i in indices]
+                        # Validate common shape of inputs
+                        if not all(
+                            inputs[0].shape[:key_len] == inp.shape[:key_len]
+                            for inp in inputs[1:]
+                        ):
+                            raise ValueError(
+                                f"Input shapes do not match: {[inp.shape for inp in inputs]}"
+                            )
 
-                        target_shape = [len(b) for b in label_bounds]
-
-                        # Create accumulator arrays
-                        # Use float to avoid overflows
-                        stitched = [
-                            np.zeros(target_shape + inp.shape[2:], dtype=float)
-                            for inp in first_input
-                        ]
-
-                        for row in data.itertuples():
-                            for i, inp in enumerate(row.input):
-                                sl = (
-                                    slice(row.y, row.y + row.h),
-                                    slice(row.x, row.x + row.w),
-                                )
-                                np.maximum(stitched[i][sl], inp, out=stitched[i][sl])
-
-                        stitched = [
-                            st.astype(inp.dtype)
-                            for st, inp in zip(stitched, first_input)
-                        ]
-
-                        yield self.prepare_output(
-                            group[0].copy(),
-                            stitched,
-                            n_remaining_hint=incoming_group.emit(),
+                        key = tuple(
+                            slice(o, o + l) for o, l in zip(offset, inputs[0].shape)
                         )
+
+                        for frame, inp in zip(frames, inputs):
+                            frame[key] = inp
+
+                    yield self.prepare_output(
+                        group[0].copy(),
+                        frames,
+                        n_remaining_hint=incoming_group.emit(),
+                    )

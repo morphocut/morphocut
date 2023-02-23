@@ -37,4 +37,4 @@ def test_Frame(extra_shape):
     region = frame[5:15, 5:15]
     assert region is not None
     assert region.key == (slice(5, 15), slice(5, 15))
-    np.testing.assert_equal(region, np.pad(ones[:5, :5], ((5, 0), (5, 0))))  # type: ignore
+    np.testing.assert_equal(region, np.pad(ones[5:, 5:], ((0, 5), (0, 5)) + ((0, 0),) * len(extra_shape)))  # type: ignore

@@ -125,6 +125,7 @@ class TiledPipeline(Pipeline):
             base_shape = obj_new[self.variables[0]].shape[: len(self.tile_shape)]
 
             # Stitch new variables
+            # TODO: Use stitch.Frame or np.ndarray
             for v in locals_:
                 arr = None
                 for obj in group:
