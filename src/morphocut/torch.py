@@ -106,6 +106,7 @@ class PyTorch(Node):
             if is_batch:
                 if self.pre_transform is not None:
                     input = [self.pre_transform(inp) for inp in input]
+                input = [torch.as_tensor(inp) for inp in input]
 
                 input = _stack_pin(input) if self.pin_memory else torch.stack(input)
                 is_batch = True
