@@ -1,4 +1,5 @@
-from typing import Iterator, List, Sequence, Tuple, Union
+from itertools import zip_longest
+from typing import Iterator, List, Sequence, Tuple
 
 import numpy as np
 import numpy.lib.mixins
@@ -14,6 +15,19 @@ from morphocut.core import (
 from morphocut.utils import StreamEstimator, stream_groupby
 
 
+def _wrap_array_property(name):
+    return property(lambda self: getattr(self.array, name))
+
+
+def _wrap_array_method(name):
+    def wrapper(self, *args, **kwargs):
+        method = getattr(self.array, name)
+        result = method(*args, **kwargs)
+        return self._convert_result(result)
+
+    return wrapper
+
+
 class Region(numpy.lib.mixins.NDArrayOperatorsMixin):
     """
     Drop-in replacement for np.ndarray that knows about its location in a larger array ("frame").
@@ -27,9 +41,12 @@ class Region(numpy.lib.mixins.NDArrayOperatorsMixin):
         self.array = array
         self.key = key
 
-    def __convert_result(self, arr: np.ndarray) -> Union[np.ndarray, "Region"]:
+    def _convert_result(self, arr):
         # If result has the same shape as self.array, we can assume that we're still anchored in the frame
-        if arr.shape[: len(self.key)] == self.array.shape[: len(self.key)]:
+        if (
+            isinstance(arr, np.ndarray)
+            and arr.shape[: len(self.key)] == self.array.shape[: len(self.key)]
+        ):
             return Region(arr, key=self.key)
         return arr
 
@@ -43,50 +60,67 @@ class Region(numpy.lib.mixins.NDArrayOperatorsMixin):
 
         if type(result) is tuple:
             # multiple return values
-            return tuple(self.__convert_result(x) for x in result)
+            return tuple(self._convert_result(x) for x in result)
         elif method == "at":
             # no return value
             return None
         else:
             # one return value
-            return self.__convert_result(result)
+            return self._convert_result(result)
 
-    def __array__(self):
-        return self.array
+    def __array__(self, dtype=None):
+        return np.asarray(self.array, dtype=dtype)
 
-    def __getitem__(self, slices: slice | Tuple[slice, ...]):
-        slices = slices if isinstance(slices, tuple) else (slices,)
+    def __setitem__(self, key, value):
+        self.array[key] = value
 
-        fill_value = object()
+    def __getitem__(self, key: slice | Tuple[slice, ...]):
+        if isinstance(key, slice):
+            key = (key,)
+        elif isinstance(key, tuple):
+            if not all(isinstance(sl, slice) for sl in key):
+                return self.array[key]
+        elif key is ...:
+            key = tuple(slice(0, stop) for stop in self.shape[: len(self.key)])
+        else:
+            # Boolean, None, ...
+            return self.array[key]
 
-        new_ranges: List[range] = []
-        for sl0, sl1 in zip_longest(self.key, slices, fill_value=fill_value):
-            if sl0 is fill_value:
-                new_ranges.append(range(sl1.start, sl1.stop, sl1.step))
+        key = key if isinstance(key, tuple) else (key,)
+
+        fillvalue = object()
+
+        new_key: List[slice] = []
+        for sl0, sl1 in zip_longest(self.key, key, fillvalue=fillvalue):
+            if sl0 is fillvalue:
+                new_key.append(slice(sl1.start, sl1.stop, sl1.step))
                 continue
-            if sl1 is fill_value:
-                new_ranges.append(sl0)
+            if sl1 is fillvalue:
+                new_key.append(sl0)
                 continue
 
-            assert isinstance(sl0, slice)
-            assert isinstance(sl1, slice)
+            assert isinstance(sl0, slice), f"Not a slice: {sl0!r}"
+            assert isinstance(sl1, slice), f"Not a slice: {sl1!r}"
 
-            start = sl0.start + sl0.step * sl1.start
-            stop = sl0.start + sl0.step * sl1.stop if sl1.stop is not None else sl0.stop
-            step = sl0.step * sl1.step
+            sl0_step = sl0.step or 1
+            sl1_step = sl1.step or 1
+            start = sl0.start + sl0_step * sl1.start
+            stop = sl0.start + sl0_step * sl1.stop if sl1.stop is not None else sl0.stop
+            step = sl0_step * sl1_step
 
             if sl0.stop is not None and stop > sl0.stop:
                 stop = sl0.stop
 
-            new_ranges.append(range(start, stop, step))
+            new_key.append(slice(start, stop, step))
 
-            sl0.indices
+        return Region(self.array[key], tuple(new_key))
 
-        return Region(self.array[slices], tuple(new_ranges))
+    # Accessors for ndarray interoperability
+    shape = _wrap_array_property("shape")
+    dtype = _wrap_array_property("dtype")
 
-    @property
-    def shape(self):
-        return self.array.shape
+    astype = _wrap_array_method("astype")
+    sum = _wrap_array_method("sum")
 
 
 class Frame:
@@ -143,20 +177,24 @@ class Frame:
 
         return self.key_shape + self._shape[self.keylen :]  # type: ignore
 
-    def _validate_key(self, key) -> Tuple[slice, ...]:
+    @property
+    def ndim(self):
+        return len(self.shape)
+
+    def _validate_key(self, key, getitem=False) -> Tuple[slice, ...]:
         if not isinstance(key, tuple):
             key = (key,)
 
         for s in key:
             # Only slices
             if not isinstance(s, slice):
-                raise ValueError(
+                raise IndexError(
                     f"Invalid key: {key}. Only slice and tuple of slice are allowed."
                 )
 
             # slice.step is None or 1
             if s.step is not None and s.step != 1:
-                raise ValueError(f"Invalid key: {key}. step has to be 1 or None.")
+                raise IndexError(f"Invalid key: {key}. step has to be 1 or None.")
 
         # Infere start/stop=None from shape
         def update_slice(sl: slice, sh: int | None):
@@ -167,20 +205,29 @@ class Frame:
 
             if stop is None:
                 if sh is None:
-                    raise ValueError(
+                    raise IndexError(
                         f"Invalid key: {key}. Can not infer stop from shape {self._shape}"
                     )
 
                 stop = sh
 
+            if sh is not None:
+                if getitem:
+                    stop = min(stop, sh)
+                else:
+                    if stop > sh:
+                        raise IndexError(f"Invalid key: {key}. Out of range")
+
             return slice(start, stop)
 
-        key = tuple(
-            update_slice(sl, sh)
-            for sl, sh in zip(
-                key, self._shape if self._shape is not None else (None,) * len(key)
-            )
+        shape = (
+            self.shape
+            if getitem
+            else self._shape
+            if self._shape is not None
+            else (None,) * len(key)
         )
+        key = tuple(update_slice(sl, sh) for sl, sh in zip(key, shape))
 
         return key
 
@@ -233,14 +280,18 @@ class Frame:
         """Find regions that intersect with the given key."""
         result = []
         for r in self._regions:
-            source_key = tuple(
+            intersection_key = tuple(
                 slice(max(ks.start, rs.start), min(ks.stop, rs.stop))
                 for ks, rs in zip(key, r.key)
             )
-            if all(s.start <= s.stop for s in source_key):
+            if all(s.start <= s.stop for s in intersection_key):
+                source_key = tuple(
+                    slice(ss.start - rs.start, ss.stop - rs.start)
+                    for rs, ss in zip(r.key, intersection_key)
+                )
                 target_key = tuple(
                     slice(ss.start - ks.start, ss.stop - ks.start)
-                    for ks, ss in zip(key, source_key)
+                    for ks, ss in zip(key, intersection_key)
                 )
                 result.append((r, source_key, target_key))
         return result
@@ -248,15 +299,15 @@ class Frame:
     def __getitem__(self, key) -> None | Region:
         """Extract part of the frame as a new region."""
 
-        # [:]
-        if key == slice(None, None):
+        # [...]
+        if key is ...:
             # Calculate maximum length of each dimension
             key = tuple(slice(0, stop) for stop in self.key_shape)
 
         # [a:b,c:d]
         else:
             # Convert and validate key
-            key = self._validate_key(key)
+            key = self._validate_key(key, getitem=True)
 
         regions = self._get_intersecting_regions(key)
 
@@ -281,22 +332,22 @@ class Frame:
     def n_regions(self):
         return len(self._regions)
 
-    def __array__(self) -> np.ndarray:
+    def __array__(self, dtype=None) -> np.ndarray:
         """Convert whole frame to array by stitching regions."""
 
-        whole_frame = self[:]
+        whole_frame = self[...]
 
         if whole_frame is None:
-            return np.full(self.shape, self.fill_value, self.dtype)
+            return np.full(self.shape, self.fill_value, dtype)
 
-        return whole_frame.array
+        return np.asarray(whole_frame.array, dtype=dtype)
 
     def _merge_regions(self, max_distance) -> "Frame":
         # Merge regions separated by <= max_distance
         # NB: Merged regions might overlap afterwards
         def _validate_bounds(
             self, arrays: Tuple[Region | np.ndarray, ...]
-        ) -> Tuple[range, ...]:
+        ) -> Tuple[slice, ...]:
             # Validate shapes
             for ax in self.axes:
                 if not all(arr.shape[ax] == arrays[0].shape[ax] for arr in arrays[1:]):
@@ -317,7 +368,7 @@ class Frame:
 
             return tuple(anchored_arrays[0].key[ax] for ax in self.axes)
 
-        def _range_dist(self, r0: range, r1: range) -> int:
+        def _range_dist(self, r0: slice, r1: slice) -> int:
             start = max(r0.start, r1.start)
             stop = min(r0.stop, r1.stop)
 
@@ -458,6 +509,6 @@ class Stitch(Node):
 
                     yield self.prepare_output(
                         group[0].copy(),
-                        frames,
+                        *frames,
                         n_remaining_hint=incoming_group.emit(),
                     )
