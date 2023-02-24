@@ -154,6 +154,7 @@ class FindRegions(Node):
         image: RawOrVariable = None,
         min_area=None,
         max_area=None,
+        min_intensity=None,
         padding=0,
         warn_empty=False,
     ):
@@ -164,6 +165,7 @@ class FindRegions(Node):
 
         self.min_area = min_area
         self.max_area = max_area
+        self.min_intensity = min_intensity
         self.padding = padding
         self.warn_empty = warn_empty
 
@@ -192,6 +194,12 @@ class FindRegions(Node):
                         continue
 
                     if self.max_area is not None and props.area > self.max_area:
+                        continue
+
+                    if (
+                        self.min_intensity is not None
+                        and props.intensity_max < self.min_intensity
+                    ):
                         continue
 
                     yield self.prepare_output(obj.copy(), props)
