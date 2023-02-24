@@ -1,9 +1,10 @@
 import warnings
-from typing import Any, List, Optional
+from typing import Any, List
 
 import numpy as np
 import PIL
 import scipy.ndimage as ndi
+import skimage.color
 import skimage.exposure
 import skimage.io
 import skimage.measure
@@ -450,8 +451,8 @@ class RGB2Gray(Node):
         self.keep_dtype = keep_dtype
 
     def transform(self, image: np.ndarray):
-        if len(image.shape) != 3:
-            raise ValueError("image.shape != 3 in {!r}".format(self))
+        if image.ndim != 3:
+            raise ValueError("image.ndim != 3 in {!r}".format(self))
 
         result = rgb2gray(image)
 
