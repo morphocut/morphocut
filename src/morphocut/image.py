@@ -242,6 +242,21 @@ class ImageProperties(Node):
         )
 
 
+def _convert_color_for(name, img: np.ndarray) -> np.ndarray:
+    color = np.array(skimage.color.color_dict[name])
+
+    if img.ndim == 3 and img.shape[-1] == 3:
+        # RGB
+        pass
+    elif img.ndim == 2 or img.shape[-1] == 1:
+        # Gray
+        color = rgb2gray(color)
+    else:
+        raise ValueError(f"Could not convert color for image shape: {img.shape}")
+
+    return dtype.convert(color, img.dtype)
+
+
 @ReturnOutputs
 @Output("extracted_image")
 class ExtractROI(Node):
@@ -256,7 +271,8 @@ class ExtractROI(Node):
             :py:class:`RegionProperties <skimage.measure._regionprops.RegionProperties>`
             instance returned by :py:class:`FindRegions`.
         alpha: 1=Background completely reset to bg_color; 0 = Background fully visible.
-        bg_color: Color for the background.
+        bg_color (scalar, tuple or string): Color for the background.
+            Can be a scalar, a tuple (r,g,b), or a color name.
     """
 
     def __init__(
@@ -267,7 +283,7 @@ class ExtractROI(Node):
         self.image = image
         self.regionprops = regionprops
         self.alpha = alpha
-        self.bg_color = np.array(bg_color)
+        self.bg_color = bg_color if isinstance(bg_color, str) else np.array(bg_color)
 
     def transform(self, image, regionprops):
         image = image[regionprops.slice]
@@ -275,13 +291,20 @@ class ExtractROI(Node):
         if self.alpha == 0:
             return image
 
-        # Combine background and foreground
-        result_img = (self.alpha * self.bg_color + (1 - self.alpha) * image).astype(
+        bg_color = (
+            _convert_color_for(self.bg_color, image)
+            if isinstance(self.bg_color, str)
+            else self.bg_color
+        )
+
+        # Blend bg_color and image to create background
+        result_img = (self.alpha * bg_color + (1 - self.alpha) * image).astype(
             image.dtype
         )
 
-        # Paste foreground
-        result_img[regionprops.image] = image[regionprops.image]
+        # Paste foreground so it is fully visible
+        mask = regionprops.image
+        result_img[mask] = image[mask]
 
         return result_img
 
