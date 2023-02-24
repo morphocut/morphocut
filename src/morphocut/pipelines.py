@@ -1,6 +1,7 @@
 import concurrent.futures
 import os
 import threading
+import traceback
 from typing import Callable, List, Optional, Tuple, Union
 import queue
 
@@ -152,15 +153,18 @@ class DataParallelPipeline(MergeNodesPipeline):
         result_queue = queue.Queue(queue_size)
 
         def _queue_filler():
-            with closing_if_closable(stream):
-                try:
+            try:
+                with closing_if_closable(stream):
                     for obj in stream:
                         result_queue.put(
                             (obj, executor.submit(self.transform_object, obj))
                         )
-                finally:
-                    # Stop signal
-                    result_queue.put(None)
+            except:
+                traceback.print_exc()
+                raise
+            finally:
+                # Stop signal
+                result_queue.put(None)
 
         threading.Thread(target=_queue_filler, daemon=True).start()
 
