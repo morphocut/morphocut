@@ -118,6 +118,7 @@ class Region(numpy.lib.mixins.NDArrayOperatorsMixin):
     # Accessors for ndarray interoperability
     shape = _wrap_array_property("shape")
     dtype = _wrap_array_property("dtype")
+    ndim = _wrap_array_property("ndim")
 
     astype = _wrap_array_method("astype")
     sum = _wrap_array_method("sum")
