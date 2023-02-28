@@ -1,9 +1,10 @@
 from contextlib import nullcontext
 from typing import TYPE_CHECKING
-from morphocut.batch import BatchPipeline
+from morphocut.batch import BatchedPipeline
+
 
 import pytest
-
+import numpy as np
 from morphocut.core import Pipeline
 from morphocut.stream import Unpack
 from morphocut.torch import PyTorch
@@ -14,7 +15,7 @@ else:
     torch = pytest.importorskip("torch")
 
 
-class MyModule(torch.nn.Module):
+class IdentityModule(torch.nn.Module):
     def __init__(self, output_key=None) -> None:
         super().__init__()
         self.output_key = output_key
@@ -31,10 +32,6 @@ class MyModule(torch.nn.Module):
     [None, "cpu"],
 )
 @pytest.mark.parametrize(
-    "n_parallel",
-    [0, 2],
-)
-@pytest.mark.parametrize(
     "batch",
     [True, False],
 )
@@ -42,21 +39,32 @@ class MyModule(torch.nn.Module):
     "output_key",
     [None, "foo"],
 )
-def test_PyTorch(device, n_parallel, batch, output_key):
-    module = MyModule(output_key)
+@pytest.mark.parametrize(
+    "input_dtype",
+    [np.uint8, np.float32, np.float64],
+)
+@pytest.mark.parametrize(
+    "input_ndim",
+    [0,1,2,3],
+)
+def test_PyTorch(device, batch, output_key, input_dtype, input_ndim):
+    module = IdentityModule(output_key)
+
+    input_data = [np.array(i, dtype=input_dtype).reshape((1,)*input_ndim) for i in range(100)]
 
     with Pipeline() as p:
-        input = Unpack([torch.tensor([float(i)]) for i in range(100)])
+        input = Unpack(input_data)
 
-        block = BatchPipeline(2) if batch else nullcontext(p)
+        block = BatchedPipeline(2) if batch else nullcontext(p)
         with block:
             result = PyTorch(
                 module,
                 input,
                 is_batch=batch,
                 device=device,
-                n_parallel=n_parallel,
                 output_key=output_key,
             )
 
-    results = [o[result] for o in p.transform_stream()]
+    output_data = [o[result] for o in p.transform_stream()]
+
+    np.testing.assert_equal(output_data, input_data)
