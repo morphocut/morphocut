@@ -1,7 +1,6 @@
 import itertools
 import operator
 
-import numpy as np
 import pytest
 
 from morphocut.core import (
@@ -34,6 +33,12 @@ class TestNode(Node):
     def transform(self, a, b, c):
         return a, b, c
 
+def test_Pipeline():
+    with Pipeline() as pipeline:
+        with Pipeline():
+            pass
+
+    assert len(pipeline.children) == 1
 
 def test_Node():
     # Assert that Node checks for the existence of a pipeline
@@ -50,6 +55,8 @@ def test_Node():
     # Assert that parameters and outputs are passed as expected
     with Pipeline() as pipeline:
         a, b, c = TestNode(1, 2, 3)
+
+    assert len(pipeline.children) == 1
 
     obj, *_ = list(pipeline.transform_stream())
     assert obj[a] == 1
@@ -181,3 +188,17 @@ def test_VariableOperationsSpecial():
     assert obj[d1_3] == [2, 3]
 
     assert f_value not in obj.values()
+
+
+def test_Pipeline():
+    with Pipeline() as p:
+        a = Const("a")
+        with Pipeline():
+            b = Const("b")
+
+    locals_hashes = set(v.hash for v in p.locals())
+
+    # a is a local of p
+    assert a.hash in locals_hashes
+    # b is also a local of p
+    assert b.hash in locals_hashes
