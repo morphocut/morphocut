@@ -735,9 +735,6 @@ class Pipeline(StreamTransformer):
         # Direct children of this pipeline
         self.children = []  # type: List[StreamTransformer]
 
-        if parent is not None:
-            parent.add_child(self)
-
         if parent is None:
             try:
                 parent = _pipeline_stack[-1]
