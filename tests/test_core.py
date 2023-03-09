@@ -191,6 +191,12 @@ def test_VariableOperationsSpecial():
 
 
 def test_Pipeline():
+    with Pipeline() as pipeline:
+        with Pipeline():
+            pass
+
+    assert len(pipeline.children) == 1
+
     with Pipeline() as p:
         a = Const("a")
         with Pipeline():

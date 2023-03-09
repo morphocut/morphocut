@@ -367,6 +367,7 @@ class Variable(Generic[T]):
         DelVariable(self)
 
     def copy(self):
+        """Return A new `Variable` object pointing to a copy of the value."""
         return Call(copy.copy, self)
 
 
@@ -496,10 +497,8 @@ class Node(StreamTransformer):
     def transform_stream(self, stream: Stream) -> Stream:
         """
         Transform a stream.
-
         By default, this calls ``self.transform`` with appropriate parameters.
         ``transform`` has to be implemented by a subclass if ``transform_stream`` is not overridden.
-
         Override if the stream has to be altered in some way,
         i.e. objects are created, deleted or re-arranged.
         """
@@ -508,17 +507,13 @@ class Node(StreamTransformer):
 
         with closing_if_closable(stream):
             for obj in stream:
-                try:
-                    parameters = self.prepare_input(obj, names)
+                parameters = self.prepare_input(obj, names)
 
-                    result = self.transform(*parameters)  # pylint: disable=no-member
+                result = self.transform(*parameters)  # pylint: disable=no-member
 
-                    self.prepare_output(obj, result)
+                self.prepare_output(obj, result)
 
-                    yield obj
-                except Exception as exc:
-                    # TODO: Use add_exc_note after #99 is merged
-                    raise type(exc)(*exc.args, f"{self}")
+                yield obj
 
         self.after_stream()
 
