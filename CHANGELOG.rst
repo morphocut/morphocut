@@ -7,9 +7,9 @@ Changelog
 Added
 ~~~~~
 
-- Added `torch.PyTorch`: Apply a PyTorch module. (#95)
+- Added `torch.PyTorch`: Apply a PyTorch module. (#95, #106)
 
-- Added `batch.BatchPipeline`: Combine consecutive objects into a batch. (#92)
+- Added `batch.BatchedPipeline`: Combine consecutive objects into a batch. (#92, #106)
 
 - Added `mjpeg_streamer.MJPEGStreamer`: Stream images via HTTP (e.g. to the Browser). (#75)
 

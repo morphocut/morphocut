@@ -34,8 +34,6 @@ class PyTorch(Node):
         module (torch.nn.Module): PyTorch module.
         input (input, Variable): Input.
         device (str or torch.device, optional): Device.
-        n_parallel (int, optional): Run multiple computations in parallel.
-            0 means synchronous computations.
         is_batch (bool, optional): Assume that input is a batch.
         output_key (optional): If the module has multiple outputs, output_key selects one of them.
         pin_memory (bool, optional): Use pinned memory for faster CPU-GPU transfer.
