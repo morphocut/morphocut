@@ -56,7 +56,7 @@ class PyTorch(Node):
         self,
         module: "torch.nn.Module",
         input: RawOrVariable,
-        device: Union[None, str, torch.device] = None,
+        device: Union[None, str, "torch.device"] = None,
         is_batch=None,
         output_key=None,
         pin_memory=None,
@@ -64,8 +64,6 @@ class PyTorch(Node):
         autocast=False,
     ):
         super().__init__()
-
-        print("PyTorch.device: ", device)
 
         if device is not None:
             device = torch.device(device)
