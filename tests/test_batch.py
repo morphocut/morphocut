@@ -35,7 +35,7 @@ def test_BatchPipeline(seq_len):
     with Pipeline() as pipeline:
         a = Unpack(values)
         remaining0 = RemainingHint()
-        with BatchedPipeline(batch_size) as bp:
+        with BatchedPipeline(batch_size):
             # Inside BatchPipeline, a is a Sequence
             Call(assert_sequence, a)
 
@@ -47,7 +47,7 @@ def test_BatchPipeline(seq_len):
         Call(assert_not_sequence, a)
         Call(assert_not_sequence, c)
 
-    assert id(c) in [id(v) for v in bp.locals()]
+    assert id(c) in [id(v) for v in pipeline.locals()]
 
     result = list(pipeline.transform_stream())
 

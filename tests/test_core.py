@@ -195,8 +195,6 @@ def test_Pipeline():
         with Pipeline():
             pass
 
-    assert len(pipeline.children) == 1
-
     with Pipeline() as p:
         a = Const("a")
         with Pipeline():
@@ -208,3 +206,4 @@ def test_Pipeline():
     assert a.hash in locals_hashes
     # b is also a local of p
     assert b.hash in locals_hashes
+    assert len(pipeline.children) == 1
