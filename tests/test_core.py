@@ -1,69 +1,190 @@
-import tarfile
-import zipfile
-from numpy.testing import assert_equal
-
-from morphocut import Call, Pipeline
-from morphocut.contrib.ecotaxa import Archive, EcotaxaReader, EcotaxaWriter
-from morphocut.str import Format
-from morphocut.stream import Unpack
-from tests.helpers import BinaryBlobs
+import itertools
+import operator
 
 import pytest
 
+from morphocut.core import (
+    Call,
+    Node,
+    Output,
+    Pipeline,
+    ReturnOutputs,
+    EmptyPipelineStackError,
+)
+from tests.helpers import Const
 
-@pytest.mark.parametrize("ext", [".tar", ".zip"])
-@pytest.mark.parametrize("with_images", [True, False])
-def test_ecotaxa(tmp_path, ext, with_images):
-    archive_fn = str(tmp_path / ("ecotaxa" + ext))
-    print(archive_fn)
 
-    # Create an archive
-    with Pipeline() as p:
-        i = Unpack(range(10))
+@ReturnOutputs
+class TestNodeNoTransform(Node):
+    pass
 
-        object_id = Format("foo{:d}", i)
 
-        meta = Call(dict, object_id=object_id, i=i, foo="Sömé UTF-8 ſtríng…")
-        image = BinaryBlobs()
-        image_name = Format("image_{}.png", i)
+@ReturnOutputs
+@Output("a")
+@Output("b")
+@Output("c")
+class TestNode(Node):
+    def __init__(self, a, b, c):
+        super().__init__()
+        self.a = a
+        self.b = b
+        self.c = c
 
-        fnames_images = (image_name, image) if with_images else []
+    def transform(self, a, b, c):
+        return a, b, c
 
-        EcotaxaWriter(
-            archive_fn,
-            fnames_images,
-            meta,
-            object_meta={"foo": 0},
-            acq_meta={"foo": 1},
-            process_meta={"foo": 2},
-            sample_meta={"foo": 3},
-        )
+def test_Pipeline():
+    with Pipeline() as pipeline:
+        with Pipeline():
+            pass
 
-    # Execute pipeline and collect results
-    result = [o.to_dict(meta=meta, image=image) for o in p.transform_stream()]
+    assert len(pipeline.children) == 1
 
-    if ext == ".zip":
-        assert zipfile.is_zipfile(archive_fn), f"{archive_fn} is not a zip file"
-    elif ext == ".tar":
-        assert tarfile.is_tarfile(archive_fn), f"{archive_fn} is not a tar file"
+def test_Node():
+    # Assert that Node checks for the existence of a pipeline
+    with pytest.raises(EmptyPipelineStackError):
+        TestNode(1, 2, 3)
 
-    # Read the archive
-    with Pipeline() as p:
-        obj = EcotaxaReader(archive_fn)
+    # Assert that Node checks for the existance of transform
+    with Pipeline() as pipeline:
+        TestNodeNoTransform()
 
-    roundtrip_result = [o.to_dict(obj=obj) for o in p.transform_stream()]
+    with pytest.raises(AttributeError):
+        pipeline.run()
 
-    for meta_field in ("i", "foo"):
-        assert [o["meta"][meta_field] for o in result] == [
-            o["obj"].meta[meta_field] for o in roundtrip_result
-        ]
+    # Assert that parameters and outputs are passed as expected
+    with Pipeline() as pipeline:
+        a, b, c = TestNode(1, 2, 3)
 
-    for i, prefix in enumerate(("object_", "acq_", "process_", "sample_")):
-        assert [o["meta"][prefix + "foo"] for o in result] == [
-            i for _ in roundtrip_result
-        ]
+    assert len(pipeline.children) == 1
 
-    if with_images:
-        assert_equal(
-            [o["image"] for o in result], [o["obj"].image for o in roundtrip_result]
-        )
+    obj, *_ = list(pipeline.transform_stream())
+    assert obj[a] == 1
+    assert obj[b] == 2
+    assert obj[c] == 3
+
+
+def test_Call():
+    def foo(bar, baz):
+        return bar, baz
+
+    with Pipeline() as pipeline:
+        result = Call(foo, 1, 2)
+
+    obj, *_ = list(pipeline.transform_stream())
+    assert obj[result] == (1, 2)
+
+
+class _MatMullable:
+    def __init__(self, value):
+        self.value = value
+
+    def __matmul__(self, other):
+        if isinstance(other, _MatMullable):
+            other = other.value
+        return self.value * other
+
+    def __rmatmul__(self, other):
+        if isinstance(other, _MatMullable):
+            other = other.value
+        return other * self.value
+
+
+@pytest.mark.parametrize(
+    "inp",
+    [
+        (operator.add, 1, 2),
+        (operator.truediv, 1, 2),
+        (operator.floordiv, 5, 3),
+        (operator.and_, 5, 3),
+        (operator.xor, 5, 3),
+        (operator.invert, 5),
+        (operator.or_, 5, 3),
+        (operator.pow, 5, 3),
+        (operator.lshift, 5, 3),
+        (operator.rshift, 5, 3),
+        (operator.mod, 5, 3),
+        (operator.mul, 5, 3),
+        pytest.param(
+            (operator.matmul, _MatMullable(5), _MatMullable(3)), marks=pytest.mark.xfail
+        ),
+        (operator.neg, 5),
+        (operator.pos, 5),
+        (operator.sub, 5, 3),
+        (operator.lt, 5, 3),
+        (operator.le, 5, 3),
+        (operator.eq, 5, 3),
+        (operator.ne, 5, 3),
+        (operator.ge, 5, 3),
+        (operator.gt, 5, 3),
+        (operator.abs, -5),
+    ],
+)
+def test_VariableOperations(inp):
+    op, *args = inp
+
+    result = op(*args)
+
+    # print("{}={}".format(inp, result))
+
+    for varidxs in set(
+        frozenset(varidxs)
+        for varidxs in list(itertools.product(range(len(args)), repeat=len(args) + 1))
+    ):
+        with Pipeline() as pipeline:
+            args_ = tuple(Const(v) if i in varidxs else v for i, v in enumerate(args))
+            result_ = op(*args_)
+
+        obj = next(pipeline.transform_stream())
+
+        assert obj[result_] == result
+
+
+def test_VariableOperationsSpecial():
+    class E:
+        def __init__(self):
+            self.a = 1
+
+    with Pipeline() as pipeline:
+        _1 = 1
+        f_value = object()
+        a = Const(False)
+        b = Const(_1)
+        c = Const(_1)
+        d = Const([1, 2, 3])
+        e = Const(E())
+        f = Const(f_value)
+
+        not_a = a.not_()  # True
+        true_b = b.truth()  # True
+        b_is_c = b.is_(c)  # True
+        a_isnot_c = a.is_not(c)  # True
+        b_in_d = b.in_(d)  # True
+        d_contains_b = d.contains(b)  # True
+
+        d1 = d[1]
+        d1_3 = d[1:3]
+        e_a = e.a
+
+        d[0] = None
+        del d[1]
+
+        # Unset Variables. This should remove the value from the stream.
+        f.delete()
+
+    obj = next(pipeline.transform_stream())
+
+    assert obj[not_a] == True
+    assert obj[true_b] == True
+    assert obj[b_is_c] == True
+    assert obj[a_isnot_c] == True
+    assert obj[b_in_d] == True
+    assert obj[d_contains_b] == True
+
+    assert obj[d1] == 2
+    assert obj[d1_3] == [2, 3]
+    assert obj[e_a] == 1
+    assert obj[d] == [None, 3]
+    assert obj[d1_3] == [2, 3]
+
+    assert f_value not in obj.values()
