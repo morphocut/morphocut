@@ -106,6 +106,10 @@ class Slice(Node):
     def transform_stream(self, stream: Stream):
         with closing_if_closable(stream):
             for obj in itertools.islice(stream, *self.args):
+                if obj.n_remaining_hint is not None:
+                    obj.n_remaining_hint = len(
+                        range(*slice(*self.args).indices(obj.n_remaining_hint))
+                    )
                 yield obj
 
 

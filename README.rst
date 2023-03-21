@@ -30,12 +30,8 @@ like video,
 `Bio-Formats <https://docs.openmicroscopy.org/bio-formats/latest/supported-formats.html>`__
 and `EcoTaxa <https://ecotaxa.obs-vlfr.fr/>`__.
 
-The MorphoCut library is accompanied by a `web application`_ that
-serves as a front end to the library.
-
 For further information, have a look at the `documentation`_.
 
-.. _`web application`: https://github.com/morphocut/morphocut-server
 .. _documentation: https://morphocut.readthedocs.io/en/stable/
 
 License
