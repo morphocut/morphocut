@@ -144,7 +144,7 @@ class Frame:
     def __init__(
         self,
         fill_value=0,
-        shape: Union[None, Tuple[Union[None, int, ...]]] = None,
+        shape: Union[None, Tuple[Union[None, int], ...]] = None,
         dtype=None,
         empty_none=False,
     ) -> None:
