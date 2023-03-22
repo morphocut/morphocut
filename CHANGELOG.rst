@@ -26,6 +26,8 @@ Added
 Changed
 ~~~~~~~
 
+- EcotaxaReader: Return EcotaxaObject. (#102)
+
 - EcotaxaWriter: Allow Variables for `archive_fn`. (#100)
 
 - Use `UnavailableObject` instead of `import_optional_dependency`.
@@ -51,3 +53,4 @@ Fixed
 
 - ValueError: 'version' argument is required in Sphinx directives #80
 - UnknownArchiveError: Close EcoTaxa archives (#88)
+- wrongly reported n_remaining_hint in Progress after Slice (#105)

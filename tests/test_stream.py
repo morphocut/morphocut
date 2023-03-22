@@ -47,21 +47,23 @@ def test_Slice():
     items = "ABCDEFG"
 
     with Pipeline() as pipeline:
+        item = Unpack(items)
         result = Slice(2)
 
-    stream = pipeline.transform_stream(items)
-    obj = list(stream)
+    stream = pipeline.transform_stream()
+    result = [obj[item] for obj in stream]
 
-    assert obj == ["A", "B"]
+    assert result == ["A", "B"]
 
     # Assert that the stream is sliced from the specified start and end
     with Pipeline() as pipeline:
+        item = Unpack(items)
         result = Slice(2, 4)
 
-    stream = pipeline.transform_stream(items)
-    obj = list(stream)
+    stream = pipeline.transform_stream()
+    result = [obj[item] for obj in stream]
 
-    assert obj == ["C", "D"]
+    assert result == ["C", "D"]
 
 
 def test_StreamBuffer():
