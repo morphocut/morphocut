@@ -1,5 +1,5 @@
 from itertools import zip_longest
-from typing import Iterator, List, Sequence, Tuple
+from typing import Iterator, List, Sequence, Tuple, Union
 
 import numpy as np
 import numpy.lib.mixins
@@ -75,7 +75,7 @@ class Region(numpy.lib.mixins.NDArrayOperatorsMixin):
     def __setitem__(self, key, value):
         self.array[key] = value
 
-    def __getitem__(self, key: slice | Tuple[slice, ...]):
+    def __getitem__(self, key: Union[slice, Tuple[slice, ...]]):
         if isinstance(key, slice):
             key = (key,)
         elif isinstance(key, tuple):
@@ -144,7 +144,7 @@ class Frame:
     def __init__(
         self,
         fill_value=0,
-        shape: None | Tuple[None | int, ...] = None,
+        shape: Union[None, Tuple[Union[None, int, ...]]] = None,
         dtype=None,
         empty_none=False,
     ) -> None:
@@ -199,7 +199,7 @@ class Frame:
                 raise IndexError(f"Invalid key: {key}. step has to be 1 or None.")
 
         # Infere start/stop=None from shape
-        def update_slice(sl: slice, sh: int | None):
+        def update_slice(sl: slice, sh: Union[int, None]):
             start, stop = sl.start, sl.stop
 
             if start is None:
@@ -298,7 +298,7 @@ class Frame:
                 result.append((r, source_key, target_key))
         return result
 
-    def __getitem__(self, key) -> None | Region:
+    def __getitem__(self, key) -> Union[None, Region]:
         """Extract part of the frame as a new region."""
 
         # [...]
@@ -348,7 +348,7 @@ class Frame:
         # Merge regions separated by <= max_distance
         # NB: Merged regions might overlap afterwards
         def _validate_bounds(
-            self, arrays: Tuple[Region | np.ndarray, ...]
+            self, arrays: Tuple[Union[Region, np.ndarray], ...]
         ) -> Tuple[slice, ...]:
             # Validate shapes
             for ax in self.axes:
@@ -441,7 +441,7 @@ class Stitch(Node):
         groupby,
         offset,
         fill_value=0,
-        shape: None | Tuple[None | int, ...] = None,
+        shape: Union[None, Tuple[Union[None, int], ...]] = None,
         dtype=None,
         empty_none=False,
     ) -> None:
@@ -484,7 +484,6 @@ class Stitch(Node):
                 with stream_estimator.consume(
                     group[0].n_remaining_hint, est_n_emit=1, n_consumed=len(group)
                 ) as incoming_group:
-
                     for obj in group:
                         inputs, offset = self.prepare_input(obj, ("inputs", "offset"))
 
