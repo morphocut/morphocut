@@ -433,6 +433,24 @@ def _validate_multiparameter(value, n_inputs, name, nested_sequence=False):
 class Stitch(Node):
     """
     Stitch regions onto frames.
+
+    Args:
+        *inputs (RawOrVariable[np.ndarray]): Input arrays.
+        groupby: Grouping condition for the input stream.
+        offset: Offsets for stitching the input arrays.
+        fill_value (optional, default=0): Fill value for empty regions.
+        shape (Union[None, Tuple[Union[None, int], ...]], optional): Shape of the output arrays.
+        dtype (optional): Data type of the output arrays.
+        empty_none (bool, optional, default=False): If True, empty regions will be filled with None.
+
+    Example:
+    .. code-block:: python
+        inputs = ...
+        groupby = ...
+        offset = ...
+        output = stitch_node.transform_stream(input_stream)
+        with Pipeline() as pipeline:
+                stitch_node = Stitch(inputs, groupby, offset)
     """
 
     def __init__(
