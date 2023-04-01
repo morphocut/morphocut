@@ -37,6 +37,7 @@ User Guide
    core
    contrib
    torch
+   stitch
    integration
    mjpeg_streamer
    utils
