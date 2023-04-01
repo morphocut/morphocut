@@ -444,13 +444,14 @@ class Stitch(Node):
         empty_none (bool, optional, default=False): If True, empty regions will be filled with None.
 
     Example:
-    .. code-block:: python
-        inputs = ...
-        groupby = ...
-        offset = ...
-        output = stitch_node.transform_stream(input_stream)
-        with Pipeline() as pipeline:
-                stitch_node = Stitch(inputs, groupby, offset)
+        .. code-block:: python
+
+            inputs = ...
+            groupby = ...
+            offset = ...
+            output = stitch_node.transform_stream(input_stream)
+            with Pipeline() as pipeline:
+                    stitch_node = Stitch(inputs, groupby, offset)
     """
 
     def __init__(
