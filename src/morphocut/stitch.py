@@ -132,6 +132,8 @@ class Frame:
     """
     Virtual frame containing individual regions.
 
+    This is a drop-in replacement for Numpy :py:class:`numpy.ndarray`.
+
     Args:
         fill_value (scalar, optional): Fill value.
         shape (None or int or tuple thereof, optional):
