@@ -60,13 +60,13 @@ class Region(numpy.lib.mixins.NDArrayOperatorsMixin):
         result = getattr(ufunc, method)(*inputs, **kwargs)
 
         if type(result) is tuple:
-            # multiple return values
+            # Multiple return values (e.g. divmod)
             return tuple(self._convert_result(x) for x in result)
         elif method == "at":
-            # no return value
+            # Unbuffered in-place operation: no return value (e.g. sum.at)
             return None
         else:
-            # one return value
+            # The regular case: one return value
             return self._convert_result(result)
 
     def __array__(self, dtype=None):
@@ -115,6 +115,9 @@ class Region(numpy.lib.mixins.NDArrayOperatorsMixin):
             new_key.append(slice(start, stop, step))
 
         return Region(self.array[key], tuple(new_key))
+
+    def copy(self):
+        return Region(self.array.copy(), self.key)
 
     # Accessors for ndarray interoperability
     shape = _wrap_array_property("shape")
@@ -344,7 +347,7 @@ class Frame:
 
         return np.asarray(whole_frame.array, dtype=dtype)
 
-    def _merge_regions(self, max_distance) -> "Frame":
+    def _merge_regions(self, max_distance) -> "Frame":  # pragma: no cover
         # Merge regions separated by <= max_distance
         # NB: Merged regions might overlap afterwards
         def _validate_bounds(
@@ -439,9 +442,14 @@ class Stitch(Node):
         groupby: Grouping condition for the input stream.
         offset: Offsets for stitching the input arrays.
         fill_value (optional, default=0): Fill value for empty regions.
-        shape (Union[None, Tuple[Union[None, int], ...]], optional): Shape of the output arrays.
+        shape (Union[None, Tuple[Union[None, int], ...]], optional):
+            Shape of the output arrays.
         dtype (optional): Data type of the output arrays.
-        empty_none (bool, optional, default=False): If True, empty regions will be filled with None.
+        empty_none (bool, optional, default=False):
+            If True, empty regions will be filled with None.
+
+    fill_value, shape, dtype, and empty_none can be scalars
+    or sequences of the same length as *inputs.
 
     Example:
         .. code-block:: python
