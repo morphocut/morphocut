@@ -7,12 +7,9 @@ import signal
 import sys
 import threading
 import traceback
-import typing
+from typing import List
 
 from morphocut.core import Pipeline, closing_if_closable
-
-if typing.TYPE_CHECKING:
-    from typing import List
 
 
 class _Signal(enum.Enum):
