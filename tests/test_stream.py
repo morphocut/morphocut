@@ -50,20 +50,24 @@ def test_Slice():
         item = Unpack(items)
         result = Slice(2)
 
-    stream = pipeline.transform_stream()
+    stream = list(pipeline.transform_stream())
     result = [obj[item] for obj in stream]
+    n_remaining = [obj.n_remaining_hint for obj in stream]
 
     assert result == ["A", "B"]
+    assert n_remaining == [2, 1]
 
     # Assert that the stream is sliced from the specified start and end
     with Pipeline() as pipeline:
         item = Unpack(items)
         result = Slice(2, 4)
 
-    stream = pipeline.transform_stream()
+    stream = list(pipeline.transform_stream())
     result = [obj[item] for obj in stream]
+    n_remaining = [obj.n_remaining_hint for obj in stream]
 
     assert result == ["C", "D"]
+    assert n_remaining == [2, 1]
 
 
 def test_StreamBuffer():
