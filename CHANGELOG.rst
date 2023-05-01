@@ -51,6 +51,10 @@ Removed
 Fixed
 ~~~~~
 
-- ValueError: 'version' argument is required in Sphinx directives #80
-- UnknownArchiveError: Close EcoTaxa archives (#88)
-- wrongly reported n_remaining_hint in Progress after Slice (#105)
+- calculation of `n_remaining_hint` in `stream.Slice` (#111). 
+
+- ValueError: 'version' argument is required in Sphinx directives (#80).
+
+- UnknownArchiveError: Close EcoTaxa archives (#88).
+
+- wrongly reported n_remaining_hint in Progress after Slice (#105).
