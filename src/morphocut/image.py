@@ -356,18 +356,21 @@ class ImageReader(Node):
 
     Args:
         fp (file or Variable): A filename (string), pathlib.Path object or file object.
+        pil_mode (str, optional): The color space and depth of the image. See `Pillow documentation`_ for details.
+
+    .. _Pillow documentation: https://pillow.readthedocs.io/en/stable/handbook/concepts.html#modes
     """
 
-    def __init__(self, fp: RawOrVariable, mode=None):
+    def __init__(self, fp: RawOrVariable, pil_mode=None):
         super().__init__()
         self.fp = fp
-        self.mode = mode
+        self.pil_mode = pil_mode
 
     def transform(self, fp):
         img = PIL.Image.open(fp)
 
-        if self.mode is not None:
-            img = img.convert(self.mode)
+        if self.pil_mode is not None:
+            img = img.convert(self.pil_mode)
 
         return np.array(img)
 
