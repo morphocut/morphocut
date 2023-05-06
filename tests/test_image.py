@@ -56,6 +56,16 @@ def test_FindRegions(warn_empty, recwarn):
         w = recwarn.pop(UserWarning)
         assert re.search(r"^(Image|foo) did not contain any objects.$", str(w.message))
 
+    image = skimage.data.camera()
+    mask = image > 128
+    with Pipeline() as pipeline:
+        result = FindRegions(mask, image, min_intensity=100)
+
+        num_yielded_objects = 0
+        for obj in pipeline.transform_stream():
+            num_yielded_objects += 1
+        assert num_yielded_objects > 0
+
 
 def test_ExtractROI():
     with Pipeline() as pipeline:
@@ -97,6 +107,10 @@ def test_ImageReader(data_path):
 
     pipeline.run()
 
+    with Pipeline() as pipeline:
+        image = ImageReader(d, pil_mode="L")
+    pipeline.run()
+
 
 @pytest.mark.parametrize("keep_dtype", [True, False])
 def test_Gray2RGB(keep_dtype):
@@ -130,6 +144,16 @@ def test_RGB2Gray(keep_dtype):
 
     if keep_dtype:
         assert image.dtype == result.dtype
+
+    # invalid 4D image
+    invalid_image = np.random.rand(200, 200, 3, 3)
+    with Pipeline() as pipeline:
+        result = RGB2Gray(invalid_image, keep_dtype)
+
+    stream = pipeline.transform_stream()
+
+    with pytest.raises(ValueError, match="image.ndim != 3"):
+        next(stream)
 
 
 def regionproperties_to_dict(rprop):
