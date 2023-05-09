@@ -136,6 +136,8 @@ class FindRegions(Node):
             smaller than our min_area then it will discard it.
         max_area (int): Maximum area of the region. If the area of our prop/region is
             bigger than our max_area then it will discard it.
+        min_intensity (float): Minimum mean intensity of the region. If the mean intensity
+            of our prop/region is smaller than our min_intensity then it will discard it.
         padding (int): Size of the slices/regions of our image.
         warn_empty (bool or str or Variable): Warn for empty images (default false).
             If a String is supplied, it is used as an identifier for the image.
@@ -256,12 +258,16 @@ def _convert_color_for(name, img: np.ndarray) -> np.ndarray:
 
     if img.ndim == 3 and img.shape[-1] == 3:
         # RGB
-        pass
+        color = color[None, None, :]
     elif img.ndim == 2 or img.shape[-1] == 1:
         # Gray
         color = rgb2gray(color)
+        color = color[None, None]
     else:
         raise ValueError(f"Could not convert color for image shape: {img.shape}")
+
+    # broadcast color to the shape of img
+    color = np.broadcast_to(color, img.shape)
 
     return dtype.convert(color, img.dtype)
 
