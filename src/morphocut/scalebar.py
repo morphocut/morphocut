@@ -20,6 +20,23 @@ def draw_scalebar(
     font_family="sans",
     margin=10,
 ):
+    """
+       Draw a scalebar image of specified length and units.
+
+       Args:
+           length_unit: The length of the scalebar in the specified unit.
+           px_per_unit: The ratio of pixels to units for the scalebar.
+           unit: The unit of length for the scalebar.
+           mode: The color mode to use for the PIL image.
+           fg_color: The color to use for the scalebar and text.
+           bg_color: The color to use for the background.
+           font_family: The font family to use for the scalebar text.
+           margin: The margin to use around the scalebar.
+
+       Returns:
+           A numpy array representing the image of the scalebar.
+       """
+
     length_px = round(length_unit * px_per_unit)
 
     h = 32
@@ -49,7 +66,19 @@ def draw_scalebar(
 @ReturnOutputs
 @Output("image")
 class DrawScalebar(Node):
-    """Append a scalebar to an image."""
+    """
+    Append a scalebar to an image.
+
+       Args:
+           image: The image to append the scalebar to.
+           length_unit: The length of the scalebar in the specified unit.
+           px_per_unit: The ratio of pixels to units for the scalebar.
+           unit: The unit of length for the scalebar.
+           fg_color: The color to use for the scalebar and text.
+           bg_color: The color to use for the background.
+           font_family: The font family to use for the scalebar text.
+           margin: The margin to use around the scalebar.
+       """
 
     def __init__(
         self,
