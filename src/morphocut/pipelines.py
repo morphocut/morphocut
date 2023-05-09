@@ -91,6 +91,17 @@ class MergeNodesPipeline(Pipeline):
 
 
 class AggregateErrorsPipeline(MergeNodesPipeline):
+    """
+    Pipeline that aggregates errors during the stream transformation.
+
+     Args:
+         parent (Pipeline, optional): The parent pipeline.
+         on_error (callable, optional): An error callback function that will be called
+             when an error is encountered.
+         on_error_args (tuple, optional): Additional positional arguments to be passed to
+             the error callback function.
+    """
+
     def transform_stream(self, stream: Optional[Stream] = None) -> Stream:
         stream = check_stream(stream)
 
@@ -125,6 +136,19 @@ class AggregateErrorsPipeline(MergeNodesPipeline):
 
 
 class DataParallelPipeline(MergeNodesPipeline):
+    """
+   Pipeline that applies its children to a stream in parallel.
+
+    Args:
+        parent (Pipeline, optional): The parent pipeline.
+        on_error (callable, optional): An error callback function that will be called
+            when an error is encountered.
+        on_error_args (tuple, optional): Additional positional arguments to be passed to
+            the error callback function.
+        executor (Union[None, int, concurrent.futures.Executor], optional): A concurrent.futures.Executor
+            instance or the number of threads/processes to use.
+    """
+
     def __init__(
         self,
         parent: Optional["Pipeline"] = None,
