@@ -1,8 +1,6 @@
-from contextlib import nullcontext
+from contextlib import ExitStack
 from typing import TYPE_CHECKING
 from morphocut.batch import BatchedPipeline
-
-
 import pytest
 import numpy as np
 from morphocut.core import Pipeline

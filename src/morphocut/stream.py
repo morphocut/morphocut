@@ -61,7 +61,9 @@ class Progress(Node):
         self.monitor_interval = monitor_interval
 
     def transform_stream(self, stream: Stream):
-        with closing_if_closable(stream), tqdm.tqdm(stream) as progress:
+        with closing_if_closable(stream), tqdm.tqdm(
+            stream, unit_scale=True
+        ) as progress:
             if self.monitor_interval is not None:
                 progress.monitor_interval = self.monitor_interval
 
@@ -105,10 +107,16 @@ class Slice(Node):
 
     def transform_stream(self, stream: Stream):
         with closing_if_closable(stream):
-            for obj in itertools.islice(stream, *self.args):
+            for n_seen, obj in enumerate(itertools.islice(stream, *self.args)):
                 if obj.n_remaining_hint is not None:
-                    obj.n_remaining_hint = len(
-                        range(*slice(*self.args).indices(obj.n_remaining_hint))
+                    # Slice into the total number of objects (n_seen + remaining)
+                    n_total = len(
+                        range(*slice(*self.args).indices(obj.n_remaining_hint + n_seen))
+                    )
+                    # Subtract n_seen to get remaining
+                    obj.n_remaining_hint = max(
+                        0,
+                        n_total - n_seen,
                     )
                 yield obj
 
@@ -389,6 +397,7 @@ class FilterVariables(Node):
         with closing_if_closable(stream):
             for obj in stream:
                 yield StreamObject({k: v for k, v in obj.items() if k in self.keys})
+
 
 @ReturnOutputs
 @Output("n_remaining_hint")

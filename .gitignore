@@ -17,4 +17,5 @@ docs/inventory/
 .venv/
 experiments/*
 coverage.xml
+examples/*_out
 *.tmp
