@@ -1,9 +1,9 @@
-from contextlib import nullcontext
+from contextlib import ExitStack
 from typing import TYPE_CHECKING
-from morphocut.batch import BatchPipeline
 
 import pytest
 
+from morphocut.batch import BatchPipeline
 from morphocut.core import Pipeline
 from morphocut.stream import Unpack
 from morphocut.torch import PyTorch
@@ -48,8 +48,9 @@ def test_PyTorch(device, n_parallel, batch, output_key):
     with Pipeline() as p:
         input = Unpack([torch.tensor([float(i)]) for i in range(100)])
 
-        block = BatchPipeline(2) if batch else nullcontext(p)
-        with block:
+        with ExitStack() as stack:
+            if batch:
+                stack.enter_context(BatchPipeline(2))
             result = PyTorch(
                 module,
                 input,
