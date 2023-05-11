@@ -1,8 +1,10 @@
-from contextlib import ExitStack
+from contextlib import ExitStack, nullcontext
 from typing import TYPE_CHECKING
-from morphocut.batch import BatchedPipeline
-import pytest
+
 import numpy as np
+import pytest
+
+from morphocut.batch import BatchedPipeline
 from morphocut.core import Pipeline
 from morphocut.stream import Unpack
 from morphocut.torch import PyTorch
@@ -43,12 +45,14 @@ class IdentityModule(torch.nn.Module):
 )
 @pytest.mark.parametrize(
     "input_ndim",
-    [0,1,2,3],
+    [0, 1, 2, 3],
 )
 def test_PyTorch(device, batch, output_key, input_dtype, input_ndim):
     module = IdentityModule(output_key)
 
-    input_data = [np.array(i, dtype=input_dtype).reshape((1,)*input_ndim) for i in range(100)]
+    input_data = [
+        np.array(i, dtype=input_dtype).reshape((1,) * input_ndim) for i in range(100)
+    ]
 
     with Pipeline() as p:
         input = Unpack(input_data)
