@@ -198,3 +198,19 @@ def test_VariableOperationsSpecial():
     assert obj[d1_3] == [2, 3]
 
     assert f_value not in obj.values()
+
+
+def test_VariableCopy():
+
+    with Pipeline() as pipeline:
+        f_value = [1, 2, 3]
+        f = Const(f_value)
+        f_copy = f.copy()
+        # Modify the original variable
+        f[0] = None
+
+    obj = next(pipeline.transform_stream())
+
+    assert obj[f_copy] is not obj[f]
+    assert obj[f_copy] == [1, 2, 3]
+    assert obj[f] == [None, 2, 3]
