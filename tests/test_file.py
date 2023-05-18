@@ -25,9 +25,19 @@ def test_Find(data_path, sort, verbose, capsys):
         assert re.search(r"^Found \d+ files in .+\.$", out)
 
 
-def test_Glob(data_path):
+def test_Glob(data_path, capsys):
     d = data_path / "images/*.png"
     with Pipeline() as pipeline:
-        result = Glob(d, True)
+        result = Glob(d, True, prefetch=True, sorted=True)
 
     pipeline.run()
+
+    # Capture the print output
+    captured = capsys.readouterr()
+
+    # Check that matches were found
+    assert "matches for" in captured.out
+
+    # Extract the number of matches from the print statement
+    matches = int(captured.out.split(" ")[0].replace(",", ""))
+    assert matches > 0
