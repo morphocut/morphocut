@@ -43,7 +43,31 @@ def test_MergeNodesPipeline():
     assert expected_c == list(range(0, 200, 2))
 
 
+def test_MergeNodesPipeline_on_error():
+    error_handler_called = False
+
+    def error_handler(e):
+        nonlocal error_handler_called
+        assert isinstance(e, ZeroDivisionError)
+        error_handler_called = True
+
+    with Pipeline() as p:
+        a = Unpack(range(100))
+        with MergeNodesPipeline(on_error=error_handler) as m:
+            b = Call(lambda x: x + 1, a)
+            c = Call(lambda x: x / 0 if x == 50 else x, a)
+
+    p.run()
+
+    assert error_handler_called, "Error handler was not called"
+
+
+
 def test_AggregateErrorsPipeline():
+    def error_handler(e, x):
+        assert isinstance(e, ZeroDivisionError)
+        assert x == 50
+
     with Pipeline() as p:
         a = Unpack(range(100))
         with AggregateErrorsPipeline() as m:
@@ -52,3 +76,14 @@ def test_AggregateErrorsPipeline():
 
     with pytest.raises(ZeroDivisionError):
         p.run()
+
+
+def test_DataParallelPipeline_executer():
+    with Pipeline() as p:
+        a = Unpack(range(100))
+        with DataParallelPipeline(executor=8):
+            b = Call(lambda x: x / 0 if x == 50 else x, a)
+
+    with pytest.raises(ZeroDivisionError):
+        p.run()
+
