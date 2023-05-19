@@ -130,15 +130,16 @@ class FindRegions(Node):
         This Node creates multiple objects per incoming object.
 
     Args:
-        mask (np.ndarray or Variable): Mask of a given image.
-        image (np.ndarray or Variable): An image whose mask we have to find region with.
-        min_area (int): Minimum area of the region. If the area of our prop/region is
-            smaller than our min_area then it will discard it.
-        max_area (int): Maximum area of the region. If the area of our prop/region is
-            bigger than our max_area then it will discard it.
+        mask (np.ndarray or Variable): Mask which highlights objects in an image.
+        image (np.ndarray or Variable, optional): Intensity image used for
+            the calculation of region properties.
+        min_area (int): Minimum area of the region. If the area of a region is
+            smaller than the specified number then it will be discarded.
+        max_area (int): Maximum area of the region. If the area of a region is
+            bigger than the specified number then it will be discarded.
         min_intensity (float): Minimum mean intensity of the region. If the mean intensity
-            of our prop/region is smaller than our min_intensity then it will discard it.
-        padding (int): Size of the slices/regions of our image.
+            of the region is smaller than the specified number then it will be discarded.
+        padding (int): Padding around the tight bounding box of an object.
         warn_empty (bool or str or Variable): Warn for empty images (default false).
             If a String is supplied, it is used as an identifier for the image.
 
