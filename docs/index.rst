@@ -23,6 +23,7 @@ User Guide
    :maxdepth: 2
 
    introduction
+   why-not-xy
    installation
    image
    str
