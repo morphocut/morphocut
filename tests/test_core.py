@@ -78,11 +78,21 @@ def test_Call():
     def foo(bar, baz):
         return bar, baz
 
+    class Bar:
+        pass
+
+    lambda_func = lambda: None
+
     with Pipeline() as pipeline:
         result = Call(foo, 1, 2)
-
     obj, *_ = list(pipeline.transform_stream())
     assert obj[result] == (1, 2)
+
+    with Pipeline() as pipeline:
+        # Test when clbl is a plain function for __str__ method
+        call_obj1 = Call(foo, 1, 2)
+    str_rep1 = str(call_obj1)
+    assert "foo" in str_rep1
 
 
 class _MatMullable:

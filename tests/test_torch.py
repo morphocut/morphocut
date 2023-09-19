@@ -70,3 +70,57 @@ def test_PyTorch(device, batch, output_key, input_dtype, input_ndim):
     output_data = [o[result] for o in p.transform_stream()]
 
     np.testing.assert_equal(output_data, input_data)
+
+
+class MultiplyByTwoModule(torch.nn.Module):
+    def forward(self, x):
+        return x * 2
+
+@pytest.mark.parametrize("autocast", [True, False])
+@pytest.mark.parametrize("pin_memory", [True, False])
+def test_pytorch_autocast_and_pin_memory(autocast, pin_memory):
+    if autocast:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    else:
+        device = "cpu"
+
+    module = MultiplyByTwoModule()
+
+    input_data = [np.array(i, dtype=np.float32).reshape((1, 1, 1)) for i in range(100)]
+
+    with Pipeline() as p:
+        input = Unpack(input_data)
+
+        result = PyTorch(
+            module,
+            input,
+            device=device,
+            autocast=autocast,
+            pin_memory=pin_memory,
+        )
+
+    output_data = [o[result] for o in p.transform_stream()]
+
+    # Since our module multiplies by 2, we need to check against that
+    expected_data = [i * 2 for i in input_data]
+    np.testing.assert_equal(output_data, expected_data)
+
+def test_pytorch_pre_transform():
+    module = IdentityModule()
+
+    input_data = [np.array(i, dtype=np.float32).reshape((1, 1, 1)) for i in range(100)]
+    pre_transform_func = lambda x: x + 1
+
+    with Pipeline() as p:
+        input = Unpack(input_data)
+
+        result = PyTorch(
+            module,
+            input,
+            pre_transform=pre_transform_func,
+        )
+
+    output_data = [o[result] for o in p.transform_stream()]
+
+    expected_data = [i + 1 for i in input_data]
+    np.testing.assert_equal(output_data, expected_data)
