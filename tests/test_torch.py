@@ -76,9 +76,15 @@ class MultiplyByTwoModule(torch.nn.Module):
     def forward(self, x):
         return x * 2
 
+
 @pytest.mark.parametrize("autocast", [True, False])
-@pytest.mark.parametrize("pin_memory", [True, False])
-def test_pytorch_autocast_and_pin_memory(autocast, pin_memory):
+@pytest.mark.parametrize(
+    "pin_memory",
+    # Pinned memory requires CUDA
+    [True, False] if torch.cuda.is_available() else [False],
+)
+@pytest.mark.parametrize("batch", [True, False])
+def test_pytorch_autocast_and_pin_memory(autocast, pin_memory, batch):
     if autocast:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     else:
@@ -91,19 +97,22 @@ def test_pytorch_autocast_and_pin_memory(autocast, pin_memory):
     with Pipeline() as p:
         input = Unpack(input_data)
 
-        result = PyTorch(
-            module,
-            input,
-            device=device,
-            autocast=autocast,
-            pin_memory=pin_memory,
-        )
+        block = BatchedPipeline(2) if batch else nullcontext(p)
+        with block:
+            result = PyTorch(
+                module,
+                input,
+                device=device,
+                autocast=autocast,
+                pin_memory=pin_memory,
+            )
 
     output_data = [o[result] for o in p.transform_stream()]
 
     # Since our module multiplies by 2, we need to check against that
     expected_data = [i * 2 for i in input_data]
     np.testing.assert_equal(output_data, expected_data)
+
 
 def test_pytorch_pre_transform():
     module = IdentityModule()

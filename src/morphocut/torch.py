@@ -82,7 +82,7 @@ class PyTorch(Node):
         self.pin_memory = pin_memory
         self.pre_transform = pre_transform
 
-        if autocast and device is None:
+        if autocast and device is None:  # pragma: no cover
             raise ValueError("Supply a device when using autocast.")
 
         self.autocast = autocast
