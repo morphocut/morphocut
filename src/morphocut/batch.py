@@ -1,7 +1,14 @@
 import itertools
 from typing import Optional, Sequence, Union, Tuple
 
-from morphocut.core import Pipeline, Stream, StreamObject, Variable, check_stream
+from morphocut.core import (
+    Pipeline,
+    Stream,
+    StreamObject,
+    StreamTransformer,
+    Variable,
+    check_stream,
+)
 from morphocut.utils import stream_groupby
 
 
@@ -11,8 +18,24 @@ class Batch(tuple):
     pass
 
 
-class BatchPipeline(Pipeline):
-    """Combine consecutive objects into a batch."""
+class BatchedPipeline(Pipeline):
+    """
+    Combine consecutive objects into a batch.
+
+    Example:
+        .. code-block:: python
+
+            with Pipeline() as p:
+                # a is a scalar
+                a = ...
+                with BatchedPipeline():
+                    # a is a sequence
+                    ...
+
+                # a is a scalar again
+
+
+    """
 
     def __init__(
         self,
@@ -53,7 +76,9 @@ class BatchPipeline(Pipeline):
 
         stream = self._pack(stream)
 
-        for child in self.children:  # type: StreamTransformer
+        for child in self.children:
+            child: StreamTransformer
+
             stream = child.transform_stream(stream)
             assert stream is not None, f"{child!r}.transform_stream returned None"
 
@@ -62,7 +87,7 @@ class BatchPipeline(Pipeline):
         return stream
 
     def _pack(self, stream: Stream) -> Stream:
-        for key, group in stream_groupby(stream, self.groupby):
+        for group_key, group in stream_groupby(stream, self.groupby):
 
             while True:
                 batch = tuple(itertools.islice(group, self.batch_size))
@@ -94,18 +119,23 @@ class BatchPipeline(Pipeline):
 
                 # Reset groupby fields to scalar value
                 if self.groupby is not None:
-                    for k, v in zip(self.groupby, key):
+                    for k, v in zip(self.groupby, group_key):
                         obj[k] = v
 
                 yield obj
 
     def _unpack(self, stream: Stream) -> Stream:
+        locals_hashes = set(v.hash for v in self.locals())
+
         for batch in stream:
             n_remaining_hint_orig = batch.pop(self._n_remaining_hint_field)
 
             for i, n_remaining_hint in enumerate(n_remaining_hint_orig):
                 obj = {
-                    k: batch[k][i] if isinstance(batch[k], Batch) else batch[k]
+                    k: batch[k][i]
+                    if batch[k] is not None
+                    and (isinstance(batch[k], Batch) or (k in locals_hashes))
+                    else batch[k]
                     for k in batch
                 }
                 yield StreamObject(obj, n_remaining_hint=n_remaining_hint)
