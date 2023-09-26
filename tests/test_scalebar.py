@@ -10,15 +10,19 @@ def test_image():
     return np.zeros((100, 100), dtype=np.uint8)  # Grayscale image
 
 
-@pytest.mark.slow
-def test_draw_scalebar_function(test_image):
-    length_unit = 100
-    result = draw_scalebar(length_unit)
+@pytest.mark.parametrize("length_unit, px_per_unit", [
+    (100, 1),
+    (200, 2),
+    (50, 0.5),
+])
+def test_draw_scalebar_function(length_unit, px_per_unit):
+    result = draw_scalebar(length_unit, px_per_unit=px_per_unit)
 
-    # Assertions to verify the output
+    expected_width = int((length_unit * px_per_unit) + 20)  # 10 margin on each side
+
     assert isinstance(result, np.ndarray)
     assert result.shape[0] == 32
-    assert result.shape[1] == length_unit + 20  # 10 margin on each side
+    assert result.shape[1] == expected_width
 
 
 def test_DrawScalebar_pipeline(test_image):
