@@ -62,7 +62,6 @@ def draw_scalebar(
     return np.asarray(img)
 
 
-# Commit message: Fixes #103
 @ReturnOutputs
 @Output("image")
 class DrawScalebar(Node):
