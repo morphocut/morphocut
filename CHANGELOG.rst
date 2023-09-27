@@ -23,6 +23,8 @@ Added
 
 - Added support for Python 3.9 and 3.10 (#87).
 
+- Added `scalebar`: Append scalebars to images. (#113)
+
 Changed
 ~~~~~~~
 

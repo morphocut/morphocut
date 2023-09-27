@@ -32,6 +32,7 @@ User Guide
    batch
    filters
    stat
+   scalebar
    parallel
    formats
    profiling
