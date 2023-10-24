@@ -3,6 +3,7 @@
 import functools
 import itertools
 import queue
+import sys
 import threading
 from typing import Any, Iterator, Optional, Tuple, TypeVar, Union, overload
 
@@ -185,3 +186,16 @@ def buffered_generator(buf_size: int):
         return wrapper
 
     return wrap
+
+
+def add_exc_note(note: str):
+    e = sys.exc_info()[1]
+
+    if e is None:
+        raise ValueError("No exception is currently being handled")
+
+    try:
+        # This works starting with Python 3.11
+        e.add_note(note)  # type: ignore
+    except AttributeError:
+        print(note, file=sys.stderr)
