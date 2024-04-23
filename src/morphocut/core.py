@@ -518,7 +518,7 @@ class Node(StreamTransformer):
                     yield obj
                 except Exception as exc:
                     # TODO: Use add_exc_note after #99 is merged
-                    raise type(exc)(*exc.args, f"{self}")
+                    raise type(exc)(*exc.args, f"{self}") from exc
 
         self.after_stream()
 

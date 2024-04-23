@@ -121,7 +121,12 @@ class Region(numpy.lib.mixins.NDArrayOperatorsMixin):
     ndim = _wrap_array_property("ndim")
 
     astype = _wrap_array_method("astype")
+
     sum = _wrap_array_method("sum")
+    max = _wrap_array_method("max")
+    min = _wrap_array_method("min")
+
+    reshape = _wrap_array_method("reshape")
 
 
 class Frame:
@@ -224,9 +229,7 @@ class Frame:
         shape = (
             self.shape
             if getitem
-            else self._shape
-            if self._shape is not None
-            else (None,) * len(key)
+            else self._shape if self._shape is not None else (None,) * len(key)
         )
         key = tuple(update_slice(sl, sh) for sl, sh in zip(key, shape))
 

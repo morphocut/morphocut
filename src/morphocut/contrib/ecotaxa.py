@@ -7,17 +7,17 @@ Read and write EcoTaxa archives.
 
 .. _EcoTaxa: https://ecotaxa.obs-vlfr.fr/
 """
+
 import fnmatch
 import io
+import logging
 import os.path
 import pathlib
 import tarfile
 import zipfile
-from abc import ABC, abstractproperty
 from shutil import copyfileobj
 from typing import (
     IO,
-    BinaryIO,
     Callable,
     List,
     Mapping,
@@ -40,13 +40,15 @@ T = TypeVar("T")
 MaybeTuple = Union[T, Tuple[T]]
 MaybeList = Union[T, List[T]]
 
+logger = logging.getLogger(__name__)
+
 
 def dtype_to_ecotaxa(dtype):
     try:
         if np.issubdtype(dtype, np.number):
             return "[f]"
     except TypeError:  # pragma: no cover
-        print(type(dtype))
+        logger.error(type(dtype))
         raise
 
     return "[t]"
@@ -282,6 +284,7 @@ class EcotaxaWriter(Node):
         sample_meta: Optional[RawOrVariable[Mapping]] = None,
         meta_fn: RawOrVariable[str] = "ecotaxa_export.tsv",
         store_types: bool = True,
+        first_rank: int = 1,
     ):
         super().__init__()
         self.archive_fn = archive_fn
@@ -302,12 +305,12 @@ class EcotaxaWriter(Node):
         self.sample_meta = sample_meta
         self.meta_fn = meta_fn
         self.store_types = store_types
+        self.first_rank = first_rank
 
-    @classmethod
     def _prepare_images(
-        cls, fnames_images, archive: Archive, pil_extensions, meta_prefix, meta
+        self, fnames_images, archive: Archive, pil_extensions, meta_prefix, meta
     ):
-        for img_rank, (fname, img) in enumerate(fnames_images, start=1):
+        for img_rank, (fname, img) in enumerate(fnames_images, start=self.first_rank):
             if isinstance(img, io.IOBase):
                 # Stream
                 img_fp = img
@@ -324,7 +327,7 @@ class EcotaxaWriter(Node):
                 try:
                     img.save(img_fp, format=pil_format)
                 except:  # pragma: no cover
-                    print(f"EcotaxaWriter: Error writing {fname}")
+                    logger.error(f"EcotaxaWriter: Error writing {fname}")
                     raise
 
             # Rewind
@@ -437,11 +440,11 @@ class EcotaxaWriter(Node):
                                 ),
                             )
 
-                        print(
+                        logger.info(
                             f"EcotaxaWriter: Wrote {len(dataframe):,d} entries to {meta_fn}."
                         )
 
-                print(f"EcotaxaWriter: Wrote {i:,d} objects to {archive_fn}.")
+                logger.info(f"EcotaxaWriter: Wrote {i:,d} objects to {archive_fn}.")
 
 
 class EcotaxaObject:
@@ -485,7 +488,7 @@ class EcotaxaObject:
             try:
                 return self._image_data[img_rank]
             except KeyError:
-                print(
+                logger.error(
                     f"Unknown rank {img_rank}. Available:",
                     list(self._image_data.keys()),
                 )
@@ -513,7 +516,7 @@ class EcotaxaObject:
             return np.array(image)
         except PIL.UnidentifiedImageError:
             head = data.getvalue()[:20]
-            print(f"Error reading {self.object_id}: {head}")
+            logger.error(f"Error reading {self.object_id}: {head}")
             raise
 
 
@@ -597,13 +600,13 @@ class EcotaxaReader(Node):
                 archive_fn, query = self.prepare_input(obj, ("archive_fn", "query"))
 
                 if self.verbose:
-                    print(f"EcotaxaReader: Processing archive {archive_fn}...")
+                    logger.info(f"EcotaxaReader: Processing archive {archive_fn}...")
 
                 try:
                     archive = Archive(archive_fn)
                 except UnknownArchiveError as exc:
                     if self.keep_going:
-                        print(exc)
+                        logger.error(exc)
                         messages.append(str(exc))
                         continue
                     raise
@@ -614,14 +617,15 @@ class EcotaxaReader(Node):
                     with stream_estimator.consume(
                         obj.n_remaining_hint, est_n_emit=len(index_fns)
                     ) as incoming_archive:
-
                         n_indices_received += len(index_fns)
 
                         archive_estimator = StreamEstimator()
 
                         for index_fn in index_fns:
                             if self.verbose:
-                                print(f"EcotaxaReader: Processing index {index_fn}...")
+                                logger.info(
+                                    f"EcotaxaReader: Processing index {index_fn}..."
+                                )
 
                             index_base = os.path.dirname(index_fn)
 
@@ -658,16 +662,14 @@ class EcotaxaReader(Node):
                                     incoming_archive.emit(),
                                     est_n_emit=len(dataframe_by_object_id),
                                 ) as incoming_index:
-
                                     index_estimator = StreamEstimator()
 
                                     n_objects_received += len(dataframe_by_object_id)
 
-                                    for (object_id, group) in dataframe_by_object_id:
+                                    for object_id, group in dataframe_by_object_id:
                                         with index_estimator.consume(
                                             incoming_index.emit(), est_n_emit=1
                                         ) as incoming_object:
-
                                             if "img_file_name" in dataframe.columns:
                                                 try:
                                                     image_data = {
@@ -682,10 +684,18 @@ class EcotaxaReader(Node):
                                                     }
                                                 except MemberNotFoundError as exc:
                                                     if self.keep_going:
-                                                        print(exc)
+                                                        logger.error(exc)
                                                         messages.append(str(exc))
                                                         continue
                                                     raise
+
+                                                # Sort images by rank
+                                                image_data = dict(
+                                                    sorted(
+                                                        image_data.items(),
+                                                        key=lambda x: x[0],
+                                                    )
+                                                )
                                             else:
                                                 image_data = {}
 
@@ -706,11 +716,11 @@ class EcotaxaReader(Node):
                                             n_objects_read += 1
 
                 if self.print_summary:
-                    print(f"EcotaxaReader: Read {n_objects_read} objects.")
+                    logger.info(f"EcotaxaReader: Read {n_objects_read} objects.")
                     if messages:
-                        print("EcotaxaReader: Messages")
+                        logger.info("EcotaxaReader: Messages")
                         for msg in messages:
-                            print(msg)
+                            logger.info(msg)
 
     @staticmethod
     def _load_image(archive: Archive, index_base, image_fn):

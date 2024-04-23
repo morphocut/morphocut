@@ -26,7 +26,7 @@ def stream_groupby(
 
 
 def stream_groupby(
-    stream: Stream, by=Union[RawOrVariable[T], Tuple[RawOrVariable[T]]]
+    stream: Stream, by=Union[RawOrVariable, Tuple[RawOrVariable, ...]]
 ) -> Iterator[Tuple[Any, Iterator[StreamObject]]]:
     """
     Split a stream into sub-streams by key.

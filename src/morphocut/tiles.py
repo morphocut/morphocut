@@ -104,8 +104,17 @@ class TiledPipeline(Pipeline):
                     # Store original
                     obj_new[p] = obj[v]
 
+                    n_extra_dim = obj[v].ndim - len(padding)
+                    padding = padding + ((0, 0),) * n_extra_dim
+
                     # Store sliced and padded version
-                    obj_new[v] = np.pad(obj[v][slice], padding, **self.pad_kwargs)
+                    try:
+                        obj_new[v] = np.pad(obj[v][slice], padding, **self.pad_kwargs)
+                    except Exception as exc:
+                        raise type(exc)(
+                            *exc.args,
+                            f"{obj[v][slice].shape}, {padding}, {self.pad_kwargs}",
+                        )
                 obj_new[self._slice_padding] = slice, padding
                 yield obj_new
 

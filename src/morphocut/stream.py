@@ -68,11 +68,10 @@ class Progress(Node):
                 progress.monitor_interval = self.monitor_interval
 
             for n_processed, obj in enumerate(progress):
-
                 description = self.prepare_input(obj, "description")
 
-                if description:
-                    progress.set_description(description)
+                if description is not None:
+                    progress.set_description(str(description))
 
                 if obj.n_remaining_hint is not None:
                     progress.total = n_processed + obj.n_remaining_hint

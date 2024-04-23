@@ -61,6 +61,7 @@ class PyTorch(Node):
         output_key=None,
         pin_memory=None,
         pre_transform: Optional[Callable] = None,
+        post_transform: Optional[Callable] = None,
         autocast=False,
     ):
         super().__init__()
@@ -85,6 +86,7 @@ class PyTorch(Node):
         self.output_key = output_key
         self.pin_memory = pin_memory
         self.pre_transform = pre_transform
+        self.post_transform = post_transform
 
         if autocast and device is None:
             raise ValueError("Supply a device when using autocast.")
@@ -93,7 +95,7 @@ class PyTorch(Node):
 
     def transform(self, input):
         with ExitStack() as stack:
-            stack.enter_context(torch.no_grad())
+            stack.enter_context(torch.inference_mode())
 
             if self.autocast:
                 stack.enter_context(torch.autocast(self.device.type))  # type: ignore
@@ -127,7 +129,10 @@ class PyTorch(Node):
             if self.output_key is not None:
                 output = output[self.output_key]
 
-            output = output.cpu().numpy()
+            if self.post_transform is not None:
+                output = self.post_transform(output)
+            else:
+                output = output.cpu().numpy()
 
             if not is_batch:
                 # Remove batch dimension

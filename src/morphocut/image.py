@@ -1,13 +1,15 @@
+import contextlib
 import warnings
 from typing import Any, List
 
 import numpy as np
-import PIL
+import PIL.Image
 import scipy.ndimage as ndi
 import skimage.color
 import skimage.exposure
 import skimage.io
 import skimage.measure
+import skimage.measure._regionprops
 from skimage.color import gray2rgb, rgb2gray
 from skimage.util import dtype
 
@@ -100,22 +102,27 @@ class RegionProperties(
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._image = super().image
+        # if self._intensity_image is not None:
+        #     self._image_intensity = super().image_intensity
+        # else:
+        #     self._image_intensity = None
 
-        if self._intensity_image is not None:
-            self._image_intensity = super().image_intensity
-        else:
-            self._image_intensity = None
-
-    @property
-    def image(self):
-        return self._image
+        # del self._label_image
+        # del self._intensity_image
 
     @property
-    def intensity_image(self):
-        if self._image_intensity is None:
-            raise AttributeError("No intensity image specified.")
-        return self._image_intensity
+    def label_image(self):
+        return self._label_image[self.slice]
+
+    # @property
+    # def image(self):
+    #     return self.label_image == self.label
+
+    # @property
+    # def intensity_image(self):
+    #     if self._image_intensity is None:
+    #         raise AttributeError("No intensity image specified.")
+    #     return self._image_intensity
 
 
 @ReturnOutputs
@@ -251,7 +258,18 @@ class ImageProperties(Node):
         )
 
 
-def _convert_color_for(name, img: np.ndarray) -> np.ndarray:
+def _convert_color_for(name: str, img: np.ndarray) -> np.ndarray:
+    if name.startswith("quantile:"):
+        quantile_str, *remainder = name.split(":")[1:]
+        quantile = float(quantile_str)
+        img_flat = img.reshape((-1,) + img.shape[2:])
+        if remainder:
+            subsample = int(remainder[0])
+            stride = max(1, img_flat.shape[0] // subsample)
+            img_flat = img_flat[::stride]
+        return np.quantile(img_flat, quantile, axis=0).astype(img.dtype)
+
+    # Colorname
     color = np.array(skimage.color.color_dict[name])
 
     if img.ndim == 3 and img.shape[-1] == 3:
@@ -285,7 +303,12 @@ class ExtractROI(Node):
     """
 
     def __init__(
-        self, image: RawOrVariable, regionprops: RawOrVariable, alpha=0, bg_color=0
+        self,
+        image: RawOrVariable,
+        regionprops: RawOrVariable,
+        alpha=0,
+        bg_color=0,
+        keep_background=False,
     ):
         super().__init__()
 
@@ -293,13 +316,30 @@ class ExtractROI(Node):
         self.regionprops = regionprops
         self.alpha = alpha
         self.bg_color = bg_color if isinstance(bg_color, str) else np.array(bg_color)
+        self.keep_background = keep_background
 
-    def transform(self, image, regionprops):
+    def transform(self, image, regionprops: RegionProperties):
         image = image[regionprops.slice]
 
         if self.alpha == 0:
             return image
 
+        if self.keep_background:
+            # Keep everything where no other object was detected
+            mask = (regionprops.label_image == 0) | (
+                regionprops.label_image == regionprops.label
+            )
+
+            # Shortcut if the image does not contain any other object
+            if mask.all():
+                return image
+        else:
+            # Keep only parts where the current object was detected
+            mask = regionprops.image
+
+            # Here, we take no shortcut as `mask.all()` is unlikely in this case
+
+        # Calculate background color
         bg_color = (
             _convert_color_for(self.bg_color, image)
             if isinstance(self.bg_color, str)
@@ -311,8 +351,7 @@ class ExtractROI(Node):
             image.dtype
         )
 
-        # Paste foreground so it is fully visible
-        mask = regionprops.image
+        # Paste foreground on top so it is fully visible
         result_img[mask] = image[mask]
 
         return result_img
@@ -355,21 +394,26 @@ class ImageReader(Node):
     .. _PIL: https://pillow.readthedocs.io/en/stable/
 
     Args:
-        fp (file or Variable): A filename (string), pathlib.Path object or file object.
+        name_or_fp (file or Variable): A filename (string), pathlib.Path object or file object.
     """
 
-    def __init__(self, fp: RawOrVariable, mode=None):
+    def __init__(self, name_or_fp: RawOrVariable, mode=None):
         super().__init__()
-        self.fp = fp
+        self.name_or_fp = name_or_fp
         self.mode = mode
 
-    def transform(self, fp):
-        img = PIL.Image.open(fp)
+    def transform(self, name_or_fp):
+        with contextlib.ExitStack() as exit_stack:
+            if hasattr(name_or_fp, "open"):
+                # Handle Path-likes that provide their own `open`
+                name_or_fp = exit_stack.push(name_or_fp.open("rb"))
 
-        if self.mode is not None:
-            img = img.convert(self.mode)
+            img = PIL.Image.open(name_or_fp)
 
-        return np.array(img)
+            if self.mode is not None:
+                img = img.convert(self.mode)
+
+            return np.array(img)
 
 
 @ReturnOutputs
