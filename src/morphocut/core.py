@@ -165,7 +165,7 @@ class Variable(Generic[T]):
 
     __slots__ = ["name", "parent", "hash"]
 
-    def __init__(self, name: str, parent: Any):
+    def __init__(self, name: str, parent: StreamTransformer):
         self.name = name
         self.parent = parent
         self.hash = hash((parent.id, name))
@@ -703,6 +703,7 @@ class StreamObject(abc.MutableMapping):
         try:
             return self.data[self._as_key(key)]
         except KeyError:
+            print("Available keys:", list(self.data.keys()))
             raise StreamObjectKeyError(key) from None
 
     def __iter__(self):
@@ -801,7 +802,7 @@ class Pipeline(StreamTransformer):
 
         return stream
 
-    def run(self):
+    def run(self, stream: Optional[Stream] = None):
         """
         Run the complete pipeline.
 
@@ -812,7 +813,7 @@ class Pipeline(StreamTransformer):
             for _ in pipeline.transform_stream():
                 pass
         """
-        for _ in self.transform_stream():
+        for _ in self.transform_stream(stream):
             pass
 
     def add_child(self, child: StreamTransformer):
