@@ -40,7 +40,7 @@ setup(
             "matplotlib",  # For FontManager in scalebar
         ],
         "docs": [
-            "sphinx ~= 2.2",
+            "sphinx~=7.3",
             "sphinx_rtd_theme",
             "sphinxcontrib-programoutput",
             "sphinx-autodoc-typehints>=1.10.0",

@@ -7,6 +7,7 @@ import scipy.ndimage as ndi
 import skimage.exposure
 import skimage.io
 import skimage.measure
+import skimage.measure._regionprops
 from skimage.color import gray2rgb, rgb2gray
 from skimage.util import dtype
 
