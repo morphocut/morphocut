@@ -26,7 +26,7 @@ setup(
         "scipy",
         "deprecated",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     extras_require={
         "tests": [
             # Pytest
@@ -38,6 +38,7 @@ setup(
             # Optional dependencies
             "parse",
             "matplotlib",  # For FontManager in scalebar
+            "h5py",
         ],
         "docs": [
             "sphinx~=7.3",
@@ -51,7 +52,6 @@ setup(
     entry_points={},
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",

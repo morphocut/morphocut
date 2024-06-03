@@ -1,15 +1,14 @@
-from typing_extensions import Literal
-from typing import Any, IO, List, Mapping, Optional, Tuple, TypeVar, Union
+from typing import Any, IO, List, Mapping, Optional, Tuple, TypeVar, Union, Literal
 from morphocut.core import Stream
 
 import numpy as np
-import h5py
 
 from morphocut import Node, RawOrVariable, ReturnOutputs, closing_if_closable
 
 T = TypeVar("T")
 MaybeTuple = Union[T, Tuple[T]]
 MaybeList = Union[T, List[T]]
+
 
 
 @ReturnOutputs
@@ -22,6 +21,7 @@ class HDF5Writer(Node):
         data (Mapping or Variable): Data to write (name => array).
         file_mode (str, optional): Opening mode of the HDF5 file.
         dataset_mode (str, optional): Dataset behavior.
+
             "create": Create dataset with arr.
                 The dataset is created
             "append": Append arr to a dataset.
@@ -38,8 +38,6 @@ class HDF5Writer(Node):
                 HDF5Writer("path/to/file.h5", {image_fn: image})
             pipeline.transform_stream()
 
-    .. seealso::
-        For more information about the metadata fields, see the project import page of EcoTaxa.
     """
 
     # TODO: Make file_name a stream variable
@@ -67,6 +65,8 @@ class HDF5Writer(Node):
         self.chuck_size = chuck_size
 
     def _transform_stream_extend(self, stream: Stream):
+        import h5py
+
         with h5py.File(self.file_name, self.file_mode) as h5, closing_if_closable(
             stream
         ):
@@ -131,6 +131,8 @@ class HDF5Writer(Node):
                 dataset.resize(offsets[name], axis=0)
 
     def _transform_stream_append(self, stream: Stream):
+        import h5py
+
         with h5py.File(self.file_name, self.file_mode) as h5, closing_if_closable(
             stream
         ):

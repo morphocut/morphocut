@@ -1,6 +1,5 @@
 import itertools
 
-import h5py
 import pytest
 
 from morphocut.core import Pipeline
@@ -8,6 +7,7 @@ from morphocut.hdf5 import HDF5Writer
 from morphocut.stream import Unpack
 import itertools
 
+h5py = pytest.importorskip("h5py")
 
 def test_HDF5Writer_extend(tmp_path):
     h5_fn = tmp_path / "test.h5"
