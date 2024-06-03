@@ -23,7 +23,7 @@ Added
 
 - Added support for Python 3.9 and 3.10 (#87).
 
-- Added `HDF5Writer`.
+- Added `HDF5Writer`. (#117)
 
 - Added `scalebar`: Append scalebars to images. (#113)
 
