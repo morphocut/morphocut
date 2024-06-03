@@ -309,9 +309,13 @@ class EcotaxaWriter(Node):
     ):
         for img_rank, (fname, img) in enumerate(fnames_images, start=1):
             if isinstance(img, io.IOBase):
+                # Stream
                 img_fp = img
-                # Rewind
-            elif isinstance(img, np.ndarray):
+
+            else:
+                # Array
+                img = np.asarray(img)
+
                 img_ext = os.path.splitext(fname)[1]
                 pil_format = pil_extensions[img_ext]
 
@@ -322,11 +326,10 @@ class EcotaxaWriter(Node):
                 except:  # pragma: no cover
                     print(f"EcotaxaWriter: Error writing {fname}")
                     raise
-            else:
-                raise ValueError(f"Unexpected image type:", type(img))
 
-            # Do not compress image files as already compressed
+            # Rewind
             img_fp.seek(0)
+            # Do not compress image files as already compressed
             archive.write_member(meta_prefix + fname, img_fp, compress_hint=False)
 
             yield {

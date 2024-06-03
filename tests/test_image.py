@@ -19,6 +19,7 @@ from morphocut.image import (
     RescaleIntensity,
     RGB2Gray,
     ThresholdConst,
+    ImageStats,
 )
 from morphocut.stream import Unpack
 
@@ -158,3 +159,11 @@ def test_RegionProperties(intensity_image, cache):
 
     if intensity_image:
         assert rprops.intensity_image.base is None
+
+def test_ImageStats():
+    images = [skimage.data.camera(), np.zeros((10, 10), np.uint8) + 255]
+    with Pipeline() as pipeline:
+        image = Unpack(images)
+        ImageStats(image, "Test Image")
+        
+    pipeline.run()

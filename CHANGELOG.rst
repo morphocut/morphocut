@@ -7,9 +7,9 @@ Changelog
 Added
 ~~~~~
 
-- Added `torch.PyTorch`: Apply a PyTorch module. (#95)
+- Added `torch.PyTorch`: Apply a PyTorch module. (#95, #106)
 
-- Added `batch.BatchPipeline`: Combine consecutive objects into a batch. (#92)
+- Added `batch.BatchedPipeline`: Combine consecutive objects into a batch. (#92, #106)
 
 - Added `mjpeg_streamer.MJPEGStreamer`: Stream images via HTTP (e.g. to the Browser). (#75)
 
@@ -27,13 +27,14 @@ Added
 
 - Added `HDF5Writer`.
 
+- Added `scalebar`: Append scalebars to images. (#113)
 
 Changed
 ~~~~~~~
 
-- EcotaxaReader: Return EcotaxaObject. (#102)
-
-- EcotaxaWriter: Allow Variables for `archive_fn`. (#100)
+- `ecotaxa`: Return EcotaxaObject in EcotaxaReader (#102).
+  Allow Variables for `archive_fn` in EcoTaxaWriter (#100).
+  More improvements (#109).
 
 - Use `UnavailableObject` instead of `import_optional_dependency`.
 
@@ -60,6 +61,10 @@ Removed
 Fixed
 ~~~~~
 
-- ValueError: 'version' argument is required in Sphinx directives #80
-- UnknownArchiveError: Close EcoTaxa archives (#88)
-- wrongly reported n_remaining_hint in Progress after Slice (#105)
+- calculation of `n_remaining_hint` in `stream.Slice` (#111). 
+
+- ValueError: 'version' argument is required in Sphinx directives (#80).
+
+- UnknownArchiveError: Close EcoTaxa archives (#88).
+
+- wrongly reported n_remaining_hint in Progress after Slice (#105).

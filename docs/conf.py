@@ -43,6 +43,10 @@ extensions = [
     "sphinx.ext.autosummary",
 ]
 
+# Mock modules so that they don't need to be available
+# just to generate the documentstion.
+autodoc_mock_imports = ["matplotlib"]
+
 napoleon_use_param = False
 napoleon_use_keyword = False
 napoleon_use_rtype = False

@@ -37,6 +37,7 @@ setup(
             "codecov",
             # Optional dependencies
             "parse",
+            "matplotlib",  # For FontManager in scalebar
         ],
         "docs": [
             "sphinx ~= 2.2",
