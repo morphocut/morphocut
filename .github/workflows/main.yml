@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Install Tox and any other packages
-        run: pip install tox==4
+        run: pip install tox~=4.15
       - name: Run Tox
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
