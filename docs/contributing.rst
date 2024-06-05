@@ -66,3 +66,8 @@ with `napoleon`_ interpreting the docstrings.
 .. _reStructuredText: http://docutils.sourceforge.net/rst.html
 .. _Sphinx: http://sphinx-doc.org/index.html
 .. _napoleon: https://sphinxcontrib-napoleon.readthedocs.io/en/latest/
+
+Python Version Compatibility
+----------------------------
+
+We will strive to support the latest three released versions of Python according to `Python Developer's Guide <https://devguide.python.org/versions/>`_  (excluding "prerelease" and "feature" versions).

@@ -50,7 +50,7 @@ Removed
 
 - Drop `import_optional_dependency` copied over from pandas.
 
-- Dropped support for Python 3.6 (#87).
+- Dropped support for Python 3.6, 3.7 and 3.8 (#87, #119).
 
 Fixed
 ~~~~~
