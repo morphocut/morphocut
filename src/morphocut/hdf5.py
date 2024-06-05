@@ -24,12 +24,10 @@ class HDF5Writer(Node):
         file_mode (str, optional): Opening mode of the HDF5 file.
         dataset_mode (str, optional): Dataset behavior.
 
-            "create": Create dataset with arr.
-                The dataset is created
-            "append": Append arr to a dataset.
+            "append": Append an array of shape :math:`(*)` to a dataset of shape :math:`(N,*)`.
                 The data must have the same shape as the existing data, without the first dimension.
-            "extend": Extend a dataset with arr.
-                The data must have the same shape as the existing data, except the first dimension.
+            "extend": Extend a dataset of shape :math:`(N,*)` with an array of shape :math:`(M,*)`.
+                The data must have the same shape as the existing data, except in the first dimension.
 
         compression: Compression strategy. See :py:meth:`h5py.Group.create_dataset`.
         chunk_size: Chunk size. See :py:meth:`h5py.Group.create_dataset`.
