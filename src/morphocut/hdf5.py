@@ -1,14 +1,16 @@
-from typing import Any, IO, List, Mapping, Optional, Tuple, TypeVar, Union, Literal
-from morphocut.core import Stream
+import logging
+from typing import IO, Any, List, Literal, Mapping, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 
 from morphocut import Node, RawOrVariable, ReturnOutputs, closing_if_closable
+from morphocut.core import Stream
 
 T = TypeVar("T")
 MaybeTuple = Union[T, Tuple[T]]
 MaybeList = Union[T, List[T]]
 
+logger = logging.getLogger(__name__)
 
 
 @ReturnOutputs
@@ -28,6 +30,10 @@ class HDF5Writer(Node):
                 The data must have the same shape as the existing data, without the first dimension.
             "extend": Extend a dataset with arr.
                 The data must have the same shape as the existing data, except the first dimension.
+
+        compression: Compression strategy. See :py:func:`h5py.Group.create_dataset`.
+        chunk_size: Chunk size. See :py:func:`h5py.Group.create_dataset`.
+
 
     Example:
         .. code-block:: python
@@ -51,8 +57,7 @@ class HDF5Writer(Node):
         file_mode="w",
         dataset_mode: RawOrVariable[Literal["create", "append", "extend"]] = "create",
         compression=None,
-        verbose=False,
-        chuck_size: Optional[int] = None,
+        chunk_size: Optional[int] = None,
     ):
         super().__init__()
 
@@ -61,8 +66,7 @@ class HDF5Writer(Node):
         self.file_mode = file_mode
         self.dataset_mode = dataset_mode
         self.compression = compression
-        self.verbose = verbose
-        self.chuck_size = chuck_size
+        self.chunk_size = chunk_size
 
     def _transform_stream_extend(self, stream: Stream):
         import h5py
@@ -92,16 +96,15 @@ class HDF5Writer(Node):
 
                         initial_shape = (batch_size * 2,) + data_shape
 
-                        if self.verbose:
-                            print(
-                                f"Creating dataset {dset}: {initial_shape}, dtype = {dtype}"
-                            )
+                        logger.info(
+                            f"Creating dataset {dset}: {initial_shape}, dtype = {dtype}"
+                        )
 
                         datasets[dset] = h5.create_dataset(
                             dset,
                             shape=initial_shape,
                             maxshape=(None,) + data_shape,
-                            chunks=(self.chuck_size or batch_size,) + data_shape,
+                            chunks=(self.chunk_size or batch_size,) + data_shape,
                             dtype=dtype,
                             compression=self.compression,
                         )
@@ -109,10 +112,9 @@ class HDF5Writer(Node):
 
                     if offsets[dset] + batch_size > datasets[dset].shape[0]:
                         new_length = datasets[dset].shape[0] * 2
-                        if self.verbose:
-                            print(
-                                f"Resizing dataset {dset} to new length: {new_length:,d}"
-                            )
+                        logger.info(
+                            f"Resizing dataset {dset} to new length: {new_length:,d}"
+                        )
 
                         datasets[dset].resize(new_length, axis=0)
 
@@ -123,10 +125,9 @@ class HDF5Writer(Node):
                 yield obj
 
             for name, dataset in datasets.items():
-                if self.verbose:
-                    print(
-                        f"Truncating dataset {name} to actual length: {offsets[name]:,d}"
-                    )
+                logger.info(
+                    f"Truncating dataset {name} to actual length: {offsets[name]:,d}"
+                )
 
                 dataset.resize(offsets[name], axis=0)
 
@@ -141,7 +142,7 @@ class HDF5Writer(Node):
             # Offsets per dataset
             offsets: Mapping[str, int] = {}
 
-            chuck_size = self.chuck_size or 1024
+            chunk_size = self.chunk_size or 1024
 
             for obj in stream:
                 data: Mapping[str, Any] = self.prepare_input(obj, "data")  # type: ignore
@@ -156,18 +157,17 @@ class HDF5Writer(Node):
                             data_shape = value.shape
                             dtype = value.dtype
 
-                        initial_shape = (chuck_size,) + data_shape
+                        initial_shape = (chunk_size,) + data_shape
 
-                        if self.verbose:
-                            print(
-                                f"Creating dataset {dset}: {initial_shape}, dtype = {dtype}"
-                            )
+                        logger.info(
+                            f"Creating dataset {dset}: {initial_shape}, dtype = {dtype}"
+                        )
 
                         datasets[dset] = h5.create_dataset(
                             dset,
                             shape=initial_shape,
                             maxshape=(None,) + data_shape,
-                            chunks=(chuck_size,) + data_shape,
+                            chunks=(chunk_size,) + data_shape,
                             dtype=dtype,
                             compression=self.compression,
                         )
@@ -175,10 +175,9 @@ class HDF5Writer(Node):
 
                     if offsets[dset] + 1 > datasets[dset].shape[0]:
                         new_length = datasets[dset].shape[0] * 2
-                        if self.verbose:
-                            print(
-                                f"Resizing dataset {dset} to new length: {new_length:,d}"
-                            )
+                        logger.info(
+                            f"Resizing dataset {dset} to new length: {new_length:,d}"
+                        )
 
                         datasets[dset].resize(new_length, axis=0)
 
@@ -189,10 +188,9 @@ class HDF5Writer(Node):
                 yield obj
 
             for name, dataset in datasets.items():
-                if self.verbose:
-                    print(
-                        f"Truncating dataset {name} to actual length: {offsets[name]:,d}"
-                    )
+                logger.info(
+                    f"Truncating dataset {name} to actual length: {offsets[name]:,d}"
+                )
 
                 dataset.resize(offsets[name], axis=0)
 
