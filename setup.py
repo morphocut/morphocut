@@ -26,7 +26,7 @@ setup(
         "scipy",
         "deprecated",
     ],
-    python_requires=">=3.7",
+    python_requires=">=3.9",
     extras_require={
         "tests": [
             # Pytest
@@ -51,10 +51,10 @@ setup(
     entry_points={},
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Development Status :: 3 - Alpha",
