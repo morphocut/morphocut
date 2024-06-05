@@ -31,8 +31,8 @@ class HDF5Writer(Node):
             "extend": Extend a dataset with arr.
                 The data must have the same shape as the existing data, except the first dimension.
 
-        compression: Compression strategy. See :py:func:`h5py.Group.create_dataset`.
-        chunk_size: Chunk size. See :py:func:`h5py.Group.create_dataset`.
+        compression: Compression strategy. See :py:meth:`h5py.Group.create_dataset`.
+        chunk_size: Chunk size. See :py:meth:`h5py.Group.create_dataset`.
 
 
     Example:
