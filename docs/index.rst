@@ -34,6 +34,7 @@ User Guide
    stat
    scalebar
    parallel
+   hdf5
    formats
    profiling
    core

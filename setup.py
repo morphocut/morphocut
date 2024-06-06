@@ -38,6 +38,7 @@ setup(
             # Optional dependencies
             "parse",
             "matplotlib",  # For FontManager in scalebar
+            "h5py",
         ],
         "docs": [
             "sphinx~=7.3",

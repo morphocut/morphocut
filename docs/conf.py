@@ -58,6 +58,7 @@ intersphinx_mapping = {
     "pims": ("https://soft-matter.github.io/pims/v0.4.1/", None),
     "skimage": ("https://scikit-image.org/docs/stable/", None),
     "PIL": ("https://pillow.readthedocs.io/en/stable/", None),
+    "h5py": ("https://docs.h5py.org/en/stable/", None),
 }
 
 # Add any paths that contain templates here, relative to this directory.
