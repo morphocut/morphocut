@@ -23,6 +23,7 @@ User Guide
    :maxdepth: 2
 
    introduction
+   why-not-xy
    installation
    image
    str
@@ -31,7 +32,9 @@ User Guide
    batch
    filters
    stat
+   scalebar
    parallel
+   hdf5
    formats
    profiling
    core

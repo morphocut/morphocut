@@ -7,9 +7,9 @@ Changelog
 Added
 ~~~~~
 
-- Added `torch.PyTorch`: Apply a PyTorch module. (#95)
+- Added `torch.PyTorch`: Apply a PyTorch module. (#95, #106)
 
-- Added `batch.BatchPipeline`: Combine consecutive objects into a batch. (#92)
+- Added `batch.BatchedPipeline`: Combine consecutive objects into a batch. (#92, #106)
 
 - Added `mjpeg_streamer.MJPEGStreamer`: Stream images via HTTP (e.g. to the Browser). (#75)
 
@@ -22,6 +22,10 @@ Added
 - Added `utils.stream_groupby`: Split a stream into sub-streams by key.
 
 - Added support for Python 3.9 and 3.10 (#87).
+
+- Added `HDF5Writer`. (#117)
+
+- Added `scalebar`: Append scalebars to images. (#113)
 
 Changed
 ~~~~~~~
@@ -46,7 +50,7 @@ Removed
 
 - Drop `import_optional_dependency` copied over from pandas.
 
-- Dropped support for Python 3.6 (#87).
+- Dropped support for Python 3.6, 3.7 and 3.8 (#87, #119).
 
 Fixed
 ~~~~~

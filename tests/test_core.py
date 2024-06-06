@@ -33,12 +33,20 @@ class TestNode(Node):
     def transform(self, a, b, c):
         return a, b, c
 
-def test_Pipeline():
-    with Pipeline() as pipeline:
-        with Pipeline():
-            pass
 
-    assert len(pipeline.children) == 1
+def test_Pipeline():
+    with Pipeline() as p:
+        a = Const("a")
+        with Pipeline():
+            b = Const("b")
+
+    locals_hashes = set(v.hash for v in p.locals())
+
+    # a is a local of p
+    assert a.hash in locals_hashes
+    # b is also a local of p
+    assert b.hash in locals_hashes
+
 
 def test_Node():
     # Assert that Node checks for the existence of a pipeline
@@ -68,11 +76,21 @@ def test_Call():
     def foo(bar, baz):
         return bar, baz
 
+    class Bar:
+        pass
+
+    lambda_func = lambda: None
+
     with Pipeline() as pipeline:
         result = Call(foo, 1, 2)
-
     obj, *_ = list(pipeline.transform_stream())
     assert obj[result] == (1, 2)
+
+    with Pipeline() as pipeline:
+        # Test when clbl is a plain function for __str__ method
+        call_obj1 = Call(foo, 1, 2)
+    str_rep1 = str(call_obj1)
+    assert "foo" in str_rep1
 
 
 class _MatMullable:
@@ -190,15 +208,17 @@ def test_VariableOperationsSpecial():
     assert f_value not in obj.values()
 
 
-def test_Pipeline():
-    with Pipeline() as p:
-        a = Const("a")
-        with Pipeline():
-            b = Const("b")
+def test_VariableCopy():
 
-    locals_hashes = set(v.hash for v in p.locals())
+    with Pipeline() as pipeline:
+        f_value = [1, 2, 3]
+        f = Const(f_value)
+        f_copy = f.copy()
+        # Modify the original variable
+        f[0] = None
 
-    # a is a local of p
-    assert a.hash in locals_hashes
-    # b is also a local of p
-    assert b.hash in locals_hashes
+    obj = next(pipeline.transform_stream())
+
+    assert obj[f_copy] is not obj[f]
+    assert obj[f_copy] == [1, 2, 3]
+    assert obj[f] == [None, 2, 3]

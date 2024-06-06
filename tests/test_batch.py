@@ -1,5 +1,5 @@
 from typing import Sequence
-from morphocut.batch import BatchPipeline
+from morphocut.batch import BatchedPipeline
 from morphocut.core import Call, Pipeline
 from morphocut.stream import Unpack
 import pytest
@@ -35,7 +35,7 @@ def test_BatchPipeline(seq_len):
     with Pipeline() as pipeline:
         a = Unpack(values)
         remaining0 = RemainingHint()
-        with BatchPipeline(batch_size) as bp:
+        with BatchedPipeline(batch_size):
             # Inside BatchPipeline, a is a Sequence
             Call(assert_sequence, a)
 
@@ -47,7 +47,7 @@ def test_BatchPipeline(seq_len):
         Call(assert_not_sequence, a)
         Call(assert_not_sequence, c)
 
-    assert id(c) in [id(v) for v in bp.locals()]
+    assert id(c) in [id(v) for v in pipeline.locals()]
 
     result = list(pipeline.transform_stream())
 
@@ -78,7 +78,7 @@ def test_BatchPipeline_groupby(seq_len):
     with Pipeline() as pipeline:
         a = Unpack(values)
         b = Unpack(values)
-        with BatchPipeline(batch_size, groupby=a):
+        with BatchedPipeline(batch_size, groupby=a):
             # a is scalar, b is a sequence
             Call(lambda a: assert_(isinstance(a, int)), a)
             Call(lambda b: assert_(isinstance(b, Sequence)), b)
