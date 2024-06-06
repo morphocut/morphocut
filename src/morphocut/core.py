@@ -178,129 +178,129 @@ class Variable(Generic[T]):
 
     # Attribute access
     def __getattr__(self, name):
-        return Call(getattr, self, name)
+        return self.__wrap_node(Call, getattr, self, name)
 
     # Item access
     def __getitem__(self, key):
-        return Call(operator.getitem, self, key)
+        return self.__wrap_node(Call, operator.getitem, self, key)
 
     def __setitem__(self, key, value):
-        return Call(operator.setitem, self, key, value)
+        return self.__wrap_node(Call, operator.setitem, self, key, value)
 
     def __delitem__(self, key):
-        return Call(operator.delitem, self, key)
+        return self.__wrap_node(Call, operator.delitem, self, key)
 
     # Rich comparison methods
     def __lt__(self, other):
-        return Call(operator.lt, self, other)
+        return self.__wrap_node(Call, operator.lt, self, other)
 
     def __le__(self, other):
-        return Call(operator.le, self, other)
+        return self.__wrap_node(Call, operator.le, self, other)
 
     def __eq__(self, other):
-        return Call(operator.eq, self, other)
+        return self.__wrap_node(Call, operator.eq, self, other)
 
     def __ne__(self, other):
-        return Call(operator.ne, self, other)
+        return self.__wrap_node(Call, operator.ne, self, other)
 
     def __gt__(self, other):
-        return Call(operator.gt, self, other)
+        return self.__wrap_node(Call, operator.gt, self, other)
 
     def __ge__(self, other):
-        return Call(operator.ge, self, other)
+        return self.__wrap_node(Call, operator.ge, self, other)
 
     # Binary arithmetic operations
     def __add__(self, other):
-        return Call(operator.add, self, other)
+        return self.__wrap_node(Call, operator.add, self, other)
 
     def __sub__(self, other):
-        return Call(operator.sub, self, other)
+        return self.__wrap_node(Call, operator.sub, self, other)
 
     def __mul__(self, other):
-        return Call(operator.mul, self, other)
+        return self.__wrap_node(Call, operator.mul, self, other)
 
     def __matmul__(self, other):
-        return Call(operator.matmul, self, other)
+        return self.__wrap_node(Call, operator.matmul, self, other)
 
     def __truediv__(self, other):
-        return Call(operator.truediv, self, other)
+        return self.__wrap_node(Call, operator.truediv, self, other)
 
     def __floordiv__(self, other):
-        return Call(operator.floordiv, self, other)
+        return self.__wrap_node(Call, operator.floordiv, self, other)
 
     def __mod__(self, other):
-        return Call(operator.mod, self, other)
+        return self.__wrap_node(Call, operator.mod, self, other)
 
     def __pow__(self, other):
-        return Call(operator.pow, self, other)
+        return self.__wrap_node(Call, operator.pow, self, other)
 
     def __lshift__(self, other):
-        return Call(operator.lshift, self, other)
+        return self.__wrap_node(Call, operator.lshift, self, other)
 
     def __rshift__(self, other):
-        return Call(operator.rshift, self, other)
+        return self.__wrap_node(Call, operator.rshift, self, other)
 
     def __and__(self, other):
-        return Call(operator.and_, self, other)
+        return self.__wrap_node(Call, operator.and_, self, other)
 
     def __xor__(self, other):
-        return Call(operator.xor, self, other)
+        return self.__wrap_node(Call, operator.xor, self, other)
 
     def __or__(self, other):
-        return Call(operator.or_, self, other)
+        return self.__wrap_node(Call, operator.or_, self, other)
 
     # Binary arithmetic operations with reflected (swapped) operands
     def __radd__(self, other):
-        return Call(operator.add, other, self)
+        return self.__wrap_node(Call, operator.add, other, self)
 
     def __rsub__(self, other):
-        return Call(operator.sub, other, self)
+        return self.__wrap_node(Call, operator.sub, other, self)
 
     def __rmul__(self, other):
-        return Call(operator.mul, other, self)
+        return self.__wrap_node(Call, operator.mul, other, self)
 
     def __rmatmul__(self, other):
-        return Call(operator.matmul, other, self)
+        return self.__wrap_node(Call, operator.matmul, other, self)
 
     def __rtruediv__(self, other):
-        return Call(operator.truediv, other, self)
+        return self.__wrap_node(Call, operator.truediv, other, self)
 
     def __rfloordiv__(self, other):
-        return Call(operator.floordiv, other, self)
+        return self.__wrap_node(Call, operator.floordiv, other, self)
 
     def __rmod__(self, other):
-        return Call(operator.mod, other, self)
+        return self.__wrap_node(Call, operator.mod, other, self)
 
     def __rpow__(self, other):
-        return Call(operator.pow, other, self)
+        return self.__wrap_node(Call, operator.pow, other, self)
 
     def __rlshift__(self, other):
-        return Call(operator.lshift, other, self)
+        return self.__wrap_node(Call, operator.lshift, other, self)
 
     def __rrshift__(self, other):
-        return Call(operator.rshift, other, self)
+        return self.__wrap_node(Call, operator.rshift, other, self)
 
     def __rand__(self, other):
-        return Call(operator.and_, other, self)
+        return self.__wrap_node(Call, operator.and_, other, self)
 
     def __rxor__(self, other):
-        return Call(operator.xor, other, self)
+        return self.__wrap_node(Call, operator.xor, other, self)
 
     def __ror__(self, other):
-        return Call(operator.or_, other, self)
+        return self.__wrap_node(Call, operator.or_, other, self)
 
     # Unary arithmetic operations
     def __neg__(self):
-        return Call(operator.neg, self)
+        return self.__wrap_node(Call, operator.neg, self)
 
     def __pos__(self):
-        return Call(operator.pos, self)
+        return self.__wrap_node(Call, operator.pos, self)
 
     def __abs__(self):
-        return Call(operator.abs, self)
+        return self.__wrap_node(Call, operator.abs, self)
 
     def __invert__(self):
-        return Call(operator.invert, self)
+        return self.__wrap_node(Call, operator.invert, self)
 
     # Above operators without underscores
     getattr = __getattr__
@@ -331,31 +331,45 @@ class Variable(Generic[T]):
     # Special operators
     def not_(self):
         """Return the outcome of not obj."""
-        return Call(operator.not_, self)
+        return self.__wrap_node(Call, operator.not_, self)
 
     def truth(self):
         """Return True if obj is true, and False otherwise."""
-        return Call(operator.truth, self)
+        return self.__wrap_node(Call, operator.truth, self)
 
     def is_(self, other):
         """Return ``self is other``. Tests object identity."""
-        return Call(operator.is_, self, other)
+        return self.__wrap_node(Call, operator.is_, self, other)
 
     def is_not(self, other):
         """Return ``self is not other``. Tests object identity."""
-        return Call(operator.is_not, self, other)
+        return self.__wrap_node(Call, operator.is_not, self, other)
 
     def in_(self, other):
         """Return the outcome of the test  ``self in other``. Tests containment."""
-        return Call(operator.contains, other, self)
+        return self.__wrap_node(Call, operator.contains, other, self)
 
     def contains(self, other):
         """Return the outcome of the test  ``other in self``. Tests containment."""
-        return Call(operator.contains, self, other)
+        return self.__wrap_node(Call, operator.contains, self, other)
 
     def unpack(self, size):
         """Unpack the variable into a tuple of variables."""
-        return _Unpack(size, self)
+        return self.__wrap_node(_Unpack, size, self)
+
+    def __wrap_node(self, node, *args, **kwargs):
+        try:
+            return node(*args, **kwargs)
+        except Exception as exc:
+            pretty_args = _format_arguments(args, kwargs)
+            raise RuntimeError(
+                f"Could not instanciate action on {self}: {pretty_args}"
+            ) from exc
+
+
+def _format_arguments(args, kwargs):
+    kwargs = ["{}={}".format(k, v) for k, v in kwargs]
+    return ", ".join(str(x) for x in itertools.chain(args, kwargs))
 
     def delete(self):
         """
