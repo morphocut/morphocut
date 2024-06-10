@@ -1,10 +1,11 @@
 import logging
-from typing import IO, Any, List, Literal, Mapping, Optional, Tuple, TypeVar, Union
+from typing import Any, List, Literal, Mapping, Optional, Tuple, TypeVar, Union
 
 import numpy as np
-
 from morphocut import Node, RawOrVariable, ReturnOutputs, closing_if_closable
 from morphocut.core import Stream
+
+from .utils import stream_groupby
 
 T = TypeVar("T")
 MaybeTuple = Union[T, Tuple[T]]
@@ -44,16 +45,15 @@ class HDF5Writer(Node):
 
     """
 
-    # TODO: Make file_name a stream variable
     # TODO: Implement more `dataset_mode`s
 
     def __init__(
         self,
-        file_name: str,
+        file_name: RawOrVariable[str],
         data: Mapping[str, RawOrVariable[Any]],
         *,
         file_mode="w",
-        dataset_mode: RawOrVariable[Literal["create", "append", "extend"]] = "create",
+        dataset_mode: RawOrVariable[Literal["create", "append", "extend"]] = "append",
         compression=None,
         chunk_size: Optional[int] = None,
     ):
@@ -69,128 +69,131 @@ class HDF5Writer(Node):
     def _transform_stream_extend(self, stream: Stream):
         import h5py
 
-        with h5py.File(self.file_name, self.file_mode) as h5, closing_if_closable(
-            stream
-        ):
-            datasets: Mapping[str, h5py.Dataset] = {}
+        with closing_if_closable(stream):
+            for file_name, file_group in stream_groupby(stream, by=self.file_name):
+                with h5py.File(file_name, self.file_mode) as h5:
+                    datasets: Mapping[str, h5py.Dataset] = {}
 
-            # Offsets per dataset
-            offsets: Mapping[str, int] = {}
+                    # Offsets per dataset
+                    offsets: Mapping[str, int] = {}
 
-            for obj in stream:
-                data: Mapping[str, Any] = self.prepare_input(obj, "data")  # type: ignore
+                    for obj in file_group:
+                        data: Mapping[str, Any] = self.prepare_input(obj, "data")  # type: ignore
 
-                for dset, arr in data.items():
-                    batch_size = len(arr)
+                        for dset, arr in data.items():
+                            batch_size = len(arr)
 
-                    if dset not in datasets:
-                        if isinstance(arr[0], str):
-                            data_shape = tuple()
-                            dtype = h5py.string_dtype()
-                        else:
-                            arr = np.array(arr)
-                            data_shape = arr[0].shape
-                            dtype = arr.dtype
+                            if dset not in datasets:
+                                if isinstance(arr[0], str):
+                                    data_shape = tuple()
+                                    dtype = h5py.string_dtype()
+                                else:
+                                    arr = np.array(arr)
+                                    data_shape = arr[0].shape
+                                    dtype = arr.dtype
 
-                        initial_shape = (batch_size * 2,) + data_shape
+                                initial_shape = (batch_size * 2,) + data_shape
 
+                                logger.info(
+                                    f"Creating dataset {dset}: {initial_shape}, dtype = {dtype}"
+                                )
+
+                                datasets[dset] = h5.create_dataset(
+                                    dset,
+                                    shape=initial_shape,
+                                    maxshape=(None,) + data_shape,
+                                    chunks=(self.chunk_size or batch_size,)
+                                    + data_shape,
+                                    dtype=dtype,
+                                    compression=self.compression,
+                                )
+                                offsets[dset] = 0
+
+                            if offsets[dset] + batch_size > datasets[dset].shape[0]:
+                                new_length = datasets[dset].shape[0] * 2
+                                logger.info(
+                                    f"Resizing dataset {dset} to new length: {new_length:,d}"
+                                )
+
+                                datasets[dset].resize(new_length, axis=0)
+
+                            datasets[dset][
+                                offsets[dset] : offsets[dset] + batch_size
+                            ] = arr
+
+                            offsets[dset] += batch_size
+
+                        yield obj
+
+                    for name, dataset in datasets.items():
                         logger.info(
-                            f"Creating dataset {dset}: {initial_shape}, dtype = {dtype}"
+                            f"Truncating dataset {name} to actual length: {offsets[name]:,d}"
                         )
 
-                        datasets[dset] = h5.create_dataset(
-                            dset,
-                            shape=initial_shape,
-                            maxshape=(None,) + data_shape,
-                            chunks=(self.chunk_size or batch_size,) + data_shape,
-                            dtype=dtype,
-                            compression=self.compression,
-                        )
-                        offsets[dset] = 0
-
-                    if offsets[dset] + batch_size > datasets[dset].shape[0]:
-                        new_length = datasets[dset].shape[0] * 2
-                        logger.info(
-                            f"Resizing dataset {dset} to new length: {new_length:,d}"
-                        )
-
-                        datasets[dset].resize(new_length, axis=0)
-
-                    datasets[dset][offsets[dset] : offsets[dset] + batch_size] = arr
-
-                    offsets[dset] += batch_size
-
-                yield obj
-
-            for name, dataset in datasets.items():
-                logger.info(
-                    f"Truncating dataset {name} to actual length: {offsets[name]:,d}"
-                )
-
-                dataset.resize(offsets[name], axis=0)
+                        dataset.resize(offsets[name], axis=0)
 
     def _transform_stream_append(self, stream: Stream):
         import h5py
 
-        with h5py.File(self.file_name, self.file_mode) as h5, closing_if_closable(
-            stream
-        ):
-            datasets: Mapping[str, h5py.Dataset] = {}
+        with closing_if_closable(stream):
+            for file_name, file_group in stream_groupby(stream, by=self.file_name):
+                with h5py.File(file_name, self.file_mode) as h5:
+                    datasets: Mapping[str, h5py.Dataset] = {}
 
-            # Offsets per dataset
-            offsets: Mapping[str, int] = {}
+                    # Offsets per dataset
+                    offsets: Mapping[str, int] = {}
 
-            chunk_size = self.chunk_size or 1024
+                    chunk_size = self.chunk_size or 1024
 
-            for obj in stream:
-                data: Mapping[str, Any] = self.prepare_input(obj, "data")  # type: ignore
+                    for obj in file_group:
+                        data: Mapping[str, Any] = self.prepare_input(obj, "data")  # type: ignore
 
-                for dset, value in data.items():
-                    if dset not in datasets:
-                        if isinstance(value, str):
-                            data_shape = tuple()
-                            dtype = h5py.string_dtype()
-                        else:
-                            value = np.array(value)
-                            data_shape = value.shape
-                            dtype = value.dtype
+                        for name, value in data.items():
+                            if name not in datasets:
+                                if isinstance(value, str):
+                                    data_shape = tuple()
+                                    dtype = h5py.string_dtype()
+                                else:
+                                    value = np.array(value)
+                                    data_shape = value.shape
+                                    dtype = value.dtype
 
-                        initial_shape = (chunk_size,) + data_shape
+                                initial_shape = (chunk_size,) + data_shape
 
+                                logger.info(
+                                    f"Creating dataset {name}: {initial_shape}, dtype = {dtype}"
+                                )
+
+                                datasets[name] = h5.create_dataset(
+                                    name,
+                                    shape=initial_shape,
+                                    maxshape=(None,) + data_shape,
+                                    chunks=(chunk_size,) + data_shape,
+                                    dtype=dtype,
+                                    compression=self.compression,
+                                )
+                                offsets[name] = 0
+
+                            if offsets[name] >= datasets[name].shape[0]:
+                                new_length = datasets[name].shape[0] * 2
+                                logger.info(
+                                    f"Resizing dataset {name} to new length: {new_length:,d}"
+                                )
+
+                                datasets[name].resize(new_length, axis=0)
+
+                            datasets[name][offsets[name]] = value
+
+                            offsets[name] += 1
+
+                        yield obj
+
+                    for name, dataset in datasets.items():
                         logger.info(
-                            f"Creating dataset {dset}: {initial_shape}, dtype = {dtype}"
+                            f"Truncating dataset {name} to actual length: {offsets[name]:,d}"
                         )
 
-                        datasets[dset] = h5.create_dataset(
-                            dset,
-                            shape=initial_shape,
-                            maxshape=(None,) + data_shape,
-                            chunks=(chunk_size,) + data_shape,
-                            dtype=dtype,
-                            compression=self.compression,
-                        )
-                        offsets[dset] = 0
-
-                    if offsets[dset] + 1 > datasets[dset].shape[0]:
-                        new_length = datasets[dset].shape[0] * 2
-                        logger.info(
-                            f"Resizing dataset {dset} to new length: {new_length:,d}"
-                        )
-
-                        datasets[dset].resize(new_length, axis=0)
-
-                    datasets[dset][offsets[dset]] = value
-
-                    offsets[dset] += 1
-
-                yield obj
-
-            for name, dataset in datasets.items():
-                logger.info(
-                    f"Truncating dataset {name} to actual length: {offsets[name]:,d}"
-                )
-
-                dataset.resize(offsets[name], axis=0)
+                        dataset.resize(offsets[name], axis=0)
 
     def transform_stream(self, stream):
         if self.dataset_mode == "extend":
