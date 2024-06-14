@@ -57,7 +57,7 @@ def test_Node():
     with Pipeline() as pipeline:
         TestNodeNoTransform()
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(NotImplementedError):
         pipeline.run()
 
     # Assert that parameters and outputs are passed as expected

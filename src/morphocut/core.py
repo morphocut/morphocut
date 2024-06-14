@@ -8,8 +8,19 @@ from abc import ABC, abstractmethod
 from collections import abc
 from contextlib import contextmanager
 from functools import wraps
-from typing import (Any, Callable, Dict, Generic, Iterator, List, Optional,
-                    Tuple, Type, TypeVar, Union)
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
 from .exception_utils import exc_add_note
 
@@ -374,6 +385,20 @@ class EmptyPipelineStackError(Exception):
     """Raised when a node is created outside of a Pipeline context."""
 
 
+# Trick mypy into not applying contravariance rules to inputs by defining
+# transform as a value, rather than a function.  See also
+# https://github.com/python/mypy/issues/8795
+def _transform_unimplemented(self, *input: Any) -> None:
+    """
+    Defines the computation performed on every object.
+
+    Should be overridden by all subclasses.
+    """
+    raise NotImplementedError(
+        f'Node {type(self).__name__} is missing the required "transform" function'
+    )
+
+
 class Node(StreamTransformer):
     """Base class for all stream processing nodes."""
 
@@ -479,11 +504,11 @@ class Node(StreamTransformer):
         """Inspect self.transform to get the parameter names."""
         return [
             p.name
-            for p in inspect.signature(
-                self.transform  # pylint: disable=no-member
-            ).parameters.values()
+            for p in inspect.signature(self.transform).parameters.values()
             if p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)
         ]
+
+    transform: Callable[..., Any] = _transform_unimplemented
 
     def transform_stream(self, stream: Stream) -> Stream:
         """
@@ -497,8 +522,8 @@ class Node(StreamTransformer):
         names = self._get_parameter_names()
 
         try:
-        with closing_if_closable(stream):
-            for obj in stream:
+            with closing_if_closable(stream):
+                for obj in stream:
                     parameters = self.prepare_input(obj, names)
 
                     result = self.transform(*parameters)
@@ -506,7 +531,7 @@ class Node(StreamTransformer):
                     self.prepare_output(obj, result)
 
                     yield obj
-                except Exception as exc:
+        except Exception as exc:
             exc_add_note(exc, f"In node: {self}")
             raise
 
