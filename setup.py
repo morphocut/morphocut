@@ -25,6 +25,8 @@ setup(
         "tqdm",
         "scipy",
         "deprecated",
+        # Required to display exception notes while Python<3.11 is supported.
+        "exceptiongroup",
     ],
     python_requires=">=3.9",
     extras_require={

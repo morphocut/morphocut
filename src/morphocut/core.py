@@ -8,19 +8,10 @@ from abc import ABC, abstractmethod
 from collections import abc
 from contextlib import contextmanager
 from functools import wraps
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generic,
-    Iterator,
-    List,
-    Optional,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-)
+from typing import (Any, Callable, Dict, Generic, Iterator, List, Optional,
+                    Tuple, Type, TypeVar, Union)
+
+from .exception_utils import exc_add_note
 
 _pipeline_stack = []  # type: List[Pipeline] # pylint: disable=invalid-name
 
@@ -505,19 +496,19 @@ class Node(StreamTransformer):
 
         names = self._get_parameter_names()
 
+        try:
         with closing_if_closable(stream):
             for obj in stream:
-                try:
                     parameters = self.prepare_input(obj, names)
 
-                    result = self.transform(*parameters)  # pylint: disable=no-member
+                    result = self.transform(*parameters)
 
                     self.prepare_output(obj, result)
 
                     yield obj
                 except Exception as exc:
-                    # TODO: Use add_exc_note after #99 is merged
-                    raise type(exc)(*exc.args, f"{self}") from exc
+            exc_add_note(exc, f"In node: {self}")
+            raise
 
         self.after_stream()
 
