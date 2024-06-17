@@ -11,7 +11,7 @@ from morphocut.core import Node, Output, RawOrVariable, ReturnOutputs
 
 @lru_cache(128)
 def draw_scalebar(
-    length_unit,
+    length_in_unit,
     px_per_unit=1,
     unit="px",
     mode="L",
@@ -24,7 +24,7 @@ def draw_scalebar(
     Draw a scalebar image of specified length and units.
 
     Args:
-        length_unit: The length of the scalebar in the specified unit.
+        length_in_unit: The length of the scalebar in the specified unit.
         px_per_unit: The ratio of pixels to units for the scalebar.
         unit: The unit of length for the scalebar.
         mode: The color mode to use for the PIL image.
@@ -37,7 +37,7 @@ def draw_scalebar(
         A numpy array representing the image of the scalebar.
     """
 
-    length_px = round(length_unit * px_per_unit)
+    length_px = round(length_in_unit * px_per_unit)
 
     h = 32
     w = length_px + 2 * margin
@@ -47,7 +47,7 @@ def draw_scalebar(
     fnt = PIL.ImageFont.truetype(font_fn, 12)
     d = PIL.ImageDraw.Draw(img)
 
-    d.text((10, 5), f"{length_unit:.0f}{unit}", font=fnt, fill=fg_color)
+    d.text((10, 5), f"{length_in_unit:.0f}{unit}", font=fnt, fill=fg_color)
 
     d.line(
         [
@@ -70,7 +70,7 @@ class DrawScalebar(Node):
 
     Args:
         image: The image to append the scalebar to.
-        length_unit: The length of the scalebar in the specified unit.
+        length_in_unit: The length of the scalebar in the specified unit.
         px_per_unit: The ratio of pixels to units for the scalebar.
         unit: The unit of length for the scalebar.
         fg_color: The color to use for the scalebar and text.
@@ -82,7 +82,7 @@ class DrawScalebar(Node):
     def __init__(
         self,
         image: RawOrVariable[np.ndarray],
-        length_unit,
+        length_in_unit,
         px_per_unit=1,
         unit="px",
         fg_color=0,
@@ -94,7 +94,7 @@ class DrawScalebar(Node):
 
         self.image = image
 
-        self.length_unit = length_unit
+        self.length_in_unit = length_in_unit
         self.px_per_unit = px_per_unit
         self.unit = unit
         self.fg_color = fg_color
@@ -105,7 +105,7 @@ class DrawScalebar(Node):
     def transform(
         self,
         image: np.ndarray,
-        length_unit,
+        length_in_unit,
         px_per_unit,
         unit,
         fg_color,
@@ -117,7 +117,7 @@ class DrawScalebar(Node):
 
         # Calculate an alpha-mask for the scalebar
         scalebar = draw_scalebar(
-            length_unit=length_unit,
+            length_in_unit=length_in_unit,
             px_per_unit=px_per_unit,
             unit=unit,
             mode="F",
