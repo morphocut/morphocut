@@ -135,12 +135,15 @@ class StreamBuffer(Node):
     def __init__(self, maxsize: int):
         super().__init__()
         self.queue = Queue(maxsize)
+        self.exception: Optional[BaseException] = None
 
     def _fill_queue(self, stream: Stream):
         try:
             with closing_if_closable(stream):
                 for obj in stream:
                     self.queue.put(obj)
+        except BaseException as exc:
+            self.exception = exc
         finally:
             self.queue.put(self._sentinel)
 
@@ -151,10 +154,12 @@ class StreamBuffer(Node):
         while True:
             obj = self.queue.get()
             if obj == self._sentinel:
+                if self.exception is not None:
+                    raise self.exception
                 break
             yield obj
 
-        # Join filler
+        # Join _fill_queue (which should be dead by now because we received `self._sentinel`)
         thread.join()
 
 

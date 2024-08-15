@@ -17,6 +17,7 @@ from morphocut.stream import (
     StreamBuffer,
     Unpack,
 )
+from tests.helpers import Fail
 
 
 def test_Progress(monkeypatch: pytest.MonkeyPatch):
@@ -80,6 +81,18 @@ def test_StreamBuffer():
 
     assert objects[0].n_remaining_hint == 10
     assert [o[item] for o in objects] == list(range(10))
+
+
+def test_StreamBufferException():
+    class _StreamBufferException(Exception):
+        pass
+
+    with Pipeline() as pipeline:
+        Fail(_StreamBufferException)
+        StreamBuffer(1)
+
+    with pytest.raises(_StreamBufferException):
+        stream = pipeline.run()
 
 
 def test_Unpack():
