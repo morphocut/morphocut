@@ -40,6 +40,8 @@ Changed
 
 - Require scikit-image>=0.19 (#86)
 
+- `StreamBuffer` now re-raises exceptions from the filler thread (#120).
+
 Deprecated
 ~~~~~~~~~~
 

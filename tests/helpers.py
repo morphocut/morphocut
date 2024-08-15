@@ -59,3 +59,16 @@ class Sleep(Node):
 
     def transform(self):
         sleep(self.duration)
+
+class Fail(Node):
+    """
+    Fail with the provided exception.
+    """
+
+    def __init__(self, __exc_type=Exception, *args):
+        super().__init__()
+        self.exc_type = __exc_type
+        self.args = args
+
+    def transform(self):
+        raise self.exc_type(*self.args)
