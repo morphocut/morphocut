@@ -119,6 +119,7 @@ class Slice(Node):
                 yield obj
 
 
+@ReturnOutputs
 class StreamBuffer(Node):
     """
     |stream| Buffer a stream to improve throughput by decoupling data
@@ -150,8 +151,6 @@ class StreamBuffer(Node):
         self.maxsize = maxsize
 
     def transform_stream(self, stream: Stream):
-        """"""
-
         @buffered_generator(self.maxsize)
         def buffered_stream():
             with closing_if_closable(stream):
