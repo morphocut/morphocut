@@ -10,15 +10,18 @@ def test_image():
     return np.zeros((100, 100), dtype=np.uint8)  # Grayscale image
 
 
-@pytest.mark.parametrize("length_unit, px_per_unit", [
-    (100, 1),
-    (200, 2),
-    (50, 0.5),
-])
-def test_draw_scalebar_function(length_unit, px_per_unit):
-    result = draw_scalebar(length_unit, px_per_unit=px_per_unit)
+@pytest.mark.parametrize(
+    "length_in_unit, px_per_unit",
+    [
+        (100, 1),
+        (200, 2),
+        (50, 0.5),
+    ],
+)
+def test_draw_scalebar_function(length_in_unit, px_per_unit):
+    result = draw_scalebar(length_in_unit, px_per_unit=px_per_unit)
 
-    expected_width = int((length_unit * px_per_unit) + 20)  # 10 margin on each side
+    expected_width = int((length_in_unit * px_per_unit) + 20)  # 10 margin on each side
 
     assert isinstance(result, np.ndarray)
     assert result.shape[0] == 32
@@ -26,11 +29,11 @@ def test_draw_scalebar_function(length_unit, px_per_unit):
 
 
 def test_DrawScalebar_pipeline(test_image):
-    length_unit = 100
+    length_in_unit = 100
 
     with Pipeline() as pipeline:
         Unpack([test_image])
-        DrawScalebar(image=test_image, length_unit=length_unit)
+        DrawScalebar(image=test_image, length_in_unit=length_in_unit)
 
     # Execute the pipeline
     objects = list(pipeline.transform_stream())
@@ -44,4 +47,3 @@ def test_DrawScalebar_pipeline(test_image):
 
     # Retrieve one of the images (using the first key in the dict)
     result_image = output_data[next(iter(output_data.keys()))]
-
