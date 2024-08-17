@@ -19,3 +19,4 @@ experiments/*
 coverage.xml
 examples/*_out
 *.tmp
+.conda/

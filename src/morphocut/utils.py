@@ -14,15 +14,13 @@ T = TypeVar("T")
 @overload
 def stream_groupby(
     stream: Stream, by: RawOrVariable[T]
-) -> Iterator[Tuple[T, Iterator[StreamObject]]]:
-    ...
+) -> Iterator[Tuple[T, Iterator[StreamObject]]]: ...
 
 
 @overload
 def stream_groupby(
     stream: Stream, by: Tuple[RawOrVariable[T]]
-) -> Iterator[Tuple[Tuple[T], Iterator[StreamObject]]]:
-    ...
+) -> Iterator[Tuple[Tuple[T], Iterator[StreamObject]]]: ...
 
 
 def stream_groupby(
@@ -156,6 +154,39 @@ class StreamEstimator:
 
 
 def buffered_generator(buf_size: int):
+    """
+    A decorator that adds buffering to a generator, prefetching items in a background thread.
+
+    The `buffered_generator` decorator allows a generator to run asynchronously in a separate
+    thread, prefetching items into a buffer of specified size. This can improve performance
+    when consuming the generator, particularly in scenarios where the generator's production
+    speed is inconsistent or involves I/O operations.
+
+    Args:
+        buf_size (int): The size of the buffer to use for prefetching items. If `buf_size` is 0,
+            no buffering is applied, and the generator runs synchronously.
+
+    Returns:
+        Callable: A wrapped generator function that yields items from a buffer filled by
+        a background thread.
+
+    Example:
+        @buffered_generator(buf_size=10)
+        def slow_generator():
+            for i in range(20):
+                time.sleep(0.5)
+                yield i
+
+        for item in slow_generator():
+            # Process item
+            ...
+
+    Notes:
+        - If `buf_size` is set to 0, the generator runs synchronously with no background threading.
+        - Exceptions raised in the original generator are propagated to the main thread when the
+          sentinel value is reached.
+    """
+
     def wrap(gen):
         # Don't do multithreading if nothing should be buffered
         if buf_size == 0:
@@ -164,20 +195,27 @@ def buffered_generator(buf_size: int):
         @functools.wraps(gen)
         def wrapper(*args, **kwargs):
             q = queue.Queue(buf_size)
-            _sentinel = object()
+            sentinel = object()
+            exception: Optional[BaseException] = None
 
             def fill_queue():
-                for item in gen(*args, **kwargs):
-                    q.put(item)
-
-                q.put(_sentinel)
+                nonlocal exception
+                try:
+                    for item in gen(*args, **kwargs):
+                        q.put(item)
+                except BaseException as exc:
+                    exception = exc
+                finally:
+                    q.put(sentinel)
 
             threading.Thread(target=fill_queue, daemon=True).start()
 
             while True:
                 item = q.get()
 
-                if item is _sentinel:
+                if item is sentinel:
+                    if exception is not None:
+                        raise exception
                     return
 
                 yield item
