@@ -2,10 +2,7 @@
 
 import itertools
 import pprint
-from queue import Queue
-from threading import Thread
 from typing import Callable, Collection, Optional, Union
-from morphocut.utils import StreamEstimator
 
 import tqdm
 from deprecated.sphinx import deprecated
@@ -20,6 +17,7 @@ from morphocut.core import (
     Variable,
     closing_if_closable,
 )
+from morphocut.utils import StreamEstimator, buffered_generator
 
 __all__ = [
     "Enumerate",
@@ -121,47 +119,44 @@ class Slice(Node):
                 yield obj
 
 
+@ReturnOutputs
 class StreamBuffer(Node):
     """
-    Buffer the stream.
+    |stream| Buffer a stream to improve throughput by decoupling data
+    production from data consumption.
+
+    This allows for continued processing of data while I/O-bound nodes
+    are waiting for data. Buffering the stream enables asynchronous prefetching and
+    minimizes the time spent waiting for data to be available.
 
     Args:
-        maxsize (int): Maximum size of the buffer.
+        maxsize (int): The maximum number of items to buffer. If the buffer is full, further
+            data production is paused until items are consumed.
 
-    This allows continued processing while I/O bound Nodes wait for data.
+    Example:
+        .. code-block:: python
+
+            with Pipeline() as pipeline:
+                # Produce data (preferably I/O-bound)
+                ...
+                StreamBuffer(maxsize=100)
+                # Process data
+                ...
     """
 
     _sentinel = object()
 
     def __init__(self, maxsize: int):
         super().__init__()
-        self.queue = Queue(maxsize)
-        self.exception: Optional[BaseException] = None
-
-    def _fill_queue(self, stream: Stream):
-        try:
-            with closing_if_closable(stream):
-                for obj in stream:
-                    self.queue.put(obj)
-        except BaseException as exc:
-            self.exception = exc
-        finally:
-            self.queue.put(self._sentinel)
+        self.maxsize = maxsize
 
     def transform_stream(self, stream: Stream):
-        thread = Thread(target=self._fill_queue, args=(stream,), daemon=True)
-        thread.start()
+        @buffered_generator(self.maxsize)
+        def buffered_stream():
+            with closing_if_closable(stream):
+                yield from stream
 
-        while True:
-            obj = self.queue.get()
-            if obj == self._sentinel:
-                if self.exception is not None:
-                    raise self.exception
-                break
-            yield obj
-
-        # Join _fill_queue (which should be dead by now because we received `self._sentinel`)
-        thread.join()
+        return buffered_stream()
 
 
 @ReturnOutputs

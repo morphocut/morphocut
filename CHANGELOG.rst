@@ -30,6 +30,10 @@ Added
 Changed
 ~~~~~~~
 
+- Fix `buffered_generator` (#121).
+
+- `StreamBuffer` now re-raises exceptions from the filler thread (#120).
+
 - `ecotaxa`: Return EcotaxaObject in EcotaxaReader (#102).
   Allow Variables for `archive_fn` in EcoTaxaWriter (#100).
   More improvements (#109).
@@ -40,7 +44,6 @@ Changed
 
 - Require scikit-image>=0.19 (#86)
 
-- `StreamBuffer` now re-raises exceptions from the filler thread (#120).
 
 Deprecated
 ~~~~~~~~~~
