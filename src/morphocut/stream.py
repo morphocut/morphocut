@@ -121,11 +121,11 @@ class Slice(Node):
 
 class StreamBuffer(Node):
     """
-    A data processing node that buffers a stream to improve throughput by decoupling data
+    |stream| Buffer a stream to improve throughput by decoupling data
     production from data consumption.
 
-    The `StreamBuffer` class allows for continued processing of data while I/O-bound nodes
-    are waiting for data. By buffering the stream, it enables asynchronous prefetching and
+    This allows for continued processing of data while I/O-bound nodes
+    are waiting for data. Buffering the stream enables asynchronous prefetching and
     minimizes the time spent waiting for data to be available.
 
     Args:
@@ -139,7 +139,7 @@ class StreamBuffer(Node):
                 # Produce data (preferably I/O-bound)
                 ...
                 StreamBuffer(maxsize=100)
-                # Process data (preferably CPU-bound)
+                # Process data
                 ...
     """
 
@@ -150,6 +150,8 @@ class StreamBuffer(Node):
         self.maxsize = maxsize
 
     def transform_stream(self, stream: Stream):
+        """"""
+
         @buffered_generator(self.maxsize)
         def buffered_stream():
             with closing_if_closable(stream):
