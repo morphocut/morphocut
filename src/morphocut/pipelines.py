@@ -1,9 +1,6 @@
 import concurrent.futures
 import os
-import threading
-import traceback
 from typing import Callable, List, Optional, Tuple, Union
-import queue
 
 from morphocut.core import (
     Node,
@@ -11,10 +8,11 @@ from morphocut.core import (
     Stream,
     StreamObject,
     StreamTransformer,
-    closing_if_closable,
     check_stream,
+    closing_if_closable,
     resolve_variable,
 )
+from morphocut.utils import buffered_generator
 
 
 class MergeNodesPipeline(Pipeline):
@@ -148,34 +146,21 @@ class DataParallelPipeline(MergeNodesPipeline):
             else concurrent.futures.ThreadPoolExecutor(self.executor)
         )
 
-        # TODO: This only works for ThreadPoolExecutor and ProcessPoolExecutor
-        queue_size = executor._max_workers
-        result_queue = queue.Queue(queue_size)
+        try:
+            queue_size = executor._max_workers  # type: ignore
+        except AttributeError:
+            queue_size = os.cpu_count() or 4
 
-        def _queue_filler():
-            try:
-                with closing_if_closable(stream):
-                    for obj in stream:
-                        result_queue.put(
-                            (obj, executor.submit(self.transform_object, obj))
-                        )
-            except:
-                traceback.print_exc()
-                raise
-            finally:
-                # Stop signal
-                result_queue.put(None)
+        if queue_size <= 0:
+            raise RuntimeError(f"Could not determine proper queue_size")
 
-        threading.Thread(target=_queue_filler, daemon=True).start()
+        @buffered_generator(queue_size)
+        def submit_items():
+            with closing_if_closable(stream):
+                for obj in stream:
+                    yield (obj, executor.submit(self.transform_object, obj))
 
-        while True:
-            obj_future = result_queue.get()
-
-            if obj_future is None:
-                return
-
-            obj, future = obj_future
-
+        for obj, future in submit_items():
             try:
                 yield future.result()
             except Exception as exc:

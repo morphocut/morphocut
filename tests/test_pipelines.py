@@ -1,7 +1,8 @@
-from morphocut.pipelines import MergeNodesPipeline, DataParallelPipeline
-from morphocut.core import Call, Pipeline
-from morphocut.stream import Unpack
 import pytest
+
+from morphocut.core import Call, Pipeline
+from morphocut.pipelines import DataParallelPipeline
+from morphocut.stream import Unpack
 
 
 def test_DataParallelPipeline():
@@ -20,6 +21,7 @@ def test_DataParallelPipeline():
 
     assert expected == actual
 
+    # Ensure that Errors *inside* the DataParallelPipeline are raised
     with Pipeline() as p3:
         a = Unpack(range(100))
         with DataParallelPipeline(executor=8):
@@ -27,3 +29,13 @@ def test_DataParallelPipeline():
 
     with pytest.raises(ZeroDivisionError):
         p3.run()
+
+    # Ensure that Errors *before* the DataParallelPipeline are raised
+    with Pipeline() as p4:
+        a = Unpack(range(100))
+        b = Call(lambda x: x / 0, a)
+        with DataParallelPipeline(executor=8):
+            pass
+
+    with pytest.raises(ZeroDivisionError):
+        p4.run()
