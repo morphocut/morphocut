@@ -1,5 +1,5 @@
 from itertools import zip_longest
-from typing import Iterator, List, Sequence, Tuple
+from typing import Iterator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import numpy.lib.mixins
@@ -74,7 +74,7 @@ class Region(numpy.lib.mixins.NDArrayOperatorsMixin):
     def __setitem__(self, key, value):
         self.array[key] = value
 
-    def __getitem__(self, key: slice | Tuple[slice, ...]):
+    def __getitem__(self, key: Union[slice, Tuple[slice, ...]]):
         if isinstance(key, slice):
             key = (key,)
         elif isinstance(key, tuple):
@@ -148,7 +148,7 @@ class Frame:
     def __init__(
         self,
         fill_value=0,
-        shape: None | Tuple[None | int, ...] = None,
+        shape: Optional[Tuple[Optional[int], ...]] = None,
         dtype=None,
         empty_none=False,
     ) -> None:
@@ -203,7 +203,7 @@ class Frame:
                 raise IndexError(f"Invalid key: {key}. step has to be 1 or None.")
 
         # Infere start/stop=None from shape
-        def update_slice(sl: slice, sh: int | None):
+        def update_slice(sl: slice, sh: Optional[int]):
             start, stop = sl.start, sl.stop
 
             if start is None:
@@ -300,7 +300,7 @@ class Frame:
                 result.append((r, source_key, target_key))
         return result
 
-    def __getitem__(self, key) -> None | Region:
+    def __getitem__(self, key) -> Optional[Region]:
         """Extract part of the frame as a new region."""
 
         # [...]
@@ -443,7 +443,7 @@ class Stitch(Node):
         groupby,
         offset,
         fill_value=0,
-        shape: None | Tuple[None | int, ...] = None,
+        shape: Optional[Tuple[Optional[int], ...]] = None,
         dtype=None,
         empty_none=False,
     ) -> None:
