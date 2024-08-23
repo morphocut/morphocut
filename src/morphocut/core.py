@@ -587,7 +587,7 @@ class Output:
         return cls
 
 
-def ReturnOutputs(node_cls):
+def ReturnOutputs(node_cls) -> Callable[..., NodeCallReturnType]:
     """Turn Node into a function returning Output variables."""
     if not issubclass(node_cls, Node):
         raise ValueError("This decorator is meant to be applied to a subclass of Node.")
