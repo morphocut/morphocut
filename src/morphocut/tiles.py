@@ -1,9 +1,11 @@
 import itertools
-from typing import Iterable, List, Mapping, Optional, Tuple
+from typing import Iterator, Literal, Mapping, Optional, Tuple
 from morphocut import Pipeline
-from morphocut.core import Node, Stream, StreamTransformer, Variable, check_stream
+from morphocut.core import Stream, StreamTransformer, Variable, check_stream
+from .exception_utils import exc_add_note
 import numpy as np
 from morphocut.utils import stream_groupby
+import morphocut.stitch
 
 
 def complete_range(start, stop, step):
@@ -23,6 +25,9 @@ def unpad(array, pad_width):
     return array[slices]
 
 
+BlendStrategy = Literal["overwrite", "linear"]
+
+
 class TiledPipeline(Pipeline):
     def __init__(
         self,
@@ -31,6 +36,7 @@ class TiledPipeline(Pipeline):
         tile_stride: Optional[Tuple] = None,
         pad=True,
         pad_kwargs: Optional[Mapping] = None,
+        blend_strategy: BlendStrategy = "overwrite",
     ):
         super().__init__()
 
@@ -41,11 +47,13 @@ class TiledPipeline(Pipeline):
         self.tile_stride = tile_stride
         self.variables = variables
         self.pad = pad
-
         self.pad_kwargs = pad_kwargs or {}
+        self.blend_strategy = morphocut.stitch.Frame.validate_blend_strategy(
+            blend_strategy
+        )
 
         self._placeholders = [Variable(f"{v.name}_old", self) for v in variables]
-        self._slice_padding = Variable("_slice_padding", self)
+        self._key_padding = Variable("_slice_padding", self)
         self._tiling_id = Variable("_tiling_id", self)
 
     def transform_stream(self, stream: Optional[Stream] = None) -> Stream:
@@ -74,30 +82,36 @@ class TiledPipeline(Pipeline):
 
         return stream
 
-    def _gen_slices_padding_1d(self, arr_shape, tile_shape, tile_stride):
+    def _gen_key_padding_1d(
+        self, arr_shape, tile_shape, tile_stride
+    ) -> Tuple[Tuple[slice, Tuple[int, int]], ...]:
         pad = ((tile_shape - arr_shape) % tile_stride) // 2 if self.pad else 0
         return tuple(
             (
-                slice(max(0, off), off + tile_shape),
+                slice(max(0, off), min(off + tile_shape, arr_shape)),
                 (max(0, -off), max(0, off + tile_shape - arr_shape)),
             )
             for off in complete_range(-pad // 2, arr_shape - 1, tile_stride)
         )
 
-    def _gen_slices(self, arr: np.ndarray):
+    def _gen_key_padding(
+        self, arr: np.ndarray
+    ) -> Iterator[Tuple[Tuple[slice, ...], Tuple[int, int]]]:
         # Calculate slices for each dimension
-        slices = [
-            self._gen_slices_padding_1d(arr_shape_, tile_shape_, tile_stride_)
+        key_padding = [
+            self._gen_key_padding_1d(arr_shape_, tile_shape_, tile_stride_)
             for arr_shape_, tile_shape_, tile_stride_ in zip(
                 arr.shape, self.tile_shape, self.tile_stride
             )
         ]
 
-        return (zip(*slice_padding) for slice_padding in itertools.product(*slices))
+        return (
+            zip(*slice_padding) for slice_padding in itertools.product(*key_padding)
+        )  # type: ignore
 
     def _tile_all(self, stream: Stream) -> Stream:
         for tiling_id, obj in enumerate(stream):
-            for slice, padding in self._gen_slices(obj[self.variables[0]]):
+            for key, padding in self._gen_key_padding(obj[self.variables[0]]):
                 obj_new = obj.copy()
                 obj_new[self._tiling_id] = tiling_id
                 for v, p in zip(self.variables, self._placeholders):
@@ -109,13 +123,14 @@ class TiledPipeline(Pipeline):
 
                     # Store sliced and padded version
                     try:
-                        obj_new[v] = np.pad(obj[v][slice], padding, **self.pad_kwargs)
+                        obj_new[v] = np.pad(obj[v][key], padding, **self.pad_kwargs)
                     except Exception as exc:
-                        raise type(exc)(
-                            *exc.args,
-                            f"{obj[v][slice].shape}, {padding}, {self.pad_kwargs}",
+                        exc_add_note(
+                            exc, f"{obj[v][key].shape}, {padding}, {self.pad_kwargs}"
                         )
-                obj_new[self._slice_padding] = slice, padding
+                        raise exc
+
+                obj_new[self._key_padding] = key, padding
                 yield obj_new
 
     def _untile_all(self, stream: Stream) -> Stream:
@@ -131,12 +146,14 @@ class TiledPipeline(Pipeline):
                 obj_new[v] = obj_new[p]
                 del obj_new[p]
 
-            base_shape = obj_new[self.variables[0]].shape[: len(self.tile_shape)]
-
-            # Stitch new variables
-            # TODO: Use stitch.Frame or np.ndarray
+            # Stitch new variables using stitch.Frame
             for v in locals_:
-                arr = None
+                if not isinstance(obj_new[v], (np.ndarray, morphocut.stitch.Region)):
+                    continue
+
+                print(v)
+
+                frame = morphocut.stitch.Frame(blend_strategy=self.blend_strategy)  # type: ignore
                 for obj in group:
                     tile = obj[v]
 
@@ -144,13 +161,20 @@ class TiledPipeline(Pipeline):
                         # This variable is not an array
                         break
 
-                    if arr is None:
-                        arr = np.zeros(
-                            base_shape + tile.shape[len(self.tile_shape) :],
-                            dtype=tile.dtype,
-                        )
                     # Slice and unpad
-                    slice, padding = obj[self._slice_padding]
-                    arr[slice] = unpad(tile, padding)
-                obj_new[v] = arr
+                    key, padding = obj[self._key_padding]
+
+                    shape_before = tile.shape
+                    tile = unpad(tile, padding)
+                    try:
+                        frame[key] = tile
+                    except Exception as exc:
+                        exc_add_note(
+                            exc,
+                            f"shape_before={shape_before}, shape_after={tile.shape}, padding={padding}, key={key}",
+                        )
+                        raise exc
+
+                obj_new[v] = frame.asarray()
+
             yield obj_new

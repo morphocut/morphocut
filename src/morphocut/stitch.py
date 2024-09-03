@@ -1,10 +1,18 @@
 import functools
 from itertools import zip_longest
-from typing import Iterator, List, Optional, Sequence, SupportsFloat, Tuple, Union
+from typing import (
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    SupportsFloat,
+    Tuple,
+    Union,
+)
 
 import numpy as np
 import numpy.lib.mixins
-
 from morphocut.core import (
     Node,
     RawOrVariable,
@@ -14,6 +22,7 @@ from morphocut.core import (
     closing_if_closable,
 )
 from morphocut.utils import StreamEstimator, stream_groupby
+from .exception_utils import exc_add_note
 
 
 def _wrap_array_property(name):
@@ -148,6 +157,9 @@ class Region(numpy.lib.mixins.NDArrayOperatorsMixin):
         return f"<Region {self.array.shape} at {self.key}>"
 
 
+BlendStrategy = Literal["overwrite", "linear"]
+
+
 class Frame:
     """
     Virtual frame containing individual regions.
@@ -170,16 +182,23 @@ class Frame:
         shape: Optional[Tuple[Optional[int], ...]] = None,
         dtype=None,
         empty_none=False,
-        blend_strategy="overwrite",
+        blend_strategy: BlendStrategy = "overwrite",
     ) -> None:
         self.fill_value = fill_value
         self.keylen = None
         self._shape = shape
         self.dtype = None if dtype is None else np.dtype(dtype)
         self.empty_none = empty_none
-        self.blend_strategy = blend_strategy
+        self.blend_strategy = self.validate_blend_strategy(blend_strategy)
 
         self._regions: List[Region] = []
+
+    @staticmethod
+    def validate_blend_strategy(blend_strategy: str) -> BlendStrategy:
+        if blend_strategy not in ("overwrite", "linear"):
+            raise ValueError(f"Unsupported blend strategy: {blend_strategy!r}")
+
+        return blend_strategy
 
     @property
     def key_shape(self) -> Tuple[int, ...]:
@@ -259,14 +278,16 @@ class Frame:
     def __setitem__(self, key, value):
         """Add a region by slices."""
 
-        # Convert and validate key
+        # Convert and validate key (only slices, set stop)
         key = self._validate_key(key)
 
+        # Ensure array
         value = np.asanyarray(value)
 
         # Broadcast value to shape requested by the key
-        if value.ndim < len(key):
-            value = np.broadcast_to(value, _key_to_shape(key))
+        # (This also ensures the congruence of key and value.)
+        key_shape = _key_to_shape(key)
+        value = np.broadcast_to(value, key_shape + value.shape[len(key_shape) :])
 
         # Set or check self.keylen
         keylen = len(key)
@@ -311,21 +332,29 @@ class Frame:
     def _get_intersecting_regions(self, key: Tuple[slice, ...]) -> List[Region]:
         """Find regions that intersect with the given key."""
         result = []
-        for r in self._regions:
+        for region in self._regions:
             intersection_key = tuple(
-                slice(max(ks.start, rs.start), min(ks.stop, rs.stop))
-                for ks, rs in zip(key, r.key)
+                slice(
+                    max(key_slice.start, region_slice.start),
+                    min(key_slice.stop, region_slice.stop),
+                )
+                for key_slice, region_slice in zip(key, region.key)
             )
             if all(s.start <= s.stop for s in intersection_key):
                 source_key = tuple(
-                    slice(ss.start - rs.start, ss.stop - rs.start)
-                    for rs, ss in zip(r.key, intersection_key)
+                    slice(
+                        intersection_slice.start - region_slice.start,
+                        intersection_slice.stop - region_slice.start,
+                    )
+                    for region_slice, intersection_slice in zip(
+                        region.key, intersection_key
+                    )
                 )
                 target_key = tuple(
                     slice(ss.start - ks.start, ss.stop - ks.start)
                     for ks, ss in zip(key, intersection_key)
                 )
-                result.append((r, source_key, target_key))
+                result.append((region, source_key, target_key))
         return result
 
     def _blend_overwrite(self, result_shape, intersecting_regions, key):
@@ -354,7 +383,7 @@ class Frame:
                 reshape
             ] * region.array[source_key]
 
-        if np.isdtype(self.dtype, "integral"):
+        if np.issubdtype(self.dtype, np.integer):
             array = np.rint(array)
 
         array = array.astype(self.dtype)
@@ -484,9 +513,7 @@ class Frame:
         return frame
 
     def __repr__(self) -> str:
-        return (
-            f"<Frame({self.fill_value}, {self.shape}, {self.dtype}, {self.empty_none})>"
-        )
+        return f"<Frame({self.fill_value}, {self._shape}, {self.dtype}, {self.empty_none})>"
 
 
 def _validate_multiparameter(value, n_inputs, name, nested_sequence=False):
