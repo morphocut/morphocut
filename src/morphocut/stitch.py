@@ -1,5 +1,6 @@
+import functools
 from itertools import zip_longest
-from typing import Iterator, List, Optional, Sequence, Tuple, Union
+from typing import Iterator, List, Optional, Sequence, SupportsFloat, Tuple, Union
 
 import numpy as np
 import numpy.lib.mixins
@@ -26,6 +27,21 @@ def _wrap_array_method(name):
         return self._convert_result(result)
 
     return wrapper
+
+
+@functools.lru_cache()
+def _linear_weight(shape: Tuple[int, ...]):
+    weight = np.ones(shape)
+    for i, dim in enumerate(shape):
+        arange = np.arange(1, dim + 1)
+        dimweight = 1 / np.maximum(arange, arange[::-1])
+        np.minimum(dimweight[(...,) + (None,) * i], weight, out=weight)
+
+    return weight
+
+
+def _key_to_shape(key: Tuple[slice, ...]):
+    return tuple(s.stop - s.start for s in key)
 
 
 class Region(numpy.lib.mixins.NDArrayOperatorsMixin):
@@ -128,6 +144,9 @@ class Region(numpy.lib.mixins.NDArrayOperatorsMixin):
 
     reshape = _wrap_array_method("reshape")
 
+    def __repr__(self) -> str:
+        return f"<Region {self.array.shape} at {self.key}>"
+
 
 class Frame:
     """
@@ -147,16 +166,18 @@ class Frame:
 
     def __init__(
         self,
-        fill_value=0,
+        fill_value: SupportsFloat = 0,
         shape: Optional[Tuple[Optional[int], ...]] = None,
         dtype=None,
         empty_none=False,
+        blend_strategy="overwrite",
     ) -> None:
         self.fill_value = fill_value
         self.keylen = None
         self._shape = shape
-        self.dtype = dtype
+        self.dtype = None if dtype is None else np.dtype(dtype)
         self.empty_none = empty_none
+        self.blend_strategy = blend_strategy
 
         self._regions: List[Region] = []
 
@@ -202,26 +223,26 @@ class Frame:
             if s.step is not None and s.step != 1:
                 raise IndexError(f"Invalid key: {key}. step has to be 1 or None.")
 
-        # Infere start/stop=None from shape
-        def update_slice(sl: slice, sh: Optional[int]):
+        # Infere start/stop=None from self.shape
+        def update_slice(sl: slice, dim: Optional[int]):
             start, stop = sl.start, sl.stop
 
             if start is None:
                 start = 0
 
             if stop is None:
-                if sh is None:
+                if dim is None:
                     raise IndexError(
                         f"Invalid key: {key}. Can not infer stop from shape {self._shape}"
                     )
 
-                stop = sh
+                stop = dim
 
-            if sh is not None:
+            if dim is not None:
                 if getitem:
-                    stop = min(stop, sh)
+                    stop = min(stop, dim)
                 else:
-                    if stop > sh:
+                    if stop > dim:
                         raise IndexError(f"Invalid key: {key}. Out of range")
 
             return slice(start, stop)
@@ -231,14 +252,21 @@ class Frame:
             if getitem
             else self._shape if self._shape is not None else (None,) * len(key)
         )
-        key = tuple(update_slice(sl, sh) for sl, sh in zip(key, shape))
+        key = tuple(update_slice(sl, dim) for sl, dim in zip(key, shape))
 
         return key
 
-    def __setitem__(self, key, value: np.ndarray):
+    def __setitem__(self, key, value):
         """Add a region by slices."""
+
         # Convert and validate key
         key = self._validate_key(key)
+
+        value = np.asanyarray(value)
+
+        # Broadcast value to shape requested by the key
+        if value.ndim < len(key):
+            value = np.broadcast_to(value, _key_to_shape(key))
 
         # Set or check self.keylen
         keylen = len(key)
@@ -280,7 +308,7 @@ class Frame:
 
         self._regions.append(Region(value, key))
 
-    def _get_intersecting_regions(self, key: Tuple[slice]) -> List[Region]:
+    def _get_intersecting_regions(self, key: Tuple[slice, ...]) -> List[Region]:
         """Find regions that intersect with the given key."""
         result = []
         for r in self._regions:
@@ -300,6 +328,42 @@ class Frame:
                 result.append((r, source_key, target_key))
         return result
 
+    def _blend_overwrite(self, result_shape, intersecting_regions, key):
+        array = np.full(result_shape, self.fill_value, self.dtype)
+        for region, source_key, target_key in intersecting_regions:
+            array[target_key] = region.array[source_key]
+
+        return Region(array, key)
+
+    def _blend_linear(self, result_shape, intersecting_regions, key):
+        array = np.zeros(result_shape)
+        divisor = np.zeros(self.shape[: len(self.key_shape)])
+
+        # Calculate weights for each region and global divisor
+        region_weights = []
+        for region, source_key, target_key in intersecting_regions:
+            region_weight = _linear_weight(region.shape[: len(self.key_shape)])
+            region_weights.append(region_weight[source_key])
+            divisor[target_key] += region_weight[source_key]
+
+        for region_weight, (region, source_key, target_key) in zip(
+            region_weights, intersecting_regions
+        ):
+            reshape = (...,) + (None,) * (len(region.shape) - len(self.key_shape))
+            array[target_key] += (region_weight / divisor[target_key])[
+                reshape
+            ] * region.array[source_key]
+
+        if np.isdtype(self.dtype, "integral"):
+            array = np.rint(array)
+
+        array = array.astype(self.dtype)
+
+        if self.fill_value != 0:
+            array[divisor == 0] = self.fill_value
+
+        return Region(array, key)
+
     def __getitem__(self, key) -> Optional[Region]:
         """Extract part of the frame as a new region."""
 
@@ -313,21 +377,21 @@ class Frame:
             # Convert and validate key
             key = self._validate_key(key, getitem=True)
 
-        regions = self._get_intersecting_regions(key)
+        intersecting_regions = self._get_intersecting_regions(key)
 
-        if not regions and self.empty_none:
+        if not intersecting_regions and self.empty_none:
             # Return None instead of constructing an empty array.
             return None
 
-        shape = tuple(s.stop - s.start for s in key) + self.shape[len(key) :]
-        array = np.full(shape, self.fill_value, self.dtype)
-
         # Stitch regions
-        for region, source_key, target_key in regions:
-            # TODO: Apply better blending (maximum, mininum, weighted, ...)
-            array[target_key] = region.array[source_key]
+        result_shape = tuple(s.stop - s.start for s in key) + self.shape[len(key) :]
 
-        return Region(array, key)
+        if self.blend_strategy == "overwrite":
+            return self._blend_overwrite(result_shape, intersecting_regions, key)
+        elif self.blend_strategy == "linear":
+            return self._blend_linear(result_shape, intersecting_regions, key)
+        else:
+            raise ValueError(f"Unknown blend strategy: {self.blend_strategy!r}")
 
     def iter_regions(self) -> Iterator[Region]:
         yield from self._regions
@@ -345,6 +409,8 @@ class Frame:
             return np.full(self.shape, self.fill_value, dtype)
 
         return np.asarray(whole_frame.array, dtype=dtype)
+
+    asarray = __array__
 
     def _merge_regions(self, max_distance) -> "Frame":
         # Merge regions separated by <= max_distance
@@ -416,6 +482,11 @@ class Frame:
         # TODO: for each label extract bounding box and paste into new frame
 
         return frame
+
+    def __repr__(self) -> str:
+        return (
+            f"<Frame({self.fill_value}, {self.shape}, {self.dtype}, {self.empty_none})>"
+        )
 
 
 def _validate_multiparameter(value, n_inputs, name, nested_sequence=False):

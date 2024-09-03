@@ -49,3 +49,31 @@ def test_Frame(extra_shape):
     assert float_region.key == region.key
 
     assert isinstance(region.sum(axis=0), np.ndarray)
+
+
+@pytest.mark.parametrize("dtype", [int, float])
+@pytest.mark.parametrize("fill_value", [0, 1])
+def test_Frame_blend_samevalue(dtype, fill_value):
+    # If the values in the overlapping areas are the same, all blending strategies should yield the same result
+    frames = [
+        Frame(dtype(fill_value), blend_strategy=blend_strategy)
+        for blend_strategy in ["overwrite", "linear"]
+    ]
+    for f in frames:
+        f[0:24, 0:24] = dtype(1.0)
+        f[12:36, 12:36] = dtype(1.0)
+
+    for f in frames[1:]:
+        np.testing.assert_allclose(frames[0].asarray(), f.asarray())
+
+    # If the regions don' overlap, all blending strategies should yield the same result
+    frames = [
+        Frame(0.0, blend_strategy=blend_strategy)
+        for blend_strategy in ["overwrite", "linear"]
+    ]
+    for f in frames:
+        f[0:24, 0:24] = 1.0
+        f[24:48, 24:48] = 2.0
+
+    for f in frames[1:]:
+        np.testing.assert_allclose(frames[0].asarray(), f.asarray())
