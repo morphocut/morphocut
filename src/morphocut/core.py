@@ -532,7 +532,10 @@ class Node(StreamTransformer):
 
                     yield obj
         except Exception as exc:
-            exc_add_note(exc, f"In node: {self}")
+            # Only add note in the innermost
+            if not getattr(exc, "__morphocut_added_node_info__", False):
+                exc_add_note(exc, f"In node: {self}")
+                exc.__morphocut_added_node_info__ = True  # type: ignore
             raise
 
         self.after_stream()
