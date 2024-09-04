@@ -58,7 +58,13 @@ def _linear_weight(shape: Tuple[int, ...]):
         # dim=3: [1/2, 1/1, 1/2]
         # dim=4: [1/2.5, 1/1.5, 1/1.5, 1/2.5]
         weight_1d = 1 / (1 + np.abs(np.arange(0, dim) - 0.5 * (dim - 1)))
-        np.minimum(weight_1d[(...,) + (None,) * i], weight, out=weight)
+
+        # Reshape so that all dimensions except the current one are 1
+        weight_1d = weight_1d.reshape(
+            tuple(dim if j == i else 1 for j in range(len(shape)))
+        )
+
+        np.minimum(weight_1d, weight, out=weight)
 
     return weight
 
