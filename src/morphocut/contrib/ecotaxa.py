@@ -234,7 +234,7 @@ class EcotaxaWriter(Node):
 
     Args:
         archive_fn (str): Location of the output file.
-        fnames_images (Tuple, Variable, or a list thereof):
+        fnames_images (tuple, a list of tuples or Variable):
             Tuple of ``(filename, image)`` or a list of such tuples.
             ``filename`` is the name in the archive. ``image`` is a NumPy array.
             The file extension has to be one of ``".jpg"``, ``".png"`` or ``".gif"``
@@ -276,7 +276,7 @@ class EcotaxaWriter(Node):
     def __init__(
         self,
         archive_fn: RawOrVariable[str],
-        fnames_images: MaybeList[RawOrVariable[Tuple[str, ...]]],
+        fnames_images: RawOrVariable[MaybeList[Tuple[str, ...]]],
         meta: Optional[RawOrVariable[Mapping]] = None,
         object_meta: Optional[RawOrVariable[Mapping]] = None,
         acq_meta: Optional[RawOrVariable[Mapping]] = None,
@@ -288,14 +288,6 @@ class EcotaxaWriter(Node):
     ):
         super().__init__()
         self.archive_fn = archive_fn
-
-        if isinstance(fnames_images, tuple):
-            fnames_images = [fnames_images]
-
-        if not isinstance(fnames_images, list):
-            raise ValueError(
-                "Unexpected type for fnames_images: needs to be a tuple or a list of tuples"
-            )
 
         self.fnames_images = fnames_images
         self.meta = meta
@@ -399,6 +391,15 @@ class EcotaxaWriter(Node):
                             if sample_meta is not None:
                                 meta.update(
                                     ("sample_" + k, v) for k, v in sample_meta.items()
+                                )
+
+                            # Validate fnames_images
+                            if isinstance(fnames_images, tuple):
+                                fnames_images = [fnames_images]
+
+                            if not isinstance(fnames_images, list):
+                                raise ValueError(
+                                    f"Unexpected type for fnames_images: needs to be a tuple or a list of tuples, got {fnames_images!r}"
                                 )
 
                             if fnames_images:
