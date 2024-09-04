@@ -40,11 +40,25 @@ def _wrap_array_method(name):
 
 @functools.lru_cache()
 def _linear_weight(shape: Tuple[int, ...]):
+    """
+    Generate a multi-dimensional linear weight array to emphasize central elements.
+
+    Args:
+        shape (Tuple[int, ...]): A tuple representing the shape of the desired weight array.
+
+    Returns:
+        np.ndarray: A multi-dimensional array of the specified shape, where each element is
+        based on its distance from the center.
+    """
+
     weight = np.ones(shape)
     for i, dim in enumerate(shape):
-        arange = np.arange(1, dim + 1)
-        dimweight = 1 / np.maximum(arange, arange[::-1])
-        np.minimum(dimweight[(...,) + (None,) * i], weight, out=weight)
+        # Create a symmetric 1d weight vector with the same length as the current dimension.
+        # The values decrease linearly with the their distance to the center of the dimension.
+        # dim=3: [1/2, 1/1, 1/2]
+        # dim=4: [1/2.5, 1/1.5, 1/1.5, 1/2.5]
+        weight_1d = 1 / (1 + np.abs(np.arange(0, dim) - 0.5 * (dim - 1)))
+        np.minimum(weight_1d[(...,) + (None,) * i], weight, out=weight)
 
     return weight
 

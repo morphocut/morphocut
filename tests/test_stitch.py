@@ -62,6 +62,7 @@ def test_Frame_blend_samevalue(dtype, fill_value):
     for f in frames:
         f[0:24, 0:24] = dtype(1.0)
         f[12:36, 12:36] = dtype(1.0)
+        f[12:15, 12:15] = dtype(1.0)
 
     for f in frames[1:]:
         np.testing.assert_allclose(frames[0].asarray(), f.asarray())
