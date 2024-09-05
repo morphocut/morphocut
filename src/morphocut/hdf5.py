@@ -25,6 +25,8 @@ class HDF5Writer(Node):
         file_mode (str, optional): Opening mode of the HDF5 file.
         dataset_mode (str, optional): Dataset behavior.
 
+            "create": Create a dataset for each object.
+                Each key can only be used once.
             "append": Append an array of shape :math:`(*)` to a dataset of shape :math:`(N,*)`.
                 The data must have the same shape as the existing data, without the first dimension.
             "extend": Extend a dataset of shape :math:`(N,*)` with an array of shape :math:`(M,*)`.
@@ -45,12 +47,13 @@ class HDF5Writer(Node):
 
     """
 
-    # TODO: Implement more `dataset_mode`s
-
     def __init__(
         self,
         file_name: RawOrVariable[str],
-        data: Mapping[str, RawOrVariable[Any]],
+        data: Union[
+            Mapping[str, RawOrVariable[Any]],
+            List[Tuple[RawOrVariable[str], RawOrVariable[Any]]],
+        ],
         *,
         file_mode="w",
         dataset_mode: RawOrVariable[Literal["create", "append", "extend"]] = "append",
@@ -66,6 +69,36 @@ class HDF5Writer(Node):
         self.compression = compression
         self.chunk_size = chunk_size
 
+    def _transform_stream_create(self, stream: Stream):
+        import h5py
+
+        with closing_if_closable(stream):
+            for file_name, file_group in stream_groupby(stream, by=self.file_name):
+                with h5py.File(file_name, self.file_mode) as h5:
+                    for obj in file_group:
+                        data: Union[Mapping[str, Any], List[Tuple[str, Any]]] = self.prepare_input(obj, "data")  # type: ignore
+
+                        if isinstance(data, Mapping):
+                            data = data.items()  # type: ignore
+
+                        for dset, arr in data:
+                            if isinstance(arr[0], str):
+                                data_shape = tuple()
+                                dtype = h5py.string_dtype()
+                            else:
+                                arr = np.array(arr, copy=False)
+                                data_shape = arr[0].shape
+                                dtype = arr.dtype
+
+                            h5.create_dataset(
+                                dset,
+                                data=arr,
+                                dtype=dtype,
+                                compression=self.compression,
+                            )
+
+                        yield obj
+
     def _transform_stream_extend(self, stream: Stream):
         import h5py
 
@@ -78,9 +111,12 @@ class HDF5Writer(Node):
                     offsets: Mapping[str, int] = {}
 
                     for obj in file_group:
-                        data: Mapping[str, Any] = self.prepare_input(obj, "data")  # type: ignore
+                        data: Union[Mapping[str, Any], List[Tuple[str, Any]]] = self.prepare_input(obj, "data")  # type: ignore
 
-                        for dset, arr in data.items():
+                        if isinstance(data, Mapping):
+                            data = data.items()  # type: ignore
+
+                        for dset, arr in data:
                             batch_size = len(arr)
 
                             if dset not in datasets:
@@ -201,5 +237,8 @@ class HDF5Writer(Node):
 
         if self.dataset_mode == "append":
             return self._transform_stream_append(stream)
+
+        if self.dataset_mode == "create":
+            return self._transform_stream_create(stream)
 
         raise ValueError(f"Unknown dataset mode: {self.dataset_mode}")
