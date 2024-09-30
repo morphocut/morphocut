@@ -43,8 +43,9 @@ class StreamTransformer(ABC):
                 return True
         return NotImplemented
 
-    def get_info(self):
-        return dict(label=self.__class__.__name__)
+    def get_label(self) -> str:
+        """Get a label for this StreamTransformer for display purposes."""
+        return self.__class__.__name__
 
 
 @contextmanager
@@ -637,13 +638,17 @@ class Call(Node):
         )
         return "{}({})".format(self.__class__.__name__, ", ".join(args))
 
-    def get_info(self):
+    def get_label(self):
         label = self.clbl.__name__
+
+        # Special cases
         if self.clbl == getattr:
             label = f".{self.args[1]}"
         elif self.clbl == operator.lt:
             label = f"{self.args[0]} < {self.args[1]}"
-        return dict(super().get_info(), label=label)
+        #TODO: Implement more special cases
+
+        return label
 
 
 class DelVariable(Node):
@@ -829,7 +834,7 @@ class Pipeline(StreamTransformer):
     def __str__(self):
         return "Pipeline([{}])".format(", ".join(str(n) for n in self.children))
 
-    def to_dot(self, path_or_handle=None):
+    def to_dot(self, path_or_handle):
         from morphocut.formatters.dot import DotFormatter
 
         formatter = DotFormatter(self)
