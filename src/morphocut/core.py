@@ -43,6 +43,10 @@ class StreamTransformer(ABC):
                 return True
         return NotImplemented
 
+    def get_label(self) -> str:
+        """Get a label for this StreamTransformer for display purposes."""
+        return self.__class__.__name__
+
 
 @contextmanager
 def closing_if_closable(stream):
@@ -634,6 +638,18 @@ class Call(Node):
         )
         return "{}({})".format(self.__class__.__name__, ", ".join(args))
 
+    def get_label(self):
+        label = self.clbl.__name__
+
+        # Special cases
+        if self.clbl == getattr:
+            label = f".{self.args[1]}"
+        elif self.clbl == operator.lt:
+            label = f"{self.args[0]} < {self.args[1]}"
+        #TODO: Implement more special cases
+
+        return label
+
 
 class DelVariable(Node):
     """Delete a Variable from the stream."""
@@ -817,6 +833,12 @@ class Pipeline(StreamTransformer):
 
     def __str__(self):
         return "Pipeline([{}])".format(", ".join(str(n) for n in self.children))
+
+    def to_dot(self, path_or_handle):
+        from morphocut.formatters.dot import DotFormatter
+
+        formatter = DotFormatter(self)
+        return formatter.save(path_or_handle)
 
     def locals(self) -> Tuple[Variable]:
         """Variables created in the scope of this Pipeline, including child Pipelines."""
