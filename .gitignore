@@ -12,3 +12,10 @@ htmlcov
 .tox/
 pip-wheel-metadata/
 docs/inventory/
+*.code-workspace
+.coverage.*
+.venv/
+experiments/*
+coverage.xml
+examples/*_out
+*.tmp

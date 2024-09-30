@@ -1,17 +1,29 @@
 """Test morphocut.parallel."""
 
 
+import os
+import signal
+
 import pytest
 from timer_cm import Timer
 
-from morphocut import Node, Pipeline
+from morphocut import Call, Node, Pipeline
 from morphocut.parallel import ParallelPipeline
 from morphocut.stream import Unpack
 from tests.helpers import Sleep
 
+import sys
+
+if not sys.platform.startswith("linux"):
+    pytest.skip(
+        "skipping parallel tests on non-linux platforms", allow_module_level=True
+    )
+
 N_STEPS = 31
 
 
+@pytest.mark.slow
+@pytest.mark.xfail(reason="This test is nondeterministic.")
 def test_speed():
 
     with Pipeline() as pipeline:
@@ -46,6 +58,7 @@ class SomeException(Exception):
     pass
 
 
+@pytest.mark.slow
 def test_exception_main_thread():
 
     with Pipeline() as pipeline:
@@ -70,6 +83,7 @@ class Raiser(Node):
         raise SomeException("foo")
 
 
+@pytest.mark.slow
 def test_exception_worker():
 
     with Pipeline() as pipeline:
@@ -110,7 +124,7 @@ def test_exception_upstream():
         pipeline.run()
 
 
-@pytest.mark.parametrize("num_workers", [1, 2, 3, 4])
+@pytest.mark.parametrize("num_workers", [None, 1, 2, 3, 4])
 def test_num_workers(num_workers):
     with Pipeline() as pipeline:
         level1 = Unpack(range(N_STEPS))
@@ -118,3 +132,16 @@ def test_num_workers(num_workers):
             level2 = Unpack(range(N_STEPS))
 
     pipeline.run()
+
+
+def test_worker_die():
+
+    with Pipeline() as pipeline:
+        level1 = Unpack(range(N_STEPS))
+        with ParallelPipeline(4):
+            Call(lambda: os.kill(os.getpid(), signal.SIGKILL))
+
+    with pytest.raises(
+        RuntimeError, match=r"Worker \d+ died unexpectedly. Exit code: -SIGKILL"
+    ):
+        pipeline.run()

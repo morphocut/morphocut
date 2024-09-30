@@ -14,10 +14,6 @@ like video,
 `Bio-Formats <https://docs.openmicroscopy.org/bio-formats/latest/supported-formats.html>`__
 and `EcoTaxa <https://ecotaxa.obs-vlfr.fr/>`__.
 
-The MorphoCut library is accompanied by a `web
-application <https://github.com/morphocut/morphocut-server>`__ that
-serves as a front end to the library.
-
 .. _`batteries included`: https://en.wikipedia.org/wiki/Batteries_Included
 
 User Guide
@@ -27,17 +23,27 @@ User Guide
    :maxdepth: 2
 
    introduction
+   why-not-xy
    installation
    image
    str
    file
    stream
+   batch
+   filters
    stat
+   scalebar
    parallel
+   hdf5
    formats
    profiling
    core
    contrib
+   torch
+   integration
+   mjpeg_streamer
+   utils
+   examples
    contributing
    authors
 

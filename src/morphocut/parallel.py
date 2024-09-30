@@ -3,9 +3,11 @@ import multiprocessing
 import multiprocessing.synchronize
 import os
 import queue
+import signal
 import sys
 import threading
 import traceback
+from typing import List
 
 from morphocut.core import Pipeline, closing_if_closable
 
@@ -61,14 +63,16 @@ def _put_until_stop(queue_, stop_event, obj):
     return True
 
 
-def _get_until_stop(queue_, stop_event):
+def _get_until_stop(queue_: multiprocessing.Queue, stop_event, block=True):
     while True:
         if stop_event.is_set():
             raise _Stop()
         try:
             return queue_.get(True, QUEUE_POLL_INTERVAL)
         except queue.Empty:
-            continue
+            if block:
+                continue
+            raise
         else:
             break
 
@@ -231,7 +235,18 @@ class ParallelPipeline(Pipeline):
                         continue
 
                     while True:
-                        output_object = _get_until_stop(oqu, stop_event)
+                        try:
+                            output_object = _get_until_stop(
+                                oqu, stop_event, block=False
+                            )
+                        except queue.Empty:
+                            # Check that the worker process is still running
+                            if not workers[i].is_alive():
+                                exitcode = workers[i].exitcode
+                                raise RuntimeError(
+                                    f"Worker {i+1} died unexpectedly. Exit code: {_exitcode_to_signame.get(exitcode,exitcode)}"
+                                ) from None
+                            continue
 
                         if output_object is _Signal.END:
                             workers_running[i] = False
@@ -259,3 +274,12 @@ class ParallelPipeline(Pipeline):
 
             if upstream_exception:
                 upstream_exception[0].reraise()
+
+
+# Store names for exit codes
+
+_exitcode_to_signame = {}
+
+for name, signum in list(signal.__dict__.items()):
+    if name[:3] == "SIG" and "_" not in name:
+        _exitcode_to_signame[-signum] = f"-{name}"

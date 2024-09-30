@@ -49,9 +49,26 @@ class Const(Node):
 
 
 class Sleep(Node):
+    """
+    Tests that use Sleep should be marked with :code:`@pytest.mark.slow`.
+    """
+
     def __init__(self, duration=0.001):
         super().__init__()
         self.duration = duration
 
     def transform(self):
         sleep(self.duration)
+
+class Fail(Node):
+    """
+    Fail with the provided exception.
+    """
+
+    def __init__(self, __exc_type=Exception, *args):
+        super().__init__()
+        self.exc_type = __exc_type
+        self.args = args
+
+    def transform(self):
+        raise self.exc_type(*self.args)

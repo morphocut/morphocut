@@ -1,6 +1,8 @@
 """Core components of the MorphoCut processing graph."""
 
+import copy
 import inspect
+import itertools
 import operator
 from abc import ABC, abstractmethod
 from collections import abc
@@ -11,7 +13,7 @@ from typing import (
     Callable,
     Dict,
     Generic,
-    Iterable,
+    Iterator,
     List,
     Optional,
     Tuple,
@@ -30,7 +32,7 @@ class StreamTransformer(ABC):
         self.id = "{:x}".format(id(self))
 
     @abstractmethod
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: "Stream") -> "Stream":
         while False:
             yield
 
@@ -56,18 +58,18 @@ def closing_if_closable(stream):
             pass
 
 
-def _resolve_variable(obj, variable_or_value):
+def resolve_variable(obj, variable_or_value):
     if isinstance(variable_or_value, Variable):
         return obj[variable_or_value]
 
     if isinstance(variable_or_value, tuple):
-        return tuple(_resolve_variable(obj, v) for v in variable_or_value)
+        return tuple(resolve_variable(obj, v) for v in variable_or_value)
 
     if isinstance(variable_or_value, list):
-        return list(_resolve_variable(obj, v) for v in variable_or_value)
+        return list(resolve_variable(obj, v) for v in variable_or_value)
 
     if isinstance(variable_or_value, dict):
-        return {k: _resolve_variable(obj, v) for k, v in variable_or_value.items()}
+        return {k: resolve_variable(obj, v) for k, v in variable_or_value.items()}
 
     return variable_or_value
 
@@ -367,17 +369,22 @@ class Variable(Generic[T]):
         """
         DelVariable(self)
 
+    def copy(self):
+        """Return A new `Variable` object pointing to a copy of the value."""
+        return Call(copy.copy, self)
+
 
 # Types
 RawOrVariable = Union[T, Variable[T]]
 NodeCallReturnType = Union[None, Variable, Tuple[Variable]]
 
-Stream = Iterable["StreamObject"]
-r"""A stream is an Iterable of :py:class:`StreamObject`\ s."""
+Stream = Iterator["StreamObject"]
+r"""A stream is an Iterator of :py:class:`StreamObject`\ s."""
+
 
 class EmptyPipelineStackError(Exception):
     """Raised when a node is created outside of a Pipeline context."""
-    pass
+
 
 class Node(StreamTransformer):
     """Base class for all stream processing nodes."""
@@ -398,8 +405,8 @@ class Node(StreamTransformer):
                     self.__class__.__name__
                 )
             ) from None
-        else:
-            pipeline_top.add_child(self)
+
+        self.rank = pipeline_top.add_child(self)
 
     def __bind_output(self, port: "Output"):
         """Bind self to port and return a variable."""
@@ -432,14 +439,17 @@ class Node(StreamTransformer):
         """Return a tuple corresponding to the input ports."""
 
         if isinstance(names, str):
-            return _resolve_variable(obj, getattr(self, names))
+            return resolve_variable(obj, getattr(self, names))
 
         return tuple(
-            _resolve_variable(obj, v) for v in (getattr(self, n) for n in names)
+            resolve_variable(obj, v) for v in (getattr(self, n) for n in names)
         )
 
-    def prepare_output(self, obj, *values):
+    def prepare_output(self, obj: "StreamObject", *values, n_remaining_hint=None):
         """Update obj using the values corresponding to the output ports."""
+
+        if n_remaining_hint is not None:
+            obj.n_remaining_hint = n_remaining_hint
 
         if not self.outputs:
             if any(v is not None for v in values):
@@ -490,10 +500,8 @@ class Node(StreamTransformer):
     def transform_stream(self, stream: Stream) -> Stream:
         """
         Transform a stream.
-
         By default, this calls ``self.transform`` with appropriate parameters.
         ``transform`` has to be implemented by a subclass if ``transform_stream`` is not overridden.
-
         Override if the stream has to be altered in some way,
         i.e. objects are created, deleted or re-arranged.
         """
@@ -613,17 +621,28 @@ class Call(Node):
         return clbl(*args, **kwargs)
 
     def __str__(self):
-        args = [self.clbl.__name__]
-        args.extend(str(a) for a in self.args)
-        args.extend("{}={}".format(k, v) for k, v in self.kwargs.items())
+        try:
+            name = self.clbl.__name__
+        except AttributeError:
+            try:
+                name = self.clbl.__class__.__name__
+            except AttributeError:
+                name = "<unnamed>"
+
+        args = [name]
+        args.extend("..." if isinstance(a, Variable) else repr(a) for a in self.args)
+        args.extend(
+            "{}={}".format(k, "..." if isinstance(v, Variable) else v)
+            for k, v in self.kwargs.items()
+        )
         return "{}({})".format(self.__class__.__name__, ", ".join(args))
 
     def get_info(self):
-        label=self.clbl.__name__
+        label = self.clbl.__name__
         if self.clbl == getattr:
-            label=f".{self.args[1]}"
+            label = f".{self.args[1]}"
         elif self.clbl == operator.lt:
-            label=f"{self.args[0]} < {self.args[1]}"
+            label = f"{self.args[0]} < {self.args[1]}"
         return dict(super().get_info(), label=label)
 
 
@@ -653,19 +672,26 @@ class StreamObject(abc.MutableMapping):
     """
     An object in the :py:obj:`Stream` that wraps all values.
 
+    Attributes:
+        data (dict): The data associated with this stream object.
+        n_remaining_hint (int, optional): Approximate number of remaining objects in the stream including the current object.
+
     A value can be retrieved by indexing: ``obj[var]``
     """
 
-    __slots__ = ["data"]
+    __slots__ = ["data", "n_remaining_hint"]
 
-    def __init__(self, data: Dict = None):
+    def __init__(
+        self, data: Optional[Dict] = None, n_remaining_hint: Optional[int] = None
+    ):
         if data is None:
             data = {}
         self.data = data
+        self.n_remaining_hint = n_remaining_hint
 
     def copy(self) -> "StreamObject":
         """Create a shallow copy."""
-        return StreamObject(self.data.copy())
+        return StreamObject(self.data.copy(), n_remaining_hint=self.n_remaining_hint)
 
     @staticmethod
     def _as_key(obj):
@@ -699,6 +725,14 @@ class StreamObject(abc.MutableMapping):
         return {k: self[v] for k, v in kwargs.items()}
 
 
+def check_stream(stream: Optional[Stream]) -> Stream:
+    """Ensure that `stream` is a valid stream."""
+
+    if stream is None:
+        return iter([StreamObject(n_remaining_hint=1)])
+    return stream
+
+
 class Pipeline(StreamTransformer):
     """
     A Pipeline manages the execution of nodes.
@@ -720,13 +754,13 @@ class Pipeline(StreamTransformer):
             pipeline.run()
     """
 
+    children: List[StreamTransformer]
+
     def __init__(self, parent: Optional["Pipeline"] = None):
         super().__init__()
 
-        self.children = []  # type: List[StreamTransformer]
-
-        if parent is not None:
-            parent.add_child(self)
+        # Direct children of this pipeline
+        self.children = []
 
         if parent is None:
             try:
@@ -736,6 +770,9 @@ class Pipeline(StreamTransformer):
 
         if parent is not None:
             parent.add_child(self)
+            self.counter = parent.counter
+        else:
+            self.counter = itertools.count()
 
     def __enter__(self):
         # Push self to pipeline stack
@@ -760,8 +797,8 @@ class Pipeline(StreamTransformer):
         Returns:
             Stream: An iterable of stream objects.
         """
-        if stream is None:
-            stream = [StreamObject()]
+
+        stream = check_stream(stream)
 
         # Here, the stream is not automatically closed,
         # as this would happen instantaneously.
@@ -787,13 +824,32 @@ class Pipeline(StreamTransformer):
     def add_child(self, child: StreamTransformer):
         self.children.append(child)
 
+        return next(self.counter)
+
     def __str__(self):
         return "Pipeline([{}])".format(", ".join(str(n) for n in self.children))
 
     def to_dot(self, path_or_handle=None):
         from morphocut.formatters.dot import DotFormatter
+
         formatter = DotFormatter(self)
         return formatter.save(path_or_handle)
+
+    def locals(self) -> Tuple[Variable]:
+        """Variables created in the scope of this Pipeline, including child Pipelines."""
+
+        _locals: List[Variable] = []
+
+        for child in self.children:
+            child: StreamTransformer
+
+            if isinstance(child, Node):
+                _locals.extend(child.outputs)
+
+            if isinstance(child, Pipeline):
+                _locals.extend(child.locals())
+
+        return tuple(_locals)
 
 
 @ReturnOutputs
@@ -804,5 +860,8 @@ class _Unpack(Node):
         self.value = value
         self.outputs = [Variable(str(i), self) for i in range(self.size)]
 
-    def transform(self, value):
-        return value
+    def transform_stream(self, stream: Stream) -> Stream:
+        with closing_if_closable(stream):
+            for obj in stream:
+                value = self.prepare_input(obj, "value")
+                yield self.prepare_output(obj, *value)

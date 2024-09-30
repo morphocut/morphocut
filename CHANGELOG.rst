@@ -1,0 +1,66 @@
+Changelog
+=========
+
+0.2.x
+-----
+
+Added
+~~~~~
+
+- Added `torch.PyTorch`: Apply a PyTorch module. (#95, #106)
+
+- Added `batch.BatchedPipeline`: Combine consecutive objects into a batch. (#92, #106)
+
+- Added `mjpeg_streamer.MJPEGStreamer`: Stream images via HTTP (e.g. to the Browser). (#75)
+
+- Added `integration.raspi.PiCameraReader`: Read frames from the Raspberry Pi's camera. (#75)
+
+- Added `filters` as a replacement for `stat`. (#77)
+
+- Added `utils.StreamEstimator` to estimate the remaining length of a stream. (#79, #91)
+
+- Added `utils.stream_groupby`: Split a stream into sub-streams by key.
+
+- Added support for Python 3.9 and 3.10 (#87).
+
+- Added `HDF5Writer`. (#117)
+
+- Added `scalebar`: Append scalebars to images. (#113)
+
+Changed
+~~~~~~~
+
+- `ecotaxa`: Return EcotaxaObject in EcotaxaReader (#102).
+  Allow Variables for `archive_fn` in EcoTaxaWriter (#100).
+  More improvements (#109).
+
+- Use `UnavailableObject` instead of `import_optional_dependency`.
+
+- Make `pandas` and `tqdm` a hard dependency.
+
+- Require scikit-image>=0.19 (#86)
+
+- `StreamBuffer` now re-raises exceptions from the filler thread (#120).
+
+Deprecated
+~~~~~~~~~~
+
+- Deprecate `stat` (#77).
+
+Removed
+~~~~~~~
+
+- Drop `import_optional_dependency` copied over from pandas.
+
+- Dropped support for Python 3.6, 3.7 and 3.8 (#87, #119).
+
+Fixed
+~~~~~
+
+- calculation of `n_remaining_hint` in `stream.Slice` (#111). 
+
+- ValueError: 'version' argument is required in Sphinx directives (#80).
+
+- UnknownArchiveError: Close EcoTaxa archives (#88).
+
+- wrongly reported n_remaining_hint in Progress after Slice (#105).

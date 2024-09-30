@@ -1,8 +1,17 @@
 MorphoCut
 =========
 
-.. image:: https://travis-ci.org/morphocut/morphocut.svg?branch=master
-    :target: https://travis-ci.org/morphocut/morphocut
+.. image:: https://img.shields.io/pypi/v/morphocut.svg?style=flat
+    :alt: PyPI
+    :target: https://pypi.org/project/morphocut/
+    
+.. image:: https://img.shields.io/pypi/pyversions/morphocut
+    :alt: PyPI - Python Version
+    :target: https://pypi.org/project/morphocut/
+
+.. image:: https://github.com/morphocut/morphocut/workflows/CI/badge.svg
+    :alt: CI
+    :target: https://github.com/morphocut/morphocut/actions
 
 .. image:: https://codecov.io/gh/morphocut/morphocut/branch/master/graph/badge.svg
     :alt: Codecov
@@ -21,12 +30,8 @@ like video,
 `Bio-Formats <https://docs.openmicroscopy.org/bio-formats/latest/supported-formats.html>`__
 and `EcoTaxa <https://ecotaxa.obs-vlfr.fr/>`__.
 
-The MorphoCut library is accompanied by a `web application`_ that
-serves as a front end to the library.
-
 For further information, have a look at the `documentation`_.
 
-.. _`web application`: https://github.com/morphocut/morphocut-server
 .. _documentation: https://morphocut.readthedocs.io/en/stable/
 
 License

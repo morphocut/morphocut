@@ -27,7 +27,11 @@ class Find(Node):
     """
 
     def __init__(
-        self, root: RawOrVariable[Union[str, Path]], extensions: Iterable, sort=False, verbose=False
+        self,
+        root: RawOrVariable[Union[str, Path]],
+        extensions: Iterable,
+        sort=False,
+        verbose=False,
     ):
         super().__init__()
 
