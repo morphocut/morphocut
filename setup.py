@@ -41,6 +41,7 @@ setup(
             "parse",
             "matplotlib",  # For FontManager in scalebar
             "h5py",
+            "pydot",
         ],
         "docs": [
             "sphinx~=7.3",
