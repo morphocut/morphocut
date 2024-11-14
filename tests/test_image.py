@@ -57,15 +57,27 @@ def test_FindRegions(warn_empty, recwarn):
         w = recwarn.pop(UserWarning)
         assert re.search(r"^(Image|foo) did not contain any objects.$", str(w.message))
 
+    image = skimage.data.camera()
+    mask = image > 128
+    with Pipeline() as pipeline:
+        result = FindRegions(mask, image, min_intensity=100)
 
-def test_ExtractROI():
+        num_yielded_objects = 0
+        for obj in pipeline.transform_stream():
+            num_yielded_objects += 1
+        assert num_yielded_objects > 0
+
+
+@pytest.mark.parametrize(
+    "alpha,bg_color",
+    [(0.5, "black"), (0.5, "red"), (0.5, "green"), (0.5, "blue"), (0.5, "white")],
+)
+def test_ExtractROI(alpha, bg_color):
     with Pipeline() as pipeline:
         image = Unpack([skimage.data.camera()])
         mask = ThresholdConst(image, 255)
         regions = FindRegions(mask, image)
-        ExtractROI(image, regions)
-        ExtractROI(image, regions, 0.5)
-
+        ExtractROI(image, regions, alpha, bg_color)
     pipeline.run()
 
 
@@ -91,11 +103,11 @@ def test_ImageWriter(tmp_path):
     pipeline.run()
 
 
-def test_ImageReader(data_path):
+@pytest.mark.parametrize("pil_mode", [None, "L", "RGB"])
+def test_ImageReader(data_path, pil_mode):
     d = data_path / "images/test_image_3.png"
     with Pipeline() as pipeline:
-        image = ImageReader(d)
-
+        image = ImageReader(d, pil_mode=pil_mode)
     pipeline.run()
 
 
@@ -131,6 +143,16 @@ def test_RGB2Gray(keep_dtype):
 
     if keep_dtype:
         assert image.dtype == result.dtype
+
+    # invalid 4D image
+    invalid_image = np.random.rand(200, 200, 3, 3)
+    with Pipeline() as pipeline:
+        result = RGB2Gray(invalid_image, keep_dtype)
+
+    stream = pipeline.transform_stream()
+
+    with pytest.raises(ValueError, match="image.ndim != 3"):
+        next(stream)
 
 
 def regionproperties_to_dict(rprop):
