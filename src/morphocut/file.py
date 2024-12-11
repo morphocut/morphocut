@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Iterable, Set, Union
 
 from morphocut import Node, Output, RawOrVariable, ReturnOutputs, closing_if_closable
+from morphocut.core import Stream
+from morphocut.utils import StreamEstimator
 
 __all__ = ["Find", "Glob"]
 
@@ -87,20 +89,45 @@ class Glob(Node):
     """
 
     def __init__(
-        self, pathname: RawOrVariable[str], recursive: RawOrVariable[bool] = False
+        self,
+        pathname: RawOrVariable[str],
+        recursive: RawOrVariable[bool] = False,
+        prefetch=False,
+        sorted=False,
     ):
         super().__init__()
 
         self.pathname = pathname
         self.recursive = recursive
+        self.prefetch = prefetch
+        self.sorted = sorted
 
-    def transform_stream(self, stream):
+    def transform_stream(self, stream: Stream):
         with closing_if_closable(stream):
+
+            est = StreamEstimator()
+
             for obj in stream:
                 pathname, recursive = self.prepare_input(obj, ("pathname", "recursive"))
 
                 # Convert to str to allow Path objects in Python 3.5
                 pathname = str(pathname)
 
-                for path in glob.iglob(pathname, recursive=recursive):
-                    yield self.prepare_output(obj.copy(), path)
+                matches = glob.iglob(pathname, recursive=recursive)
+
+                est_n_emit = None
+                if self.prefetch or self.sorted:
+                    if self.sorted:
+                        matches = sorted(matches)
+                    else:
+                        matches = list(matches)
+                    est_n_emit = len(matches)
+                    print(f"{est_n_emit:,d} matches for {pathname}")
+
+                with est.consume(
+                    obj.n_remaining_hint, est_n_emit=est_n_emit
+                ) as incoming:
+                    for path in matches:
+                        yield self.prepare_output(
+                            obj.copy(), path, n_remaining_hint=incoming.emit()
+                        )
