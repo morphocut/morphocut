@@ -1,4 +1,4 @@
-from ._version import get_versions
+from ._version import __version__
 from .core import (
     Call,
     Node,
@@ -9,11 +9,3 @@ from .core import (
     Variable,
     closing_if_closable,
 )
-
-__version__ = get_versions()["version"]
-del get_versions
-
-from ._version import get_versions
-
-__version__ = get_versions()["version"]
-del get_versions

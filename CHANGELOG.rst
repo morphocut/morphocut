@@ -44,6 +44,8 @@ Changed
 
 - Require scikit-image>=0.19 (#86)
 
+-  Migrate to uv and hatch (#123)
+
 
 Deprecated
 ~~~~~~~~~~

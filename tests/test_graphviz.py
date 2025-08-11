@@ -1,18 +1,18 @@
-import pandas as pd
-from networkx.drawing.nx_pydot import write_dot
+import os.path
+import pathlib
 
-from morphocut.core import Call, Node, Output, Pipeline
-from morphocut.parallel import ParallelPipeline
-from morphocut.image import ImageReader, FindRegions
 
-from morphocut.stream import Unpack, Enumerate
-from morphocut.file import Glob
-from morphocut.str import Format
 from morphocut.contrib.ecotaxa import EcotaxaWriter
 from morphocut.contrib.zooprocess import CalculateZooProcessFeatures
-import os.path
+from morphocut.core import Call, Pipeline
+from morphocut.file import Glob
+from morphocut.image import FindRegions, ImageReader
+from morphocut.parallel import ParallelPipeline
+from morphocut.str import Format
+from morphocut.stream import Enumerate, Unpack
 
-def test_graphviz():
+
+def test_graphviz(tmp_path: pathlib.Path):
     with Pipeline() as p:
         base_path = Unpack(["/path/a", "/path/b", "/path/c"])
         running_number = Enumerate()
@@ -43,4 +43,6 @@ def test_graphviz():
         # Store results
         EcotaxaWriter("archive.zip", (roi_name, roi_image), meta)
 
-    p.to_dot("/tmp/pipeline.dot")
+    pipeline_fn = str(tmp_path / "pipeline.dot")
+    print(f"Writing pipeline to {pipeline_fn}")
+    p.to_dot(pipeline_fn)
