@@ -54,6 +54,7 @@ docs = [
 
 [project.urls]
 homepage = "https://github.com/morphocut/morphocut"
+documentation = "https://morphocut.readthedocs.io/en/stable/"
 
 [tool.black]
 exclude = "\\.eggs|\\.git|\\.hg|\\.mypy_cache|\\.nox|\\.tox|\\.venv|_build|buck-out|build|dist|versioneer\\.py|_version\\.py|\\.vscode"
