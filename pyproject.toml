@@ -88,3 +88,6 @@ testpaths = ["tests"]
 
 [tool.hatch.version]
 source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/morphocut/_version.py"

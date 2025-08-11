@@ -20,3 +20,4 @@ coverage.xml
 examples/*_out
 *.tmp
 .conda/
+src/morphocut/_version.py
