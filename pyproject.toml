@@ -1,6 +1,59 @@
 [build-system]
 # Minimum requirements for the build system to execute.
-requires = ["setuptools", "wheel", "versioneer"]  # PEP 508 specifications.
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "morphocut"
+dynamic = ["version"]
+authors = [
+    { name = "Simon-Martin Schroeder", email = "martin.schroeder@nerdluecht.de" }
+]
+description = "Image processing pipeline"
+readme = "README.rst"
+requires-python = ">=3.9"
+license = { file = "LICENSE.md" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+]
+dependencies = [
+    "numpy~=1.26",
+    "scikit-image>=0.19",
+    "pandas",
+    "tqdm",
+    "scipy",
+    "deprecated",
+]
+
+[project.optional-dependencies]
+tests = [
+    "pytest",
+    "pytest-cov",
+    "timer-cm",
+    "codecov",
+    "parse",
+    "matplotlib",
+    "h5py",
+    "pydot",
+]
+docs = [
+    "sphinx~=7.3",
+    "sphinx_rtd_theme",
+    "sphinxcontrib-programoutput",
+    "sphinx-autodoc-typehints>=1.10.0",
+    "Jinja2<3.1",
+]
+
+[project.urls]
+homepage = "https://github.com/morphocut/morphocut"
 
 [tool.black]
 exclude = "\\.eggs|\\.git|\\.hg|\\.mypy_cache|\\.nox|\\.tox|\\.venv|_build|buck-out|build|dist|versioneer\\.py|_version\\.py|\\.vscode"
@@ -10,3 +63,28 @@ line_length = 88
 multi_line_output = 3
 include_trailing_comma = true
 line_length = 88
+
+[tool.pydocstyle]
+add-ignore = ["D107", "D202", "D105", "D413"]
+add-select = ["D211"]
+
+[tool.mypy]
+ignore_missing_imports = true
+follow_imports = "silent"
+show_column_numbers = true
+
+[tool.mypy.versioneer]
+ignore_errors = true
+
+[tool.mypy._version]
+ignore_errors = true
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+]
+testpaths = ["tests"]
+
+[tool.hatch.version]
+source = "vcs"
